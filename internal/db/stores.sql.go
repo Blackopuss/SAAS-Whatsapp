@@ -10,7 +10,7 @@ import (
 )
 
 const getStoreBySlug = `-- name: GetStoreBySlug :one
-SELECT id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info FROM stores WHERE slug = $1
+SELECT id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info, style FROM stores WHERE slug = $1
 `
 
 // Base del middleware de tenant (sprint 1): Host -> slug -> tienda.
@@ -31,6 +31,7 @@ func (q *Queries) GetStoreBySlug(ctx context.Context, slug string) (Store, error
 		&i.LogoWidths,
 		&i.Faq,
 		&i.PaymentInfo,
+		&i.Style,
 	)
 	return i, err
 }

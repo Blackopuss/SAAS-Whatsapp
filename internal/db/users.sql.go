@@ -12,9 +12,9 @@ import (
 )
 
 const createStore = `-- name: CreateStore :one
-WITH s AS (INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info),
+WITH s AS (INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info, style),
      sub AS (INSERT INTO subscriptions (store_id) SELECT id FROM s)
-SELECT id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info FROM s
+SELECT id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info, style FROM s
 `
 
 type CreateStoreParams struct {
@@ -36,6 +36,7 @@ type CreateStoreRow struct {
 	LogoWidths    []int32
 	Faq           string
 	PaymentInfo   string
+	Style         string
 }
 
 // Toda tienda nace con su suscripción (sin pagar aún), así ningún JOIN la pierde.
@@ -56,6 +57,7 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Creat
 		&i.LogoWidths,
 		&i.Faq,
 		&i.PaymentInfo,
+		&i.Style,
 	)
 	return i, err
 }

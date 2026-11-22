@@ -21,6 +21,7 @@ type Shop struct {
 	URL        string // URL absoluta de esta página (Open Graph)
 	OGImage    string
 	Preview    bool // dentro del <iframe> de "Mi tienda": los links abren en otra pestaña
+	Style      string
 }
 
 type QA struct{ Q, A string }
@@ -123,7 +124,7 @@ templ shopPage(sh Shop, title, description string, home bool) {
 			if sh.Preview {
 				<base target="_blank"/>
 			}
-			<link rel="preload" href="/static/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin/>
+			<link rel="preload" href={ "/static/fonts/" + StyleByID(sh.Style).Font } as="font" type="font/woff2" crossorigin/>
 			<link rel="stylesheet" href="/static/css/vitrina.css"/>
 			if isHex(sh.Brand) && isHex(sh.BrandInk) {
 				@nonceStyle(":root{--brand:" + sh.Brand + ";--brand-ink:" + sh.BrandInk + "}")
@@ -132,7 +133,7 @@ templ shopPage(sh Shop, title, description string, home bool) {
 				{"prerender":[{"where":{"href_matches":"/p/*"},"eagerness":"moderate"}]}
 			</script>
 		</head>
-		<body>
+		<body data-estilo={ StyleByID(sh.Style).ID }>
 			<a class="skip" href="#contenido">Ir al contenido</a>
 			<header class="top">
 				if sh.Logo.Src != "" {

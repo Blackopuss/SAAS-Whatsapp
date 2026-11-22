@@ -112,6 +112,7 @@ type Store struct {
 	LogoWidths    []int32
 	Faq           string
 	PaymentInfo   string
+	Style         string
 }
 
 type Subscription struct {

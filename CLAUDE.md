@@ -2,7 +2,7 @@
 
 Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la compradora arma el carrito y manda el pedido por WhatsApp. UI en español (es-MX), móvil primero. El plan completo está en `PLAN_IMPLEMENTACION.md`; este archivo dice qué ya está hecho, qué decidimos distinto y cómo se corre.
 
-## Estado (2026-11-21)
+## Estado (2026-11-22)
 
 | Sprint | Estado | Notas |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la comprad
 | 2 Catálogo en el panel | Hecho | Categorías, productos, variantes talla × color, marcas, fotos |
 | 3 Vitrina y carrito | Hecho | Inicio, categoría, producto, preguntas, carrito, mensaje de WhatsApp |
 | 4 Personalización | Hecho | Mi tienda, color con contraste, vista previa, logo, QR, Open Graph |
-| 5 Fundadoras y cobro | Pendiente | Superadmin ya tiene login 2FA, lista de tiendas y enlace de recuperación |
+| 5 Fundadoras y cobro | Hecho | Alta de tiendas, pagos manuales, racha, pausa automática, aviso en panel, bitácora |
 | 6 Producción | Pendiente | |
 
 Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es público (CI gratis). Sin `Co-Authored-By` ni atribución a Claude en commits o PRs.
@@ -23,7 +23,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Tiendas demo: `ana@demo.mx` / `demo-ana-2026`, `luz@demo.mx` / `demo-luz-2026`. Superadmin: http://admin.localhost:8080, `admin@demo.mx` / `admin-dev-2026-largo` + TOTP.
 - `go run ./cmd/createstore`, `./cmd/createadmin` (imprime la clave TOTP), `./cmd/seeddemo -slug ana [-fotos carpeta]` (borra y llena 20 productos; usa R2 si hay variables).
 - Tests: `TEST_DATABASE_URL=postgres://tiendas_app:app_dev@localhost:5432/tiendas?sslmode=disable go test ./...`. `-race` solo en CI (necesita cgo).
-- Revisión móvil: `cd e2e && npm run check` (Playwright 360 px + axe-core + Lighthouse; falla si axe encuentra algo o accesibilidad < 100). Capturas en `e2e/out/`.
+- Revisión móvil: `cd e2e && ADMIN_TOTP=<clave de createadmin> npm run check` (sin `ADMIN_TOTP` se salta el superadmin; con él pausa y reactiva a luz y espera 61 s por el caché). (Playwright 360 px + axe-core + Lighthouse; falla si axe encuentra algo o accesibilidad < 100). Capturas en `e2e/out/`.
 - Generado: `go tool templ generate`, `sqlc generate` (CI revisa que no haya diff). Lint: `golangci-lint run`; `gosec -exclude-generated ./...`.
 
 ## Stack y configuración
@@ -51,6 +51,9 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - **Carrito**: JS propio (~2.5 KB) en vez de Alpine; precios y existencias se validan contra `/carrito.json`. No hay página de carrito, solo el `<dialog>`.
 - **htmx**: no se usa; la vista previa recarga el iframe con JS mínimo (`mitienda.js`).
 - **Recuperación sin proveedor**: en dev el enlace sale en el log; en prod lo genera el superadmin y lo manda por WhatsApp. Pendiente: Cloudflare Email cuando haya dominio.
+- **Cobro**: pagos manuales registrados por el superadmin (sin pasarela). Racha = meses pagados a tiempo; pagar tarde la reinicia y cuenta desde el día del pago. Al 6.º día de atraso la tienda se pausa (proceso cada hora en el mismo servidor, `shortcut:` en `billing.go`, no River). Pausada: 503 sin datos de la vendedora; el panel sigue abierto. Aviso en el panel desde 3 días antes de vencer. Fechas en America/Mexico_City.
+- **Alta de tiendas**: la hace el superadmin; la dueña recibe por WhatsApp el enlace para crear su contraseña.
+- **Diseño visual**: se delega a Codex en la rama `visual` (worktree `../Saas-Whatsapp-visual`); se integra solo si e2e sigue en 100.
 - **Plantillas**: solo Vitrina. Selector de plantilla y banner llegan con Lista/Boutique.
 - **Fuente**: Bricolage Grotesque recortada a latín + español y peso 400–800 (24 KB). No tiene eje de ancho.
 - **WAVE** no corre local; se usa axe-core (mismo motor de Lighthouse).
@@ -58,7 +61,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 
 ## Pendientes conocidos
 
-- Sprint 5 y 6 completos. `clientIP` usa RemoteAddr (`shortcut:` en `auth.go`): detrás de Cloudflare hay que leer el header del proxy.
+- Sprint 6 completo. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas). `clientIP` usa RemoteAddr (`shortcut:` en `auth.go`): detrás de Cloudflare hay que leer el header del proxy.
 - Revisar que WhatsApp muestre `og:image` en WebP; si no, generar un JPG para Open Graph.
 - El presupuesto de peso (60 KB) se midió a mano (~33 KB), no está en CI.
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
