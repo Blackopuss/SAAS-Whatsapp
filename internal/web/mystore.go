@@ -132,7 +132,7 @@ func (a *app) myStoreQR(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Has("descargar") {
 		w.Header().Set("Content-Disposition", `attachment; filename="qr-`+url.PathEscape(s.Slug)+`.png"`)
 	}
-	_, _ = w.Write(code.PNG())
+	_, _ = w.Write(code.PNG()) // #nosec G705 -- PNG binario con Content-Type image/png, no HTML
 }
 
 func (a *app) logoUpload(w http.ResponseWriter, r *http.Request) {

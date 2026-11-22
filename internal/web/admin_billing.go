@@ -214,7 +214,7 @@ func (a *app) adminPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		adminID := pgtype.Int8{Int64: a.admin.GetInt64(ctx, "admin_id"), Valid: true}
 		if err := q.CreatePayment(ctx, db.CreatePaymentParams{
-			StoreID: id, AmountCents: amount, Months: int32(months), PaidOn: pgDate(paidOn), Note: note, // #nosec G115 -- 1..12
+			StoreID: id, AmountCents: amount, Months: int32(months), PaidOn: pgDate(paidOn), Note: note, // #nosec G109 G115 -- validado 1..12 arriba
 			OnTime: onTime, PrevPaidUntil: sub.PaidUntil, NewPaidUntil: pgDate(until), AdminID: adminID,
 		}); err != nil {
 			return err
