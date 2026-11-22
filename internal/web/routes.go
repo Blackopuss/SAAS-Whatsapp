@@ -43,10 +43,10 @@ type app struct {
 
 	base      string
 	secure    bool
-	admin        *scs.SessionManager
-	totpKey      []byte
-	sendReset    func(ctx context.Context, to, link string) error
-	tenants      *tenants
+	admin     *scs.SessionManager
+	totpKey   []byte
+	sendReset func(ctx context.Context, to, link string) error
+	tenants   *tenants
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
@@ -99,26 +99,27 @@ func Routes(d Deps) http.Handler {
 		a.forgotPost(w, r)
 	})
 	for pattern, h := range map[string]http.HandlerFunc{
-		"GET /panel/{$}":                            a.products,
-		"GET /panel/productos/nuevo":                a.productNew,
-		"POST /panel/productos":                     a.productSave,
-		"GET /panel/productos/{id}":                 a.productEdit,
-		"POST /panel/productos/{id}":                a.productSave,
-		"POST /panel/productos/{id}/borrar":         a.productDelete,
-		"POST /panel/productos/{id}/marcar/{flag}":  a.productToggle,
-		"POST /panel/productos/{id}/fotos":          a.photoUpload,
-		"POST /panel/fotos/{id}/borrar":             a.photoDelete,
-		"GET /panel/tienda":                         a.myStore,
-		"POST /panel/tienda":                        a.myStoreSave,
-		"GET /panel/tienda/vista":                   a.myStorePreview,
-		"GET /panel/tienda/qr.png":                  a.myStoreQR,
-		"POST /panel/tienda/logo":                   a.logoUpload,
-		"POST /panel/tienda/logo/borrar":            a.logoDelete,
-		"GET /panel/categorias":                     a.categories,
-		"POST /panel/categorias":                    a.categoryCreate,
-		"POST /panel/categorias/{id}/renombrar":     a.categoryRename,
-		"POST /panel/categorias/{id}/borrar":        a.categoryDelete,
-		"POST /panel/categorias/{id}/mover":         a.categoryMove,
+		"GET /panel/{$}":                           a.products,
+		"GET /panel/productos/nuevo":               a.productNew,
+		"POST /panel/productos":                    a.productSave,
+		"GET /panel/productos/{id}":                a.productEdit,
+		"POST /panel/productos/{id}":               a.productSave,
+		"POST /panel/productos/{id}/borrar":        a.productDelete,
+		"POST /panel/productos/{id}/marcar/{flag}": a.productToggle,
+		"POST /panel/productos/{id}/fotos":         a.photoUpload,
+		"POST /panel/fotos/{id}/borrar":            a.photoDelete,
+		"GET /panel/tienda":                        a.myStore,
+		"POST /panel/tienda":                       a.myStoreSave,
+		"GET /panel/tienda/vista":                  a.myStorePreview,
+		"GET /panel/tienda/qr.png":                 a.myStoreQR,
+		"POST /panel/tienda/logo":                  a.logoUpload,
+		"POST /panel/tienda/logo/borrar":           a.logoDelete,
+		"GET /panel/mensajes":                      a.messages,
+		"GET /panel/categorias":                    a.categories,
+		"POST /panel/categorias":                   a.categoryCreate,
+		"POST /panel/categorias/{id}/renombrar":    a.categoryRename,
+		"POST /panel/categorias/{id}/borrar":       a.categoryDelete,
+		"POST /panel/categorias/{id}/mover":        a.categoryMove,
 	} {
 		panel.Handle(pattern, a.requireUser(h))
 	}

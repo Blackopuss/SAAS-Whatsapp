@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "budget": "node scripts/budget.mjs"
   },
   "dependencies": {
     "@astryxdesign/core": "0.7.17",

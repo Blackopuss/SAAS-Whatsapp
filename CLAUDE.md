@@ -13,22 +13,23 @@ Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la comprad
 | 4 Personalización | Hecho | Mi tienda, color con contraste, vista previa, logo, QR, Open Graph, 6 estilos por giro |
 | 5 Fundadoras y cobro | Hecho | Alta de tiendas, pagos manuales, racha, pausa automática, aviso en panel, bitácora |
 | 6 Producción | Listo en el repo | `deploy/` y `docs/PRODUCCION.md`; falta rentar el VPS y seguir la guía. Auditoría en `SECURITY.md` |
+| Rediseño React | Hecho | Admin, panel y tienda en React; tienda con portada, mosaico de categorías, destacado, "agregar rápido"; página Mensajes (plantillas de WhatsApp) en el panel |
 
 Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es público (CI gratis). Sin `Co-Authored-By` ni atribución a Claude en commits o PRs.
 
 ## Cómo correrlo
 
-- `docker compose up -d app` levanta Postgres 16 y el servidor con recarga en caliente (air en modo polling) en http://ana.localhost:8080. Se corre en Docker porque Windows Defender bloquea los binarios recién compilados.
+- `docker compose up -d app` levanta Postgres 16 y el servidor con recarga en caliente (air en modo polling) en http://ana.localhost:8080. Se corre en Docker porque Windows Defender bloquea los binarios recién compilados. El servicio `web` compila `frontend/` una vez al arrancar; para editar el frontend en vivo corre `cd frontend && npm run watch` en Windows (el polling de Docker no ve los cambios).
 - `.env` (copia de `.env.example`) lo lee el contenedor; dentro de Docker la base se llama `db`.
 - Tiendas demo: `ana@demo.mx` / `demo-ana-2026`, `luz@demo.mx` / `demo-luz-2026`. Superadmin: http://admin.localhost:8080, `admin@demo.mx` / `admin-dev-2026-largo` + TOTP.
 - `go run ./cmd/createstore`, `./cmd/createadmin` (imprime la clave TOTP), `./cmd/seeddemo -slug ana [-fotos carpeta]` (borra y llena 20 productos; usa R2 si hay variables).
 - Tests: `TEST_DATABASE_URL=postgres://tiendas_app:app_dev@localhost:5432/tiendas?sslmode=disable go test ./...`. `-race` solo en CI (necesita cgo).
-- Revisión móvil: `cd e2e && ADMIN_TOTP=<clave de createadmin> npm run check` (sin `ADMIN_TOTP` se salta el superadmin; con él pausa y reactiva a luz y espera 61 s por el caché). (Playwright 360 px + axe-core + Lighthouse; falla si axe encuentra algo o accesibilidad < 100). Capturas en `e2e/out/`.
-- Generado: `go tool templ generate`, `sqlc generate` (CI revisa que no haya diff). Lint: `golangci-lint run`; `gosec -exclude-generated ./...`.
+- Revisión móvil: `cd e2e && ADMIN_TOTP=<clave de createadmin> npm run check` (sin `ADMIN_TOTP` se salta el superadmin; con él pausa y reactiva a luz y espera 61 s por el caché). (Playwright 360 px + axe-core + Lighthouse; falla si axe encuentra algo o accesibilidad < 100). Capturas en `e2e/out/`. Rápido, sin Lighthouse: `cd e2e && node shots.mjs` (tienda a 360 px, axe, desborde lateral). Si Lighthouse falla con `Network.enable timed out`, quedó un Chrome viejo en el puerto 9333.
+- Generado: `go tool templ generate`, `sqlc generate` (CI revisa que no haya diff). Lint: `golangci-lint run`; `gosec -exclude-generated ./...`. Frontend: `cd frontend && npm run typecheck && npm run build && npm run budget` (lo mismo que `make web` y CI).
 
 ## Stack y configuración
 
-- Go 1.27 con `net/http` ServeMux, templ, sqlc (pgx/v5, `emit_interface`), goose, scs + pgxstore. Tailwind v4 standalone solo para panel/admin; la tienda usa `web/static/css/vitrina.css` a mano.
+- Go 1.27 con `net/http` ServeMux, templ, sqlc (pgx/v5, `emit_interface`), goose, scs + pgxstore. Frontend en `frontend/` (React 19 + Vite, salida en `web/static/app/`, no se versiona). Go sigue haciendo rutas, sesión, validación y POST de formularios; cada página es un `reactPage` de templ con los datos en `#page-data` (JSON con nonce). Panel y admin usan componentes Astryx con tema neutral; la tienda es React sin componentes Astryx (pesaban ~190 KB) con `shop.css` a mano sobre los tokens del tema.
 - Postgres con dos roles: `tiendas_migrator` (dueño del esquema, corre migraciones) y `tiendas_app` (solo DML). `citext` lo crea el superusuario en `docker/postgres/init.sql`.
 - Variables: `APP_ENV`, `BASE_DOMAIN`, `DATABASE_URL`, `MIGRATIONS_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`, `TOTP_KEY` (64 hex; no cambiarla o los admins no entran). En prod R2 y TOTP_KEY son obligatorias.
 - Cloudflare: buckets R2 `tiendas-dev` (público por r2.dev) y `tiendas-backups`. El MCP de Cloudflare no puede crear tokens de API; las llaves S3 las crea el dueño en el dashboard.
@@ -47,20 +48,21 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 
 - **CSRF**: stdlib (Origin/Sec-Fetch-Site) en vez de token en `hx-headers`.
 - **Orden de categorías**: botones Subir/Bajar en vez de arrastrar (accesible, sin JS).
-- **Fotos**: solo WebP (sin AVIF, a pedido); se procesan en la petición con 2 a la vez, no en River (`shortcut:` en `photos.go`). El celular las reduce a 1600 px antes de subir (`fotos.js`).
-- **Carrito**: JS propio (~2.5 KB) en vez de Alpine; precios y existencias se validan contra `/carrito.json`. No hay página de carrito, solo el `<dialog>`.
-- **htmx**: no se usa; la vista previa recarga el iframe con JS mínimo (`mitienda.js`).
+- **Fotos**: solo WebP (sin AVIF, a pedido); se procesan en la petición con 2 a la vez, no en River (`shortcut:` en `photos.go`). El celular las reduce a 1600 px antes de subir (`shrink` en `panel.tsx`).
+- **Carrito**: en `shop.tsx`, localStorage `carrito` (y `ultimo-pedido` para "Pedir de nuevo"); precios y existencias se validan contra `/carrito.json`. No hay página de carrito, solo el `<dialog>`. El botón + de cada tarjeta abre "agregar rápido" con tallas y colores sacados de `/carrito.json`.
+- **htmx**: no se usa; la vista previa es un iframe en `panel.tsx`.
 - **Recuperación sin proveedor**: en dev el enlace sale en el log; en prod lo genera el superadmin y lo manda por WhatsApp. Pendiente: Cloudflare Email cuando haya dominio.
 - **Cobro**: pagos manuales registrados por el superadmin (sin pasarela). Racha = meses pagados a tiempo; pagar tarde la reinicia y cuenta desde el día del pago. Al 6.º día de atraso la tienda se pausa (proceso cada hora en el mismo servidor, `shortcut:` en `billing.go`, no River). Pausada: 503 sin datos de la vendedora; el panel sigue abierto. Aviso en el panel desde 3 días antes de vencer. Fechas en America/Mexico_City.
 - **Alta de tiendas**: la hace el superadmin; la dueña recibe por WhatsApp el enlace para crear su contraseña.
-- **Estilos por giro**: columna `stores.style` (vitrina, boutique, barberia, carniceria, abarrotes, papeleria); mismo marcado, cambia `vitrina.css` vía `body[data-estilo]`. Catálogo en `internal/web/views/styles.go` (nombre, fuente que se precarga, color sugerido). Fuentes self-hosted OFL (`web/static/fonts/OFL-estilos.txt`). Exploración con 3 propuestas por giro y 5 giros nuevos (panadería, florería, ferretería, antojitos, mascotas) en el artifact "Estilos por giro".
+- **Estilos por giro**: columna `stores.style` (vitrina, boutique, barberia, carniceria, abarrotes, papeleria); mismo marcado; cada giro es un tema Astryx (`frontend/src/themes/`, compilado a `theme-<giro>.css`) puesto en `<html data-astryx-theme>`; barbería es oscuro. El color de marca sobrescribe `--color-accent` en un `<style nonce>`. En bloques de fondo invertido hay que poner `color: inherit` a `h2`/`p`, porque el tema les fija el color de texto. Catálogo en `internal/web/views/styles.go` (nombre, fuente que se precarga, color sugerido). Fuentes self-hosted OFL (`web/static/fonts/OFL-estilos.txt`). Exploración con 3 propuestas por giro y 5 giros nuevos (panadería, florería, ferretería, antojitos, mascotas) en el artifact "Estilos por giro".
 - **Codex**: hace diseño y archivos de despliegue en worktrees (`../Saas-Whatsapp-visual`, `../Saas-Whatsapp-prod`) con `codex exec -m gpt-6-luna -s workspace-write` (el modelo por defecto de su config no sirve con cuenta ChatGPT). Su sandbox no puede hacer commit: los hace Claude tras revisar. Se integra solo si e2e sigue en 100.
 - **Open Graph**: cada foto y logo guarda además `<base>-og.jpg` (1200 px) porque WhatsApp no siempre muestra WebP.
 - **IP real**: la app confía en `X-Real-IP` solo si la conexión viene de loopback (Caddy); Caddy lo pone solo para IPs de Cloudflare.
 - **Plantillas**: solo Vitrina. Selector de plantilla y banner llegan con Lista/Boutique.
 - **Fuente**: Bricolage Grotesque recortada a latín + español y peso 400–800 (24 KB). No tiene eje de ancho.
 - **WAVE** no corre local; se usa axe-core (mismo motor de Lighthouse).
-- **Diseño**: la UI es funcional y básica a propósito; se pule después. Prioridad actual: funcionalidad y UX.
+- **Diseño de la tienda**: inspirado en catálogos impresos sin copiarlos: portada con collage, etiquetas de precio en bloque (oferta con % y precio tachado), mosaico de categorías, producto destacado (la mayor oferta real o la novedad). Solo datos reales: nada de descuentos, reseñas, existencias ni urgencia inventados.
+- **Mensajes**: `/panel/mensajes` trae 9 plantillas de WhatsApp (bienvenida a clientas inactivas) para copiar; no se envían solas.
 
 ## Pendientes conocidos
 
@@ -68,7 +70,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
 - Fotos de la demo anteriores al JPG de Open Graph: correr `seeddemo` de nuevo.
-- El presupuesto de peso (60 KB) lo revisa CI con CSS + JS + la fuente más pesada (~43 KB hoy).
+- El presupuesto de peso de la tienda (130 KB gzip: JS + `shop.css` + tema + la fuente más pesada; ~123 KB hoy) lo revisa `npm run budget` en CI. React solo ya son ~58 KB.
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
 
 <!-- ASTRYX:START -->

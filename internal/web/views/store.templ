@@ -37,6 +37,7 @@ type Card struct {
 	Photo      Photo
 	Color      string // color dominante de la foto: fondo mientras carga
 	Sizes      []string
+	CategoryID int64
 }
 
 type Opt struct {
@@ -53,6 +54,7 @@ type ProductPage struct {
 	CategoryName  string
 	Sizes, Colors []Opt
 	SoldOutCombos []string
+	Related       []Card
 }
 
 func isHex(s string) bool {
@@ -124,6 +126,7 @@ type shopCard struct {
 	Photo   shopPhoto `json:"photo"`
 	Color   string    `json:"color"`
 	Sizes   []string  `json:"sizes"`
+	Cat     int64     `json:"cat"`
 }
 
 func shopCardOf(c Card) shopCard {
@@ -135,7 +138,7 @@ func shopCardOf(c Card) shopCard {
 	if sizes == nil {
 		sizes = []string{}
 	}
-	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes}
+	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID}
 }
 
 func shopCards(cs []Card) []shopCard {
@@ -155,9 +158,38 @@ func brandCSS(sh Shop) string {
 	return `[data-astryx-theme]{--color-accent:` + sh.Brand + `;--color-on-accent:` + sh.BrandInk + `;--brand:` + sh.Brand + `;--brand-ink:` + sh.BrandInk + `}`
 }
 
-// shopPage: reactPage + el <head> propio de la tienda (Open Graph, tema del estilo, fuente, color, precarga).
+// shopDoc: el HTML de la tienda. No usa reactPage porque la tienda no carga los componentes de Astryx
+// (pesan ~190 KB y aquí no hacen falta): solo su tema del estilo, en el <html> para que pinte sin esperar a JS.
+templ shopDoc(style Style, title, description, page string, data any) {
+	<!DOCTYPE html>
+	<html lang="es-MX" data-astryx-theme={ style.ID } data-theme={ style.scheme() } data-astryx-scheme={ style.scheme() }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+			if description == "" {
+				<meta name="robots" content="noindex"/>
+			} else {
+				<meta name="description" content={ description }/>
+			}
+			<title>{ title }</title>
+			<link rel="stylesheet" href={ "/static/app/theme-" + style.ID + ".css" }/>
+			<link rel="stylesheet" href="/static/app/shop.css"/>
+			<link rel="preload" href={ "/static/fonts/" + style.Font } as="font" type="font/woff2" crossorigin/>
+			<link rel="modulepreload" href="/static/app/shop.js"/>
+			{ children... }
+		</head>
+		<body>
+			<div id="root"></div>
+			<noscript><p>Activa JavaScript para ver la tienda.</p></noscript>
+			@templ.JSONScript("page-data", pageData{Page: page, Data: data}).WithNonceFromString("")
+			<script type="module" src="/static/app/shop.js"></script>
+		</body>
+	</html>
+}
+
+// shopPage: shopDoc + Open Graph, color de la marca y precarga de productos.
 templ shopPage(sh Shop, title, description, page string, data any) {
-	@reactPage(title, description, "shop", page, data) {
+	@shopDoc(StyleByID(sh.Style), title, description, page, data) {
 		<meta property="og:type" content="website"/>
 		<meta property="og:title" content={ title }/>
 		<meta property="og:description" content={ description }/>
@@ -172,10 +204,6 @@ templ shopPage(sh Shop, title, description, page string, data any) {
 			// La vista previa recarga el iframe a cada cambio; la transición entre páginas ahí cierra Chromium.
 			@nonceStyle("@view-transition{navigation:none}")
 		}
-		<link rel="stylesheet" href={ "/static/app/theme-" + StyleByID(sh.Style).ID + ".css" }/>
-		// shop.js importa el tema antes de pintar; sin esto se descarga en serie.
-		<link rel="modulepreload" href={ "/static/app/" + StyleByID(sh.Style).ID + ".js" }/>
-		<link rel="preload" href={ "/static/fonts/" + StyleByID(sh.Style).Font } as="font" type="font/woff2" crossorigin/>
 		@nonceStyle(brandCSS(sh))
 		<script type="speculationrules" nonce={ templ.GetNonce(ctx) }>
 			{"prerender":[{"where":{"href_matches":"/p/*"},"eagerness":"moderate"}]}
@@ -226,6 +254,7 @@ func productData(sh Shop, p ProductPage) map[string]any {
 			"card": shopCardOf(p.Card), "description": p.Description, "photos": photos,
 			"categoryID": p.CategoryID, "categoryName": p.CategoryName,
 			"sizes": shopOpts(p.Sizes), "colors": shopOpts(p.Colors), "soldOutCombos": combos,
+			"related": shopCards(p.Related),
 			"share": "https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL),
 		},
 	}
@@ -242,7 +271,5 @@ templ ShopFAQ(sh Shop) {
 
 // Paused: 503 sin ningún dato de la vendedora.
 templ Paused() {
-	@reactPage("Tienda en pausa", "", "shop", "paused", map[string]any{}) {
-		<link rel="stylesheet" href="/static/app/theme-vitrina.css"/>
-	}
+	@shopDoc(StyleByID(""), "Tienda en pausa", "", "paused", map[string]any{})
 }

@@ -1,26 +1,5 @@
 package views
 
-// page: plantilla vieja (Tailwind) mientras se migran las páginas a reactPage.
-templ page(title, description string) {
-	<!DOCTYPE html>
-	<html lang="es-MX">
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			if description == "" {
-				<meta name="robots" content="noindex"/>
-			} else {
-				<meta name="description" content={ description }/>
-			}
-			<title>{ title }</title>
-			<link rel="stylesheet" href="/static/css/app.css"/>
-		</head>
-		<body class="min-h-dvh bg-stone-100 text-stone-900 font-sans text-base antialiased selection:bg-stone-200">
-			{ children... }
-		</body>
-	</html>
-}
-
 type pageData struct {
 	Page string `json:"page"`
 	Data any    `json:"data"`

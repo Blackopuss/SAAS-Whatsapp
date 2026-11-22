@@ -145,3 +145,7 @@ func noticeFrom(ctx context.Context) string {
 	s, _ := ctx.Value(noticeKey{}).(string)
 	return s
 }
+
+templ Messages(store, shopURL, payment string) {
+	@reactPage("Mensajes · "+store, "", "panel", "messages", panelData(ctx, store, map[string]any{"shopURL": shopURL, "payment": payment}))
+}

@@ -71,7 +71,7 @@ type statusWriter struct {
 	status int
 }
 
-func (s *statusWriter) WriteHeader(code int) { s.status = code; s.ResponseWriter.WriteHeader(code) }
+func (s *statusWriter) WriteHeader(code int)        { s.status = code; s.ResponseWriter.WriteHeader(code) }
 func (s *statusWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
 func logger(next http.Handler) http.Handler {

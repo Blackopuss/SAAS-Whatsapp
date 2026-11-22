@@ -13,8 +13,8 @@ import (
 	"github.com/alexedwards/scs/pgxstore"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/billing"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web"
@@ -72,8 +72,8 @@ func run() error {
 	go billing.Run(ctx, db.New(pool), func(string) {}) // el caché de tiendas vence solo en 60 s
 
 	srv := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           http.MaxBytesHandler(web.Routes(web.Deps{
+		Addr: cfg.Addr,
+		Handler: http.MaxBytesHandler(web.Routes(web.Deps{
 			BaseDomain: cfg.BaseDomain,
 			Secure:     cfg.Env == "prod",
 			DB:         pool,

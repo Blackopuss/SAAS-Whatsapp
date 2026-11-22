@@ -78,7 +78,7 @@ func (a *app) cards(ps []db.ListStoreProductsRow, category int64) []views.Card {
 		now, was := salePrice(p.PriceCents, p.OnSale, p.SalePriceCents.Int32, p.SalePriceCents.Valid)
 		out = append(out, views.Card{
 			ID: p.ID, Name: p.Name, Price: now, Was: was, SoldOut: p.SoldOut, New: p.IsNew,
-			Photo: a.photo(p.ImageKey, p.ImageWidths), Color: p.ImageColor, Sizes: p.Sizes,
+			Photo: a.photo(p.ImageKey, p.ImageWidths), Color: p.ImageColor, Sizes: p.Sizes, CategoryID: p.CategoryID.Int64,
 		})
 	}
 	return out
@@ -132,7 +132,7 @@ func (a *app) shopProduct(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	sh, _, err := a.shop(r, p.CategoryID.Int64)
+	sh, ps, err := a.shop(r, p.CategoryID.Int64)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -164,12 +164,33 @@ func (a *app) shopProduct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	pp.Sizes, pp.Colors, pp.SoldOutCombos = options(vs)
+	pp.Related = related(a.cards(ps, 0), p.ID, p.CategoryID.Int64, ps)
 	sh.URL += "p/" + strconv.FormatInt(p.ID, 10)
 	if len(imgs) > 0 && len(imgs[0].Widths) > 0 { // la versión más grande: WhatsApp y Facebook la recortan a su gusto
 		im := imgs[0]
 		sh.OGImage = a.abs(r, s.Slug, a.mediaURL+storage.OGKey(im.R2Key))
 	}
 	renderStatus(w, r, http.StatusOK, views.ShopProduct(sh, pp))
+}
+
+// related: hasta 6 disponibles de la misma categoría y, si faltan, del resto de la tienda.
+func related(cards []views.Card, self, category int64, ps []db.ListStoreProductsRow) []views.Card {
+	cat := make(map[int64]int64, len(ps))
+	for _, p := range ps {
+		cat[p.ID] = p.CategoryID.Int64
+	}
+	var same, other []views.Card
+	for _, c := range cards {
+		switch {
+		case c.ID == self || c.SoldOut:
+		case cat[c.ID] == category:
+			same = append(same, c)
+		default:
+			other = append(other, c)
+		}
+	}
+	out := append(same, other...)
+	return out[:min(6, len(out))]
 }
 
 // options agrupa variantes en tallas y colores; una opción se marca agotada si todas sus combinaciones lo están.
@@ -224,6 +245,7 @@ type cartProduct struct {
 	Price   int32           `json:"p"`
 	URL     string          `json:"u"`
 	SoldOut bool            `json:"x"`
+	Image   string          `json:"i"`
 	Combos  map[string]bool `json:"v"` // "talla|color" -> agotada
 }
 
@@ -245,7 +267,7 @@ func (a *app) shopCartJSON(w http.ResponseWriter, r *http.Request) {
 	for _, p := range ps {
 		now, _ := salePrice(p.PriceCents, p.OnSale, p.SalePriceCents.Int32, p.SalePriceCents.Valid)
 		id := strconv.FormatInt(p.ID, 10)
-		out[id] = &cartProduct{Name: p.Name, Price: now, URL: "/p/" + id, SoldOut: p.SoldOut, Combos: map[string]bool{}}
+		out[id] = &cartProduct{Name: p.Name, Price: now, URL: "/p/" + id, SoldOut: p.SoldOut, Image: a.photo(p.ImageKey, p.ImageWidths).Src, Combos: map[string]bool{}}
 	}
 	for _, v := range vs {
 		if p := out[strconv.FormatInt(v.ProductID, 10)]; p != nil {

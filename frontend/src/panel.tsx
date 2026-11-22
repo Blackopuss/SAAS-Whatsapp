@@ -1,9 +1,10 @@
 // Panel de la vendedora (/panel): productos, categorías, mi tienda y acceso. Datos desde views/panel.templ.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Package, Tags, Store, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon } from "lucide-react";
+import { Package, Tags, Store, MessageSquareText, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon } from "lucide-react";
 import { mount } from "./boot";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
+import { MessagesBody } from "./messages";
 import { Txt, Area, Check, Pick, Msg, PostButton, Form } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
 import { Banner } from "@astryxdesign/core/Banner";
@@ -27,6 +28,7 @@ const NAV: NavLink[] = [
   { href: "/panel/", label: "Productos", icon: Package },
   { href: "/panel/categorias", label: "Categorías", icon: Tags },
   { href: "/panel/tienda", label: "Mi tienda", icon: Store },
+  { href: "/panel/mensajes", label: "Mensajes", icon: MessageSquareText },
   { href: "/", label: "Ver mi tienda", icon: ExternalLink },
 ];
 
@@ -463,4 +465,12 @@ function Swatch({ color, label }: { color: string; label?: string }) {
   return label ? <HStack gap={2} vAlign="center">{dot}<Text>{label}</Text></HStack> : dot;
 }
 
-mount({ login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);
+function Messages({ shopURL, payment, ...b }: Base & { shopURL: string; payment: string }) {
+  return (
+    <PanelShell {...b} title="Mensajes para tus clientas" current="/panel/mensajes">
+      <MessagesBody store={b.store} shopURL={shopURL} payment={payment} />
+    </PanelShell>
+  );
+}
+
+mount({ messages: Messages, login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);

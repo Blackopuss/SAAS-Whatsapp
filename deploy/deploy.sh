@@ -9,6 +9,7 @@ command -v ssh >/dev/null || fail "falta ssh."
 command -v scp >/dev/null || fail "falta scp."
 command -v sha256sum >/dev/null || fail "falta sha256sum."
 command -v tar >/dev/null || fail "falta tar."
+command -v npm >/dev/null || fail "falta npm (Node 24) para compilar la interfaz."
 git diff --quiet || fail "hay cambios sin commit; despliega una revisión confirmada."
 git diff --cached --quiet || fail "hay cambios staged sin commit; despliega una revisión confirmada."
 make build-prod
@@ -19,7 +20,7 @@ trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/release/bin" "$work/release/migrations" "$work/release/deploy" "$work/release/web"
 cp bin/server bin/goose bin/createadmin bin/createstore "$work/release/bin/"
 cp migrations/*.sql "$work/release/migrations/"
-# La app sirve /static desde web/static (CSS de Tailwind ya compilado por build-prod, JS y fuentes).
+# La app sirve /static desde web/static: fuentes y web/static/app (interfaz que compila build-prod con Vite).
 cp -R web/static "$work/release/web/static"
 cp deploy/backup.sh "$work/release/deploy/backup.sh"
 chmod 0755 "$work/release/bin/"* "$work/release/deploy/backup.sh"

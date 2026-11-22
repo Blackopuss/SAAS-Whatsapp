@@ -2,8 +2,8 @@ package web
 
 import (
 	"net/http"
-	"strconv"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,15 +39,15 @@ func (a *app) adminRoutes(store scs.Store, secure bool) http.Handler {
 	})
 	mux.Handle("GET /{$}", a.requireAdmin(http.HandlerFunc(a.adminStores)))
 	for pattern, h := range map[string]http.HandlerFunc{
-		"POST /tiendas/{id}/recuperar":  a.adminReset,
-		"GET /tiendas/nueva":            a.adminStoreNew,
-		"POST /tiendas":                 a.adminStoreCreate,
-		"GET /tiendas/{id}":             a.adminStore,
-		"POST /tiendas/{id}/pagos":      a.adminPayment,
-		"POST /tiendas/{id}/pausar":     a.adminSetStatus("suspended", "pausada", "pausada"),
-		"POST /tiendas/{id}/reactivar":  a.adminSetStatus("active", "reactivada", "reactivada"),
-		"POST /tiendas/{id}/plan":       a.adminPlan,
-		"GET /bitacora":                 a.adminAudit,
+		"POST /tiendas/{id}/recuperar": a.adminReset,
+		"GET /tiendas/nueva":           a.adminStoreNew,
+		"POST /tiendas":                a.adminStoreCreate,
+		"GET /tiendas/{id}":            a.adminStore,
+		"POST /tiendas/{id}/pagos":     a.adminPayment,
+		"POST /tiendas/{id}/pausar":    a.adminSetStatus("suspended", "pausada", "pausada"),
+		"POST /tiendas/{id}/reactivar": a.adminSetStatus("active", "reactivada", "reactivada"),
+		"POST /tiendas/{id}/plan":      a.adminPlan,
+		"GET /bitacora":                a.adminAudit,
 	} {
 		mux.Handle(pattern, a.requireAdmin(h))
 	}

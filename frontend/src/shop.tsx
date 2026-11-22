@@ -1,52 +1,36 @@
-// Tienda pública (<slug>.<dominio>): inicio, categoría, producto, preguntas y carrito. Datos desde views/store.templ.
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { ShoppingBag, Share2, MessageCircle, Minus, Plus, Store as StoreIcon } from "lucide-react";
-import { mount, pageData } from "./boot";
-import { Button } from "@astryxdesign/core/Button";
-import { Heading } from "@astryxdesign/core/Heading";
-import { Text } from "@astryxdesign/core/Text";
-import { Link } from "@astryxdesign/core/Link";
-import { HStack, VStack } from "@astryxdesign/core/Stack";
-import { Token } from "@astryxdesign/core/Token";
-import { Drawer } from "@astryxdesign/core/Drawer";
-import { Collapsible } from "@astryxdesign/core/Collapsible";
-import { EmptyState } from "@astryxdesign/core/EmptyState";
-import { Banner } from "@astryxdesign/core/Banner";
-import { Center } from "@astryxdesign/core/Center";
-import { NumberInput } from "@astryxdesign/core/NumberInput";
-import { IconButton } from "@astryxdesign/core/IconButton";
-import { Divider } from "@astryxdesign/core/Divider";
-// Solo se descarga el tema del estilo de esta tienda.
-const THEMES = {
-  vitrina: () => import("./themes/vitrina/vitrina.js").then((m) => m.vitrinaTheme),
-  boutique: () => import("./themes/boutique/boutique.js").then((m) => m.boutiqueTheme),
-  barberia: () => import("./themes/barberia/barberia.js").then((m) => m.barberiaTheme),
-  carniceria: () => import("./themes/carniceria/carniceria.js").then((m) => m.carniceriaTheme),
-  abarrotes: () => import("./themes/abarrotes/abarrotes.js").then((m) => m.abarrotesTheme),
-  papeleria: () => import("./themes/papeleria/papeleria.js").then((m) => m.papeleriaTheme),
-};
+// Tienda pública (<slug>.<dominio>). Datos desde views/store.templ.
+// Sin componentes de Astryx a propósito: aquí pesaban ~190 KB y la compradora suele estar en un celular con datos.
+// El aspecto sale del tema del estilo (tokens --color-*, --font-*, --radius-*) que Go pone en <html>.
+import { StrictMode, createContext, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+import { ShoppingBag, MessageCircle, Minus, Plus, Search, X, Share2, CreditCard, Truck, CheckCircle2, RotateCcw, ChevronRight, HelpCircle, BookOpen } from "lucide-react";
+import "./shop.css";
 
 type ShopInfo = {
   name: string; categories: { id: number; name: string }[]; current: number; home: boolean; whatsapp: string; logo: string;
-  faq: { q: string; a: string }[]; payment: string; url: string; preview: boolean; style: keyof typeof THEMES;
+  faq: { q: string; a: string }[]; payment: string; url: string; preview: boolean; style: string;
 };
 type Photo = { src: string; srcSet: string };
-type CardData = { id: number; name: string; price: number; was: number; soldOut: boolean; new: boolean; photo: Photo; color: string; sizes: string[] };
+type CardData = { id: number; name: string; price: number; was: number; soldOut: boolean; new: boolean; photo: Photo; color: string; sizes: string[]; cat: number };
 type Opt = { name: string; soldOut: boolean; swatch: string };
 type Product = {
   card: CardData; description: string; photos: Photo[]; categoryID: number; categoryName: string;
-  sizes: Opt[]; colors: Opt[]; soldOutCombos: string[]; share: string;
+  sizes: Opt[]; colors: Opt[]; soldOutCombos: string[]; share: string; related: CardData[];
 };
 
 const fmt2 = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 const fmt0 = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 0 });
 const money = (c: number) => (c % 100 === 0 ? fmt0 : fmt2).format(c / 100);
+const off = (c: CardData) => Math.round((1 - c.price / c.was) * 100);
+const wa = (phone: string, text: string) => `https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(text)}`;
+const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 // ——— Carrito ———
 // Vive en localStorage. Precios y existencias siempre salen de /carrito.json; lo guardado solo dice qué y cuánto.
 type Item = { id: number; size: string; color: string; qty: number; price: number };
-type Catalog = Record<string, { n: string; p: number; x: boolean; u: string; v: Record<string, boolean> }>;
+type Catalog = Record<string, { n: string; p: number; x: boolean; u: string; i: string; v: Record<string, boolean> }>;
 const KEY = "carrito";
+const LAST = "ultimo-pedido";
 const MAX = 20;
 
 const valid = (i: Item) =>
@@ -54,58 +38,91 @@ const valid = (i: Item) =>
   typeof i.color === "string" && i.color.length <= 30 && Number.isInteger(i.qty) && i.qty >= 1 && i.qty <= MAX &&
   Number.isInteger(i.price) && i.price >= 0;
 
-function load(): Item[] {
+function read(key: string): Item[] {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY) || "[]");
+    const v = JSON.parse(localStorage.getItem(key) || "[]");
     return Array.isArray(v) ? v.filter(valid).slice(0, 50) : [];
   } catch {
     return [];
   }
 }
 
-function store(items: Item[]) {
+function write(key: string, items: Item[]) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(items));
+    localStorage.setItem(key, JSON.stringify(items));
   } catch {
     // Modo privado o sin espacio: el carrito vive solo en esta página.
   }
 }
 
-let catalog: Promise<Catalog> | null = null;
-const getCatalog = () =>
-  (catalog ??= fetch("/carrito.json", { headers: { Accept: "application/json" } }).then((r) => {
-    if (!r.ok) throw new Error(String(r.status));
-    return r.json();
-  }).catch((e) => { catalog = null; throw e; }));
-
-type CartAPI = { items: Item[]; add: (i: Item) => void; open: () => void };
-const CartCtx = createContext<CartAPI>({ items: [], add: () => {}, open: () => {} });
-
-function useCart() {
-  const [items, setItems] = useState<Item[]>(load);
-  const [open, setOpen] = useState(false);
-  const save = (next: Item[]) => { store(next); setItems(next); };
-  const add = (it: Item) => {
-    const next = load();
-    const same = next.find((i) => i.id === it.id && i.size === it.size && i.color === it.color);
+function merge(into: Item[], add: Item[]) {
+  for (const it of add) {
+    const same = into.find((i) => i.id === it.id && i.size === it.size && i.color === it.color);
     if (same) same.qty = Math.min(MAX, same.qty + it.qty);
-    else next.push(it);
-    save(next);
-    setOpen(true);
-  };
-  return { items, save, add, open, setOpen };
+    else into.push({ ...it });
+  }
+  return into;
 }
 
-function Cart({ items, save, isOpen, onOpenChange, shop }: { items: Item[]; save: (i: Item[]) => void; isOpen: boolean; onOpenChange: (o: boolean) => void; shop: ShopInfo }) {
+let catalog: Promise<Catalog> | null = null;
+const getCatalog = () =>
+  (catalog ??= fetch("/carrito.json", { headers: { Accept: "application/json" } })
+    .then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    })
+    .catch((e) => {
+      catalog = null;
+      throw e;
+    }));
+
+const detail = (it: { size: string; color: string }) => [it.size && `Talla ${it.size}`, it.color].filter(Boolean).join(" · ");
+
+// El mensaje termina con una pregunta concreta para que la vendedora sepa qué responder.
+function orderText(shop: string, lines: string[], total: number) {
+  return `Hola, quiero hacer este pedido en ${shop}:\n\n${lines.join("\n")}\n\nTotal: ${fmt2.format(total / 100)}\n\n¿Me confirmas si está disponible y cómo quedan el pago y la entrega? Gracias.`;
+}
+const orderLine = (qty: number, name: string, d: string, sub: number, url: string) =>
+  `• ${qty} × ${name}${d ? ` (${d})` : ""}: ${fmt2.format(sub / 100)}\n  ${location.origin}${url}`;
+
+type CartAPI = { items: Item[]; add: (i: Item[]) => void; open: () => void };
+const CartCtx = createContext<CartAPI>({ items: [], add: () => {}, open: () => {} });
+
+function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Item[]; save: (i: Item[]) => void; open: boolean; setOpen: (o: boolean) => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
   const [cat, setCat] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState(false);
+  const [sent, setSent] = useState(false);
+
   useEffect(() => {
-    if (!isOpen || !items.length) return;
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !items.length) return;
     getCatalog().then(setCat, () => setFailed(true));
-  }, [isOpen, items.length, failed]);
+  }, [open, items.length, failed]);
+
+  // Guarda el precio nuevo para que el aviso salga una sola vez.
+  useEffect(() => {
+    if (!cat) return;
+    let changed = false;
+    const next = read(KEY).map((it) => {
+      const p = cat[it.id];
+      if (p && p.p !== it.price) {
+        changed = true;
+        return { ...it, price: p.p };
+      }
+      return it;
+    });
+    if (changed) write(KEY, next);
+  }, [cat]);
 
   const update = (i: number, delta: number) => {
-    const next = load();
+    const next = read(KEY);
     if (!next[i]) return;
     next[i].qty = Math.min(MAX, next[i].qty + delta);
     if (!(next[i].qty >= 1)) next.splice(i, 1);
@@ -114,140 +131,177 @@ function Cart({ items, save, isOpen, onOpenChange, shop }: { items: Item[]; save
 
   let total = 0;
   const lines: string[] = [];
-  const rows = cat ? items.map((it, i) => {
-    const p = cat[it.id];
-    const combo = it.size + "|" + it.color;
-    const hasCombos = p && Object.keys(p.v).length > 0;
-    const available = !!p && !(p.x || (hasCombos && p.v[combo] !== false));
-    let warn = "";
-    if (!p) warn = "Este producto ya no está disponible.";
-    else if (!available) warn = "Se agotó.";
-    else if (p.p !== it.price) warn = `Cambió de precio: antes ${money(it.price)}, ahora ${money(p.p)}.`;
-    const name = p ? p.n : "Producto";
-    const detail = [it.size && `Talla ${it.size}`, it.color].filter(Boolean).join(" · ");
-    const sub = available ? p.p * it.qty : 0;
-    if (available) {
-      total += sub;
-      lines.push(`• ${it.qty} × ${name}${detail ? ` (${detail})` : ""}: ${fmt2.format(sub / 100)}\n  ${location.origin}${p.u}`);
-    }
-    return { i, it, p, name, detail, sub, available, warn };
-  }) : [];
+  const rows = cat
+    ? items.map((it, i) => {
+        const p = cat[it.id];
+        const hasCombos = p && Object.keys(p.v).length > 0;
+        const available = !!p && !(p.x || (hasCombos && p.v[it.size + "|" + it.color] !== false));
+        let warn = "";
+        if (!p) warn = "Este producto ya no está disponible.";
+        else if (!available) warn = "Se agotó.";
+        else if (p.p !== it.price) warn = `Cambió de precio: antes ${money(it.price)}, ahora ${money(p.p)}.`;
+        const sub = available ? p.p * it.qty : 0;
+        if (available) {
+          total += sub;
+          lines.push(orderLine(it.qty, p.n, detail(it), sub, p.u));
+        }
+        return { i, it, p, name: p ? p.n : "Producto", sub, available, warn };
+      })
+    : [];
+  const count = items.reduce((s, i) => s + i.qty, 0);
 
-  // Guarda el precio nuevo para que el aviso salga una vez.
-  useEffect(() => {
-    if (!cat) return;
-    let changed = false;
-    const next = load().map((it) => {
-      const p = cat[it.id];
-      if (p && p.p !== it.price) { changed = true; return { ...it, price: p.p }; }
-      return it;
-    });
-    if (changed) store(next);
-  }, [cat]);
-
-  const msg = `Hola, quiero hacer este pedido en ${shop.name}:\n\n${lines.join("\n")}\n\nTotal: ${fmt2.format(total / 100)}`;
-  const wa = shop.whatsapp ? `https://wa.me/${encodeURIComponent(shop.whatsapp)}?text=${encodeURIComponent(msg)}` : "";
+  function done() {
+    write(KEY, []);
+    save([]);
+    setSent(false);
+    setOpen(false);
+  }
 
   return (
-    <Drawer isOpen={isOpen} onOpenChange={onOpenChange} label="Tu carrito" width={420} padding={5} experimental={{ isFullWidthOnMobile: true }}>
-      <VStack gap={4} height="100%">
-        <HStack hAlign="between" vAlign="center">
-          <Heading level={2}>Tu carrito</Heading>
-          <Button variant="ghost" label="Cerrar" onClick={() => onOpenChange(false)} />
-        </HStack>
-        {items.length === 0 ? (
-          <EmptyState title="Tu carrito está vacío" description="Agrega algo que te guste y aquí lo verás." icon={<ShoppingBag aria-hidden size={32} />}
-            actions={<Button href="/" label="Ve las novedades" />} />
+    <dialog ref={ref} className="cart" aria-labelledby="cart-title" onClose={() => { setOpen(false); setSent(false); }}
+      onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+      <div className="cart-in">
+        <header className="cart-head">
+          <h2 id="cart-title">Tu carrito</h2>
+          {count > 0 && !sent && <span className="muted">{count} {count === 1 ? "producto" : "productos"}</span>}
+          <button type="button" className="icon-btn" aria-label="Cerrar carrito" onClick={() => setOpen(false)}><X aria-hidden size={20} /></button>
+        </header>
+
+        {sent ? (
+          <div className="cart-sent">
+            <CheckCircle2 aria-hidden size={44} className="ok-icon" />
+            <h3>Se abrió WhatsApp con tu pedido</h3>
+            <p>Si ya lo enviaste, {shop.name} te responde por ahí para confirmar existencias, pago y entrega.</p>
+            <button type="button" className="btn primary block" onClick={done}>Ya lo envié, vaciar carrito</button>
+            <button type="button" className="btn ghost block" onClick={() => setSent(false)}>Todavía no, volver al carrito</button>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="empty">
+            <ShoppingBag aria-hidden size={40} />
+            <h3>Tu carrito está vacío</h3>
+            <p>Elige algo que te guste; aquí lo juntas y lo mandas en un solo mensaje.</p>
+            <a className="btn primary" href="/">Ver productos</a>
+          </div>
         ) : failed ? (
-          <Banner status="error" title="No pudimos cargar tu carrito." description="Revisa tu conexión y vuelve a intentar." role="alert"
-            endContent={<Button size="sm" label="Reintentar" onClick={() => setFailed(false)} />} />
+          <div className="empty" role="alert">
+            <h3>No pudimos cargar tu carrito</h3>
+            <p>Revisa tu conexión e inténtalo otra vez.</p>
+            <button type="button" className="btn primary" onClick={() => setFailed(false)}>Reintentar</button>
+          </div>
         ) : !cat ? (
-          <Text color="secondary" role="status">Cargando tu carrito…</Text>
+          <p className="muted pad" role="status">Cargando tu carrito…</p>
         ) : (
           <>
-            <VStack gap={0} isScrollable>
+            <ul className="cart-list">
               {rows.map((r) => (
-                <VStack key={r.i} gap={2} paddingBlock={3} className="cart-row">
-                  <HStack gap={3} hAlign="between" vAlign="start">
-                    <VStack gap={0.5}>
-                      {r.p ? <Link href={r.p.u} color="primary" weight="semibold">{r.name}</Link> : <Text weight="semibold">{r.name}</Text>}
-                      {r.detail && <Text type="supporting" color="secondary">{r.detail}</Text>}
-                    </VStack>
-                    <Text hasTabularNumbers weight="semibold">{r.available ? money(r.sub) : ""}</Text>
-                  </HStack>
-                  {r.warn && <Text type="supporting" color="accent">{r.warn}</Text>}
-                  <HStack gap={2} hAlign="between" vAlign="center">
-                    {r.available ? (
-                      <HStack gap={1} vAlign="center">
-                        <IconButton label={`Quitar uno de ${r.name}`} icon={<Minus aria-hidden size={16} />} size="sm" variant="secondary" onClick={() => update(r.i, -1)} />
-                        <Text hasTabularNumbers aria-label={`Cantidad: ${r.it.qty}`}>{String(r.it.qty)}</Text>
-                        <IconButton label={`Agregar uno de ${r.name}`} icon={<Plus aria-hidden size={16} />} size="sm" variant="secondary" onClick={() => update(r.i, +1)} isDisabled={r.it.qty >= MAX} />
-                      </HStack>
-                    ) : <span />}
-                    <Button variant="ghost" size="sm" label={`Quitar ${r.name}`} onClick={() => update(r.i, -Infinity)}>Quitar</Button>
-                  </HStack>
-                </VStack>
+                <li key={r.i} className="cart-row">
+                  <span className="thumb">{r.p?.i && <img src={r.p.i} alt="" width={64} height={80} loading="lazy" />}</span>
+                  <div className="cart-info">
+                    {r.p ? <a href={r.p.u} className="cart-name">{r.name}</a> : <span className="cart-name">{r.name}</span>}
+                    {detail(r.it) && <span className="muted small">{detail(r.it)}</span>}
+                    {r.warn && <span className="warn small">{r.warn}</span>}
+                    <div className="cart-actions">
+                      {r.available && (
+                        <span className="stepper">
+                          <button type="button" aria-label={`Quitar uno de ${r.name}`} onClick={() => update(r.i, -1)}><Minus aria-hidden size={14} /></button>
+                          <span aria-label={`Cantidad: ${r.it.qty}`}>{r.it.qty}</span>
+                          <button type="button" aria-label={`Agregar uno de ${r.name}`} disabled={r.it.qty >= MAX} onClick={() => update(r.i, 1)}><Plus aria-hidden size={14} /></button>
+                        </span>
+                      )}
+                      <button type="button" className="link-btn" aria-label={`Quitar ${r.name} del carrito`} onClick={() => update(r.i, -Infinity)}>Quitar</button>
+                    </div>
+                  </div>
+                  <span className="cart-price">{r.available ? money(r.sub) : ""}</span>
+                </li>
               ))}
-            </VStack>
+            </ul>
             {lines.length > 0 && (
-              <VStack gap={3} className="cart-foot">
-                <Divider />
-                <HStack hAlign="between" vAlign="center">
-                  <Text type="large">Total</Text>
-                  <Text type="large" weight="bold" hasTabularNumbers>{money(total)}</Text>
-                </HStack>
-                {wa ? (
-                  <Button href={wa} rel="noopener" variant="primary" size="lg" width="100%" label="Enviar pedido por WhatsApp" icon={<MessageCircle aria-hidden size={18} />} />
+              <footer className="cart-foot">
+                <div className="total"><span>Total</span><strong>{money(total)}</strong></div>
+                <p className="muted small">Lo confirmas con {shop.name} por WhatsApp: existencias, pago y entrega. No pagas nada aquí.</p>
+                {shop.whatsapp ? (
+                  <a className="btn wa block" href={wa(shop.whatsapp, orderText(shop.name, lines, total))} rel="noopener" target="_blank"
+                    onClick={() => { write(LAST, read(KEY)); setSent(true); }}>
+                    <MessageCircle aria-hidden size={20} /> Enviar pedido por WhatsApp
+                  </a>
                 ) : (
-                  <Text color="secondary">Esta tienda aún no tiene WhatsApp. Vuelve pronto.</Text>
+                  <p className="muted">Esta tienda aún no tiene WhatsApp. Vuelve pronto.</p>
                 )}
-              </VStack>
+              </footer>
             )}
           </>
         )}
-      </VStack>
-    </Drawer>
+      </div>
+    </dialog>
   );
 }
 
-// ——— Marco de la tienda ———
+// ——— Marco ———
 
-function ShopShell({ shop, children }: { shop: ShopInfo; children: ReactNode }) {
-  const cart = useCart();
-  const count = cart.items.reduce((s, i) => s + i.qty, 0);
+function Shell({ shop, children }: { shop: ShopInfo; children: ReactNode }) {
+  const [items, setItems] = useState<Item[]>(() => read(KEY));
+  const [open, setOpen] = useState(false);
   const [bump, setBump] = useState(0);
-  useEffect(() => { if (bump) { const t = setTimeout(() => setBump(0), 400); return () => clearTimeout(t); } }, [bump]);
-  const api: CartAPI = { items: cart.items, add: (i) => { cart.add(i); setBump((b) => b + 1); }, open: () => cart.setOpen(true) };
-  const links = [{ href: "/", name: "Todo", on: shop.home }, ...shop.categories.map((c) => ({ href: `/c/${c.id}`, name: c.name, on: shop.current === c.id })), { href: "/preguntas", name: "Preguntas", on: false }];
+  const save = (next: Item[]) => {
+    write(KEY, next);
+    setItems(next);
+  };
+  const api: CartAPI = {
+    items,
+    add: (add) => {
+      save(merge(read(KEY), add));
+      setBump((b) => b + 1);
+      setOpen(true);
+    },
+    open: () => setOpen(true),
+  };
+  const count = items.reduce((s, i) => s + i.qty, 0);
+  const cats = [{ href: "/", name: "Todo", on: shop.home }, ...shop.categories.map((c) => ({ href: `/c/${c.id}`, name: c.name, on: shop.current === c.id }))];
+
   return (
     <CartCtx.Provider value={api}>
       <a className="skip" href="#contenido">Ir al contenido</a>
-      <header className="shop-top" aria-label={shop.name}>
-        <HStack gap={3} vAlign="center" paddingInline={4} paddingBlock={4} className="shop-bar">
-          {shop.logo && <img className="shop-logo" src={shop.logo} alt="" width={48} height={48} />}
-          {shop.home
-            ? <Heading level={1} maxLines={1}>{shop.name}</Heading>
-            : <a href="/" className="shop-name">{shop.name}</a>}
-        </HStack>
-        <nav aria-label="Categorías" className="cats">
-          <HStack as="ul" gap={2} paddingInline={4} paddingBlockEnd={3}>
-            {links.map((l) => (
-              <li key={l.href}><a href={l.href} className="cat" aria-current={l.on ? "page" : undefined}>{l.name}</a></li>
-            ))}
-          </HStack>
-        </nav>
+      <header className="top" aria-label={`Encabezado de ${shop.name}`}>
+        <div className="top-bar wrap">
+          <a href="/" className="brand">
+            {shop.logo && <img src={shop.logo} alt="" width={36} height={36} />}
+            <span>{shop.name}</span>
+          </a>
+          <a href="/preguntas" className="top-link">Preguntas</a>
+          <button type="button" className={"cart-btn" + (bump ? " bump" : "")} key={bump} onClick={() => setOpen(true)}
+            aria-label={count ? `Carrito, ${count} ${count === 1 ? "producto" : "productos"}` : "Carrito vacío"}>
+            <ShoppingBag aria-hidden size={22} />
+            {count > 0 && <span className="badge" aria-hidden>{count}</span>}
+          </button>
+        </div>
+        {cats.length > 1 && (
+          <nav aria-label="Categorías" className="chips-wrap">
+            <ul className="chips wrap">
+              {cats.map((c) => (
+                <li key={c.href}><a href={c.href} className="chip" aria-current={c.on ? "page" : undefined}>{c.name}</a></li>
+              ))}
+            </ul>
+          </nav>
+        )}
       </header>
-      <VStack as="main" id="contenido" gap={5} paddingInline={4} paddingBlockStart={2} paddingBlockEnd={10} className="shop-main"
-        aria-label={shop.preview ? "Vista previa de la tienda" : undefined}>
-        {children}
-      </VStack>
-      {count > 0 && (
-        <span className={"cart-fab" + (bump ? " bump" : "")}>
-          <Button variant="primary" size="lg" elevation="high" label={`Carrito, ${count} ${count === 1 ? "producto" : "productos"}`}
-            icon={<ShoppingBag aria-hidden size={18} />} onClick={() => cart.setOpen(true)}>{`Carrito · ${count}`}</Button>
-        </span>
+      <main id="contenido" className="wrap main" aria-label={shop.preview ? "Vista previa de la tienda" : undefined}>{children}</main>
+      <footer className="foot">
+        <div className="wrap foot-in">
+          <strong>{shop.name}</strong>
+          <p className="muted">Pedidos por WhatsApp: armas tu carrito, lo envías y {shop.name} te confirma existencias, pago y entrega.</p>
+          <ul className="foot-links">
+            <li><a href="/">Todos los productos</a></li>
+            <li><a href="/preguntas">Preguntas frecuentes</a></li>
+            {shop.whatsapp && <li><a href={wa(shop.whatsapp, `Hola, vengo de tu tienda en línea (${shop.url}).`)} rel="noopener" target="_blank">Escribir por WhatsApp</a></li>}
+          </ul>
+        </div>
+      </footer>
+      {count > 0 && !open && (
+        <button type="button" className="cart-bar" onClick={() => setOpen(true)}>
+          <ShoppingBag aria-hidden size={18} /> Ver carrito ({count})
+        </button>
       )}
-      <Cart items={cart.items} save={cart.save} isOpen={cart.open} onOpenChange={cart.setOpen} shop={shop} />
+      <Cart shop={shop} items={items} save={save} open={open} setOpen={setOpen} />
     </CartCtx.Provider>
   );
 }
@@ -255,157 +309,529 @@ function ShopShell({ shop, children }: { shop: ShopInfo; children: ReactNode }) 
 // ——— Catálogo ———
 
 function Price({ c, big }: { c: CardData; big?: boolean }) {
-  const type = big ? "large" : "body";
-  if (!c.was) return <Text type={type} weight="semibold" hasTabularNumbers>{money(c.price)}</Text>;
   return (
-    <HStack gap={2} vAlign="center" wrap="wrap">
-      <Text type={type} weight="bold" color="accent" hasTabularNumbers>{money(c.price)}</Text>
-      <Text type="supporting" color="secondary" hasStrikethrough hasTabularNumbers><span className="sr-only">antes </span>{money(c.was)}</Text>
-    </HStack>
+    <p className={"price" + (big ? " big" : "")}>
+      <span className={c.was ? "now sale" : "now"}>{money(c.price)}</span>
+      {c.was > 0 && <s className="was"><span className="sr-only">antes </span>{money(c.was)}</s>}
+    </p>
   );
 }
 
-function Tag({ c }: { c: CardData }) {
-  if (c.soldOut) return <Token size="sm" label="Agotado" />;
-  if (c.was) return <Token size="sm" label="Oferta" color="red" />;
-  if (c.new) return <Token size="sm" label="Nuevo" color="blue" />;
-  return null;
+// "Agregar rápido": sin salir de la página. Las tallas y colores salen de /carrito.json ("talla|color" → agotada).
+function QuickAdd({ c, onClose }: { c: CardData | null; onClose: () => void }) {
+  const cart = useContext(CartCtx);
+  const ref = useRef<HTMLDialogElement>(null);
+  const [cat, setCat] = useState<Catalog | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [size, setSize] = useState("");
+  const [color, setColor] = useState("");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (c && !d.open) {
+      setSize("");
+      setColor("");
+      setMsg("");
+      d.showModal();
+      getCatalog().then(setCat, () => setFailed(true));
+    }
+    if (!c && d.open) d.close();
+  }, [c]);
+
+  const p = c && cat ? cat[c.id] : undefined;
+  const combos = p ? Object.entries(p.v).map(([k, sold]) => ({ size: k.split("|")[0], color: k.split("|")[1] ?? "", sold })) : [];
+  // En el orden en que la vendedora las capturó (S, M, L…), no en el de las llaves del JSON.
+  const rank = (s: string) => ((c?.sizes.indexOf(s) ?? -1) + 1 || 99);
+  const sizes = [...new Set(combos.map((x) => x.size).filter(Boolean))].sort((a, b) => rank(a) - rank(b));
+  const colors = [...new Set(combos.map((x) => x.color).filter(Boolean))];
+  const soldAll = (f: (x: (typeof combos)[number]) => boolean) => combos.filter(f).every((x) => x.sold);
+
+  function add() {
+    if (!c) return;
+    if ((sizes.length && !size) || (colors.length && !color)) return setMsg(`Elige ${sizes.length && !size ? "una talla" : "un color"}.`);
+    if (combos.length && combos.find((x) => x.size === size && x.color === color)?.sold !== false) return setMsg("Esa combinación está agotada. Elige otra.");
+    onClose();
+    cart.add([{ id: c.id, size, color, qty: 1, price: p?.p ?? c.price }]);
+  }
+
+  return (
+    <dialog ref={ref} className="sheet" aria-labelledby="qa-title" onClose={onClose} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      {c && (
+        <div className="sheet-in">
+          <div className="sheet-top">
+            <span className="sheet-ph" style={c.color ? { backgroundColor: c.color } : undefined}>{c.photo.src && <img src={c.photo.src} alt="" width={96} height={120} />}</span>
+            <div className="sheet-info">
+              <h2 id="qa-title">{c.name}</h2>
+              <Price c={c} />
+              <a href={`/p/${c.id}`} className="small">Ver detalles</a>
+            </div>
+            <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onClose}><X aria-hidden size={20} /></button>
+          </div>
+          {failed ? <p className="warn" role="alert">No pudimos cargar las opciones. Revisa tu conexión.</p> : !cat ? <p className="muted" role="status">Cargando opciones…</p> : (
+            <>
+              {sizes.length > 0 && (
+                <Choice legend="Talla" name="qa-talla" value={size} onChange={(v) => { setSize(v); setMsg(""); }}
+                  opts={sizes.map((s) => ({ name: s, swatch: "", soldOut: soldAll((x) => x.size === s) }))} />
+              )}
+              {colors.length > 0 && (
+                <Choice legend="Color" name="qa-color" value={color} onChange={(v) => { setColor(v); setMsg(""); }}
+                  opts={colors.map((s) => ({ name: s, swatch: "", soldOut: soldAll((x) => x.color === s) }))} />
+              )}
+              <p role="status" className="status">{msg}</p>
+              <button type="button" className="btn primary block lg" onClick={add}><ShoppingBag aria-hidden size={20} /> Agregar al carrito</button>
+            </>
+          )}
+        </div>
+      )}
+    </dialog>
+  );
 }
 
-function ProductCard({ c, i }: { c: CardData; i: number }) {
+// Cualquier tarjeta abre el "agregar rápido" de la página.
+const QuickCtx = createContext<(c: CardData) => void>(() => {});
+
+function WithQuick({ children }: { children: ReactNode }) {
+  const [c, setC] = useState<CardData | null>(null);
   return (
-    <li className="rise" style={{ "--i": i } as React.CSSProperties}>
+    <QuickCtx.Provider value={setC}>
+      {children}
+      <QuickAdd c={c} onClose={() => setC(null)} />
+    </QuickCtx.Provider>
+  );
+}
+
+// Etiqueta de precio en bloque de color; en oferta, el % y el precio anterior tachado.
+function Tag({ c, big }: { c: CardData; big?: boolean }) {
+  if (c.soldOut) return <span className={"ptag sold" + (big ? " big" : "")}>Agotado</span>;
+  return (
+    <span className={"ptag" + (c.was ? " sale" : "") + (big ? " big" : "")}>
+      {c.was > 0 && <span className="ptag-off">−{off(c)} %</span>}
+      <strong>{money(c.price)}</strong>
+      {c.was > 0 && <s><span className="sr-only">antes </span>{money(c.was)}</s>}
+    </span>
+  );
+}
+
+function Img({ c, sizes, eager }: { c: CardData; sizes: string; eager?: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  if (!c.photo.src) return null;
+  return (
+    <img src={c.photo.src} srcSet={c.photo.srcSet} sizes={sizes} alt="" width={400} height={500}
+      className={loaded ? "in" : ""} onLoad={() => setLoaded(true)} ref={(el) => { if (el?.complete) setLoaded(true); }}
+      {...(eager ? { fetchPriority: "high" as const } : { loading: "lazy" as const, decoding: "async" as const })} />
+  );
+}
+
+function Card({ c, i, eager }: { c: CardData; i: number; eager?: boolean }) {
+  const quick = useContext(QuickCtx);
+  return (
+    <li className="pcard rise" style={{ "--i": i } as React.CSSProperties}>
       <a className={"card" + (c.soldOut ? " sold" : "")} href={`/p/${c.id}`}>
-        <span className="ph" style={c.color ? { background: c.color } : undefined}>
-          {c.photo.src && (
-            <img src={c.photo.src} srcSet={c.photo.srcSet} sizes="(min-width: 960px) 25vw, (min-width: 640px) 33vw, 50vw" alt="" width={400} height={500}
-              {...(i < 2 ? { fetchPriority: "high" as const } : { loading: "lazy" as const, decoding: "async" as const })} />
-          )}
-          <span className="tag"><Tag c={c} /></span>
+        <span className="ph" style={c.color ? { backgroundColor: c.color } : undefined}>
+          <Img c={c} eager={eager} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 46vw" />
+          {c.new && !c.soldOut && <span className="ribbon">Nuevo</span>}
+          <Tag c={c} />
         </span>
-        <VStack gap={0.5} paddingBlockStart={2}>
-          <Text weight="medium" maxLines={2}>{c.name}</Text>
-          <Price c={c} />
-          {c.sizes.length > 0 && !c.soldOut && <Text type="supporting" color="secondary"><span className="sr-only">Tallas: </span>{c.sizes.join(" · ")}</Text>}
-        </VStack>
+        <span className="card-body">
+          <span className="card-name">{c.name}</span>
+          {c.sizes.length > 0 && !c.soldOut && (
+            <span className="sizes"><span className="sr-only">Tallas: </span>{c.sizes.map((s) => <i key={s}>{s}</i>)}</span>
+          )}
+        </span>
       </a>
+      {!c.soldOut && (
+        <button type="button" className="quick" aria-label={`Agregar ${c.name} al carrito`} onClick={() => quick(c)}>
+          <Plus aria-hidden size={20} />
+        </button>
+      )}
     </li>
   );
 }
 
-function Grid({ cards }: { cards: CardData[] }) {
-  if (!cards.length) {
-    return <EmptyState title="Aún no hay productos aquí" description="Vuelve pronto: esta tienda está acomodando su vitrina." icon={<StoreIcon aria-hidden size={32} />} />;
-  }
-  return <ul className="grid">{cards.map((c, i) => <ProductCard key={c.id} c={c} i={i} />)}</ul>;
+function Grid({ cards, eager = 0 }: { cards: CardData[]; eager?: number }) {
+  return <ul className="grid">{cards.map((c, i) => <Card key={c.id} c={c} i={i} eager={i < eager} />)}</ul>;
+}
+
+function Rail({ title, kicker, cards, id }: { title: string; kicker?: string; cards: CardData[]; id: string }) {
+  if (!cards.length) return null;
+  return (
+    <section className="rail-sec" aria-labelledby={id}>
+      <div className="sec-head">
+        {kicker && <span className="kicker">{kicker}</span>}
+        <h2 id={id} className="sec-title">{title}</h2>
+      </div>
+      <ul className="rail">{cards.map((c, i) => <Card key={c.id} c={c} i={i} />)}</ul>
+    </section>
+  );
+}
+
+function Empty() {
+  return (
+    <div className="empty">
+      <ShoppingBag aria-hidden size={40} />
+      <h2>Aún no hay productos aquí</h2>
+      <p>Esta tienda está acomodando su vitrina. Vuelve pronto.</p>
+    </div>
+  );
+}
+
+// "Pedir de nuevo": lo del último pedido vuelve al carrito, donde se revalida precio y existencia.
+function Reorder() {
+  const cart = useContext(CartCtx);
+  const [last] = useState(() => read(LAST));
+  if (!last.length || cart.items.length) return null;
+  const n = last.reduce((s, i) => s + i.qty, 0);
+  return (
+    <section className="reorder" aria-label="Tu último pedido">
+      <RotateCcw aria-hidden size={22} />
+      <p><strong>¿Lo mismo de la otra vez?</strong> <span className="muted">Tu último pedido tenía {n} {n === 1 ? "producto" : "productos"}.</span></p>
+      <button type="button" className="btn secondary" onClick={() => cart.add(last)}>Pedir de nuevo</button>
+    </section>
+  );
+}
+
+const withPhoto = (cs: CardData[]) => cs.filter((c) => c.photo.src && !c.soldOut);
+
+// Portada: nombre grande y un collage de tres productos con su precio.
+function Cover({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
+  const pick = [...withPhoto(cards.filter((c) => c.was || c.new)), ...withPhoto(cards)].filter((c, i, a) => a.indexOf(c) === i).slice(0, 3);
+  const month = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" }).format(new Date());
+  return (
+    <section className="cover" aria-labelledby="tienda">
+      <div className="cover-text rise">
+        <span className="kicker">Catálogo · {month}</span>
+        <h1 id="tienda">{shop.name}</h1>
+        <p className="cover-sub">{cards.length} {cards.length === 1 ? "producto" : "productos"} para pedir directo por WhatsApp.</p>
+        <div className="cover-cta">
+          <a href="#catalogo" className="btn primary lg"><BookOpen aria-hidden size={20} /> Ver catálogo</a>
+          {shop.whatsapp && (
+            <a href={wa(shop.whatsapp, `Hola, vengo de tu tienda en línea (${shop.url}).`)} className="btn secondary lg" rel="noopener" target="_blank">
+              <MessageCircle aria-hidden size={20} /> Escribir
+            </a>
+          )}
+        </div>
+      </div>
+      {pick.length > 0 && (
+        <div className={`collage n${pick.length}`} aria-hidden>
+          {pick.map((c, i) => (
+            <a key={c.id} href={`/p/${c.id}`} tabIndex={-1} className={`shot s${i}`} style={c.color ? { backgroundColor: c.color } : undefined}>
+              <Img c={c} eager sizes="(min-width: 900px) 22vw, 45vw" />
+              <Tag c={c} />
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Steps() {
+  return (
+    <ol className="steps-band" aria-label="Cómo comprar">
+      <li><span className="step-n" aria-hidden>1</span><span><strong>Elige</strong> lo que te guste</span></li>
+      <li><span className="step-n" aria-hidden>2</span><span><strong>Agrégalo</strong> al carrito</span></li>
+      <li><span className="step-n" aria-hidden>3</span><span><strong>Envía</strong> tu pedido por WhatsApp</span></li>
+    </ol>
+  );
+}
+
+function Shots({ cards, eager }: { cards: CardData[]; eager?: boolean }) {
+  return (
+    <span className="tile-shots" aria-hidden>
+      {cards.map((c, j) => (
+        <span key={c.id} className={`tshot k${j}`} style={c.color ? { backgroundColor: c.color } : undefined}><Img c={c} eager={eager} sizes="160px" /></span>
+      ))}
+    </span>
+  );
+}
+
+// Mosaico de categorías: cada una con su color y fotos asomándose.
+function CategoryTiles({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
+  const tiles = shop.categories.map((cat) => ({ cat, items: cards.filter((c) => c.cat === cat.id) })).filter((t) => t.items.length);
+  if (tiles.length < 2) return null;
+  return (
+    <section aria-labelledby="cats" className="tiles-sec">
+      <div className="sec-head"><span className="kicker">Explora</span><h2 id="cats" className="sec-title">Categorías</h2></div>
+      <ul className="tiles">
+        {tiles.map(({ cat, items }, i) => (
+          <li key={cat.id} className="rise" style={{ "--i": i } as React.CSSProperties}>
+            <a href={`/c/${cat.id}`} className={`tile t${i % 4}`}>
+              <span className="tile-text">
+                <strong>{cat.name}</strong>
+                <span>{items.length} {items.length === 1 ? "producto" : "productos"} <ChevronRight aria-hidden size={16} /></span>
+              </span>
+              <Shots cards={withPhoto(items).slice(0, 2)} />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Destacado: la mejor oferta real (o la novedad) en grande.
+function Spotlight({ cards }: { cards: CardData[] }) {
+  const quick = useContext(QuickCtx);
+  const c = withPhoto(cards).filter((x) => x.was).sort((a, b) => off(b) - off(a))[0] ?? withPhoto(cards).find((x) => x.new);
+  if (!c) return null;
+  return (
+    <section className="spot" aria-labelledby="spot" style={c.color ? ({ "--spot": c.color } as React.CSSProperties) : undefined}>
+      <a href={`/p/${c.id}`} className="spot-ph" tabIndex={-1} aria-hidden><Img c={c} sizes="(min-width: 900px) 40vw, 90vw" /></a>
+      <div className="spot-text">
+        <span className="kicker">{c.was ? "La mejor oferta" : "Lo más nuevo"}</span>
+        <h2 id="spot"><a href={`/p/${c.id}`}>{c.name}</a></h2>
+        <Tag c={c} big />
+        {c.sizes.length > 0 && <p className="muted">Tallas: {c.sizes.join(" · ")}</p>}
+        <div className="cover-cta">
+          <button type="button" className="btn primary lg" onClick={() => quick(c)}><ShoppingBag aria-hidden size={20} /> Agregar al carrito</button>
+          <a href={`/p/${c.id}`} className="btn secondary lg">Ver detalles</a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Closing({ shop }: { shop: ShopInfo }) {
+  return (
+    <section className="closing" aria-labelledby="pedir">
+      <h2 id="pedir">¿Lista para pedir?</h2>
+      <p>Arma tu carrito y envíalo por WhatsApp. {shop.name} te confirma existencias, pago y entrega antes de que pagues.</p>
+      <div className="cover-cta">
+        {shop.whatsapp && (
+          <a href={wa(shop.whatsapp, `Hola, tengo una pregunta sobre tu tienda (${shop.url}).`)} className="btn wa lg" rel="noopener" target="_blank">
+            <MessageCircle aria-hidden size={20} /> Preguntar por WhatsApp
+          </a>
+        )}
+        <a href="/preguntas" className="btn on-dark lg"><HelpCircle aria-hidden size={20} /> Preguntas frecuentes</a>
+      </div>
+    </section>
+  );
 }
 
 function Home({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
-  return <ShopShell shop={shop}><Grid cards={cards} /></ShopShell>;
+  const [q, setQ] = useState("");
+  const term = q.trim();
+  const found = useMemo(() => (term ? cards.filter((c) => fold(c.name).includes(fold(term))) : cards), [term, cards]);
+  const fresh = cards.filter((c) => c.new && !c.soldOut);
+  const sale = cards.filter((c) => c.was && !c.soldOut);
+  return (
+    <Shell shop={shop}>
+      <WithQuick>
+        <Cover shop={shop} cards={cards} />
+        <Steps />
+        <Reorder />
+        {!cards.length ? <Empty /> : (
+          <>
+            {!term && <CategoryTiles shop={shop} cards={cards} />}
+            {!term && <Spotlight cards={cards} />}
+            {!term && fresh.length < cards.length && <Rail kicker="Recién llegado" title="Novedades" cards={fresh} id="nuevo" />}
+            {!term && sale.length > 0 && sale.length < cards.length && (
+              <div className="band"><Rail kicker="Precios especiales" title="En oferta" cards={sale} id="oferta" /></div>
+            )}
+            <section aria-labelledby="todo" id="catalogo" className="all">
+              <div className="sec-head row">
+                <div>
+                  <span className="kicker">Catálogo completo</span>
+                  <h2 id="todo" className="sec-title" aria-live="polite">
+                    {term ? (found.length ? `${found.length} ${found.length === 1 ? "resultado" : "resultados"}` : "Sin resultados") : "Todo"}
+                  </h2>
+                </div>
+                <label className="search">
+                  <Search aria-hidden size={18} />
+                  <span className="sr-only">Buscar productos</span>
+                  <input type="search" placeholder={`Buscar en ${cards.length} productos`} value={q} onChange={(e) => setQ(e.target.value)} />
+                </label>
+              </div>
+              {found.length ? <Grid cards={found} /> : (
+                <p className="muted">
+                  Prueba con otra palabra
+                  {shop.whatsapp ? <> o <a href={wa(shop.whatsapp, `Hola, ¿tienen ${term}?`)} rel="noopener" target="_blank">pregunta por WhatsApp si lo tienen</a></> : null}.
+                </p>
+              )}
+            </section>
+          </>
+        )}
+        <Closing shop={shop} />
+      </WithQuick>
+    </Shell>
+  );
 }
 
 function Category({ shop, title, cards }: { shop: ShopInfo; title: string; cards: CardData[] }) {
   return (
-    <ShopShell shop={shop}>
-      <Heading level={1}>{title}</Heading>
-      <Grid cards={cards} />
-    </ShopShell>
+    <Shell shop={shop}>
+      <WithQuick>
+        <section className="cat-banner rise" aria-labelledby="cat-title">
+          <div>
+            <span className="kicker">{shop.name}</span>
+            <h1 id="cat-title">{title}</h1>
+            <p>{cards.length} {cards.length === 1 ? "producto" : "productos"}</p>
+          </div>
+          <Shots cards={withPhoto(cards).slice(0, 3)} eager />
+        </section>
+        {cards.length ? <Grid cards={cards} eager={2} /> : <Empty />}
+      </WithQuick>
+    </Shell>
   );
 }
+
 
 // ——— Producto ———
 
 function Choice({ legend, name, opts, value, onChange }: { legend: string; name: string; opts: Opt[]; value: string; onChange: (v: string) => void }) {
   return (
     <fieldset className="opts">
-      <legend><Text type="label" weight="semibold">{legend}</Text></legend>
-      <HStack gap={2} wrap="wrap">
+      <legend>{legend}{value && <span className="muted">: {value}</span>}</legend>
+      <div className="opt-list">
         {opts.map((o) => (
           <label key={o.name} className="opt">
             <input type="radio" name={name} value={o.name} checked={value === o.name} disabled={o.soldOut} onChange={() => onChange(o.name)} />
             <span>
-              {o.swatch && <span className="sw" style={{ background: o.swatch }} aria-hidden />}
+              {o.swatch && <i className="sw" style={{ background: o.swatch }} aria-hidden />}
               {o.name}
               {o.soldOut && <span className="sr-only"> (agotado)</span>}
             </span>
           </label>
         ))}
-      </HStack>
+      </div>
     </fieldset>
   );
 }
 
-function ProductView({ shop, product: p }: { shop: ShopInfo; product: Product }) {
-  return <ShopShell shop={shop}><ProductBody p={p} /></ShopShell>;
+function Gallery({ p }: { p: Product }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [cur, setCur] = useState(0);
+  const go = (i: number) => {
+    const g = ref.current;
+    if (g) g.scrollTo({ left: i * g.clientWidth, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  };
+  if (!p.photos.length) return <div className="gallery none" style={p.card.color ? { backgroundColor: p.card.color } : undefined} />;
+  return (
+    <div className="gallery-wrap">
+      <div ref={ref} className={"gallery" + (p.card.soldOut ? " sold" : "")} tabIndex={0} role="group" aria-label={`Fotos de ${p.card.name}`}
+        style={p.card.color ? { backgroundColor: p.card.color } : undefined}
+        onScroll={(e) => setCur(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}>
+        {p.photos.map((ph, i) => (
+          <img key={i} src={ph.src} srcSet={ph.srcSet} sizes="(min-width: 900px) 560px, 100vw" alt={i === 0 ? p.card.name : `${p.card.name}, foto ${i + 1}`}
+            width={800} height={1000} {...(i === 0 ? { fetchPriority: "high" as const } : { loading: "lazy" as const, decoding: "async" as const })} />
+        ))}
+      </div>
+      {p.photos.length > 1 && (
+        <div className="thumbs" role="group" aria-label="Elegir foto">
+          {p.photos.map((ph, i) => (
+            <button key={i} type="button" aria-label={`Ver foto ${i + 1}`} aria-pressed={i === cur} onClick={() => go(i)}>
+              <img src={ph.src} alt="" width={56} height={70} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function ProductBody({ p }: { p: Product }) {
+function ProductPage({ shop, product }: { shop: ShopInfo; product: Product }) {
+  return <Shell shop={shop}><WithQuick><ProductBody shop={shop} p={product} /></WithQuick></Shell>;
+}
+
+function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
   const cart = useContext(CartCtx);
   const c = p.card;
   const [size, setSize] = useState("");
   const [color, setColor] = useState("");
   const [qty, setQty] = useState(1);
   const [status, setStatus] = useState("");
-  const [current, setCurrent] = useState(0);
-  const combo = size + "|" + color;
-  const blocked = p.soldOutCombos.includes(combo);
+  const blocked = p.soldOutCombos.includes(size + "|" + color);
+  const url = `/p/${c.id}`;
+  const ask = (t: string) => wa(shop.whatsapp, `Hola, ${t} ${c.name}: ${location.origin}${url}`);
 
-  function add(ev: React.FormEvent) {
-    ev.preventDefault();
-    if ((p.sizes.length && !size) || (p.colors.length && !color)) return setStatus(`Elige ${p.sizes.length && !size ? "una talla" : "un color"} primero.`);
-    if (blocked) return setStatus("Esa combinación está agotada. Elige otra talla o color.");
-    cart.add({ id: c.id, size, color, qty: Math.min(MAX, Math.max(1, qty || 1)), price: c.price });
-    setStatus("Agregado al carrito.");
+  function ready() {
+    if ((p.sizes.length && !size) || (p.colors.length && !color)) {
+      setStatus(`Elige ${p.sizes.length && !size ? "una talla" : "un color"} primero.`);
+      return false;
+    }
+    if (blocked) {
+      setStatus("Esa combinación está agotada. Elige otra talla o color.");
+      return false;
+    }
+    return true;
   }
+  const n = Math.min(MAX, Math.max(1, qty || 1));
 
   return (
-    <article className="product">
-      {p.photos.length > 0 && (
-        <VStack gap={2} className="gallery-wrap">
-          <span className={"gallery" + (c.soldOut ? " sold" : "")} tabIndex={0} role="group" aria-label={`Fotos de ${c.name}`} style={c.color ? { background: c.color } : undefined}
-            onScroll={(e) => { const g = e.currentTarget; setCurrent(Math.round(g.scrollLeft / g.clientWidth)); }}>
-            {p.photos.map((ph, i) => (
-              <img key={i} id={`foto-${i + 1}`} src={ph.src} srcSet={ph.srcSet} sizes="(min-width: 960px) 560px, 100vw" alt={i === 0 ? c.name : `${c.name}, foto ${i + 1}`}
-                width={800} height={1000} {...(i === 0 ? { fetchPriority: "high" as const } : { loading: "lazy" as const, decoding: "async" as const })} />
-            ))}
-          </span>
-          {p.photos.length > 1 && (
-            <nav className="dots" aria-label="Fotos">
-              {p.photos.map((_, i) => (
-                <a key={i} href={`#foto-${i + 1}`} aria-current={i === current ? "true" : undefined}><span className="sr-only">{`Ver foto ${i + 1}`}</span></a>
-              ))}
-            </nav>
-          )}
-        </VStack>
-      )}
-      <VStack gap={4} className="info rise">
-        {p.categoryName && <Link href={`/c/${p.categoryID}`} color="secondary" type="supporting">{p.categoryName}</Link>}
-        <VStack gap={2}>
-          <Heading level={1}>{c.name}</Heading>
+    <>
+      <nav aria-label="Ruta" className="crumbs">
+        <a href="/">Inicio</a>
+        {p.categoryName && <><ChevronRight aria-hidden size={14} /><a href={`/c/${p.categoryID}`}>{p.categoryName}</a></>}
+      </nav>
+      <article className="product">
+        <Gallery p={p} />
+        <div className="info rise">
+          {c.soldOut ? <span className="tag dark inline">Agotado</span> : c.new ? <span className="tag inline">Nuevo</span> : null}
+          <h1>{c.name}</h1>
           <Price c={c} big />
-        </VStack>
-        {c.soldOut ? (
-          <Banner status="info" title="Agotado por ahora." />
-        ) : (
-          <form onSubmit={add} className="add" noValidate>
-            <VStack gap={4}>
+          {c.was > 0 && <p className="save">Ahorras {money(c.was - c.price)} ({off(c)} %)</p>}
+
+          {c.soldOut ? (
+            <div className="sold-box">
+              <p>Se agotó por ahora.</p>
+              {shop.whatsapp && <a className="btn secondary block" href={ask("¿cuándo vuelve a haber")} rel="noopener" target="_blank"><MessageCircle aria-hidden size={18} /> Preguntar cuándo vuelve</a>}
+            </div>
+          ) : (
+            <form className="buy" noValidate onSubmit={(e) => {
+              e.preventDefault();
+              if (!ready()) return;
+              cart.add([{ id: c.id, size, color, qty: n, price: c.price }]);
+              setStatus("Agregado al carrito.");
+            }}>
               {p.sizes.length > 0 && <Choice legend="Talla" name="talla" opts={p.sizes} value={size} onChange={(v) => { setSize(v); setStatus(""); }} />}
               {p.colors.length > 0 && <Choice legend="Color" name="color" opts={p.colors} value={color} onChange={(v) => { setColor(v); setStatus(""); }} />}
-              {blocked && <Text color="accent">Esa combinación está agotada. Elige otra talla o color.</Text>}
-              <NumberInput label="Cantidad" value={qty} onChange={setQty} min={1} max={MAX} isIntegerOnly hasNumberSteppers width={160} />
-              <Button type="submit" variant="primary" size="lg" width="100%" label="Agregar al carrito" icon={<ShoppingBag aria-hidden size={18} />} />
-              <Text role="status" color="secondary">{status}</Text>
-            </VStack>
-          </form>
-        )}
-        <HStack><Button href={p.share} rel="noopener" variant="ghost" label="Compartir por WhatsApp" icon={<Share2 aria-hidden size={16} />} /></HStack>
-        {p.description && (
-          <VStack gap={2}>
-            {p.description.split("\n").filter((l) => l.trim()).map((l, i) => <Text key={i} as="p">{l}</Text>)}
-          </VStack>
-        )}
-      </VStack>
-    </article>
+              {blocked && <p className="warn">Esa combinación está agotada. Elige otra talla o color.</p>}
+              <div className="qty">
+                <label htmlFor="qty">Cantidad</label>
+                <span className="stepper big">
+                  <button type="button" aria-label="Quitar uno" disabled={n <= 1} onClick={() => setQty(n - 1)}><Minus aria-hidden size={16} /></button>
+                  <input id="qty" type="number" inputMode="numeric" min={1} max={MAX} value={qty || ""} onChange={(e) => setQty(parseInt(e.target.value, 10) || 0)} />
+                  <button type="button" aria-label="Agregar uno" disabled={n >= MAX} onClick={() => setQty(n + 1)}><Plus aria-hidden size={16} /></button>
+                </span>
+              </div>
+              <button type="submit" className="btn primary block lg"><ShoppingBag aria-hidden size={20} /> Agregar al carrito</button>
+              {shop.whatsapp && (
+                <a className="btn secondary block" href={wa(shop.whatsapp, "")} rel="noopener" target="_blank"
+                  onClick={(e) => {
+                    if (!ready()) return e.preventDefault();
+                    const line = orderLine(n, c.name, detail({ size, color }), c.price * n, url);
+                    e.currentTarget.href = wa(shop.whatsapp, orderText(shop.name, [line], c.price * n));
+                  }}>
+                  <MessageCircle aria-hidden size={18} /> Pedir solo este por WhatsApp
+                </a>
+              )}
+              <p role="status" className="status">{status}</p>
+            </form>
+          )}
+
+          <ul className="how" aria-label="Así compras aquí">
+            <li><MessageCircle aria-hidden size={20} /><span><strong>Confirmas por WhatsApp.</strong> {shop.name} te dice si hay y el total final antes de que pagues.</span></li>
+            <li><CreditCard aria-hidden size={20} /><span><strong>Pago.</strong> {shop.payment ? <>Puedes pagar por transferencia; los datos están en <a href="/preguntas">Preguntas</a>.</> : "La forma de pago se acuerda por WhatsApp."}</span></li>
+            <li><Truck aria-hidden size={20} /><span><strong>Entrega.</strong> Envío o entrega se acuerdan por WhatsApp.</span></li>
+          </ul>
+
+          {p.description && (
+            <section className="desc" aria-labelledby="desc">
+              <h2 id="desc">Detalles</h2>
+              {p.description.split("\n").filter((l) => l.trim()).map((l, i) => <p key={i}>{l}</p>)}
+            </section>
+          )}
+
+          <div className="row-links">
+            {shop.whatsapp && <a href={ask("tengo una pregunta sobre")} rel="noopener" target="_blank"><HelpCircle aria-hidden size={16} /> Preguntar por este producto</a>}
+            <a href={p.share} rel="noopener" target="_blank"><Share2 aria-hidden size={16} /> Compartir</a>
+          </div>
+        </div>
+      </article>
+      <Rail kicker="Combínalo" title="También te puede gustar" cards={p.related} id="relacionados" />
+    </>
   );
 }
 
@@ -419,31 +845,43 @@ function FAQ({ shop }: { shop: ShopInfo }) {
     { q: "¿Mi carrito se guarda?", a: "Sí, en este celular. Si cambias de celular o borras los datos del navegador, se vacía." },
   ];
   return (
-    <ShopShell shop={shop}>
-      <Heading level={1}>Preguntas frecuentes</Heading>
-      <VStack gap={2} className="faq">
+    <Shell shop={shop}>
+      <div className="page-head rise">
+        <h1>Preguntas frecuentes</h1>
+        <p className="muted">Todo lo que necesitas saber para pedir en {shop.name}.</p>
+      </div>
+      <div className="faq">
         {[...base, ...shop.faq].map((qa, i) => (
-          <Collapsible key={i} defaultIsOpen={false} className="faq-item rise" style={{ "--i": i } as React.CSSProperties}
-            trigger={<Text weight="semibold">{qa.q}</Text>}>
-            {qa.a && <Text as="p" color="secondary" className="pre">{qa.a}</Text>}
-          </Collapsible>
+          <details key={i} className="rise" style={{ "--i": i } as React.CSSProperties} open={i === 0}>
+            <summary>{qa.q}</summary>
+            {qa.a && <p className="pre">{qa.a}</p>}
+          </details>
         ))}
-      </VStack>
-    </ShopShell>
+      </div>
+      {shop.whatsapp && (
+        <section className="help-card" aria-labelledby="ayuda">
+          <h2 id="ayuda">¿No encontraste tu respuesta?</h2>
+          <p className="muted">Escríbele a {shop.name}; te responde por WhatsApp.</p>
+          <a className="btn wa" href={wa(shop.whatsapp, `Hola, tengo una pregunta sobre tu tienda (${shop.url}).`)} rel="noopener" target="_blank">
+            <MessageCircle aria-hidden size={18} /> Preguntar por WhatsApp
+          </a>
+        </section>
+      )}
+    </Shell>
   );
 }
 
 function Paused() {
   return (
-    <Center minHeight="100dvh" padding={6}>
-      <VStack as="main" gap={3} maxWidth={420} className="rise">
-        <Heading level={1}>Tienda en pausa</Heading>
-        <Text>Esta tienda no está recibiendo pedidos por ahora. Vuelve a intentarlo más tarde.</Text>
-      </VStack>
-    </Center>
+    <main className="paused rise">
+      <h1>Tienda en pausa</h1>
+      <p>Esta tienda no está recibiendo pedidos por ahora. Vuelve a intentarlo más tarde.</p>
+    </main>
   );
 }
 
-const wanted = pageData().data?.shop?.style;
-const style: keyof typeof THEMES = wanted in THEMES ? wanted : "vitrina";
-mount({ home: Home, category: Category, product: ProductView, faq: FAQ, paused: Paused }, await THEMES[style](), style === "barberia" ? "dark" : "light");
+const pages: Record<string, ComponentType<any>> = { home: Home, category: Category, product: ProductPage, faq: FAQ, paused: Paused };
+const { page, data } = JSON.parse(document.getElementById("page-data")?.textContent || "{}");
+const Page = pages[page];
+const root = document.getElementById("root");
+if (Page && root) createRoot(root).render(<StrictMode><Page {...data} /></StrictMode>);

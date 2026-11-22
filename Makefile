@@ -1,11 +1,7 @@
 -include .env
 export
 
-TAILWIND ?= tailwindcss
-CSS_IN  := web/static/css/input.css
-CSS_OUT := web/static/css/app.css
-
-.PHONY: dev db migrate gen css build build-prod deploy test lint audit
+.PHONY: dev db migrate gen web build build-prod deploy test lint audit
 
 dev:
 	docker compose up app
@@ -20,14 +16,15 @@ gen:
 	go tool templ generate
 	sqlc generate
 
-css:
-	$(TAILWIND) -i $(CSS_IN) -o $(CSS_OUT) --minify
+# Interfaz (React + Astryx) en frontend/; sale a web/static/app/, que sirve Go.
+web:
+	cd frontend && npm ci && npm run typecheck && npm run build && npm run budget
 
-build: gen css
+build: gen web
 	go build -trimpath -ldflags="-s -w" -o bin/server ./cmd/server
 
 # Artefactos Linux amd64 para producción; goose corre migraciones al iniciar el servicio.
-build-prod: gen css
+build-prod: gen web
 	@mkdir -p bin
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/server ./cmd/server
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/createadmin ./cmd/createadmin

@@ -2,7 +2,6 @@
 @import "@astryxdesign/core/astryx.css";
 @import "@astryxdesign/theme-neutral/fonts.css";
 @import "@astryxdesign/theme-neutral/theme.css";
-@import "./shop.css";
 
 /* Transición suave entre páginas (cada URL es una carga completa). */
 @view-transition {
@@ -68,4 +67,41 @@ form.grow-form {
   block-size: var(--spacing-5);
   border-radius: 50%;
   border: 1px solid var(--color-border);
+}
+
+/* Mensajes: plantillas con {{variables}} resaltadas. */
+.tpl-text {
+  white-space: pre-line;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-element);
+  background: var(--color-background-muted);
+}
+.tpl-var {
+  padding-inline: var(--spacing-1);
+  border-radius: var(--radius-element);
+  background: var(--color-accent-muted);
+  color: var(--color-text-accent);
+  font-weight: 600;
+}
+.tpl-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--spacing-1) var(--spacing-4);
+  font-size: var(--font-size-sm);
+}
+.tpl-meta dt {
+  font-weight: 600;
+}
+.tpl-meta dd {
+  color: var(--color-text-secondary);
+}
+@media (max-width: 480px) {
+  .tpl-meta { grid-template-columns: 1fr; }
+  .tpl-meta dd { margin-block-end: var(--spacing-2); }
+}
+.tpl-tests {
+  display: grid;
+  gap: var(--spacing-2);
+  padding-inline-start: var(--spacing-5);
+  list-style: decimal;
 }

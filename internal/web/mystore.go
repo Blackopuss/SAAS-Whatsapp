@@ -186,3 +186,10 @@ func parseFAQ(text string) []views.QA {
 	}
 	return out
 }
+
+// messages: plantillas de WhatsApp para que la vendedora atienda cada etapa (dudas, confirmación, recompra...).
+// Los textos viven en panel.tsx; aquí solo van el nombre y la liga de la tienda.
+func (a *app) messages(w http.ResponseWriter, r *http.Request) {
+	s := StoreFrom(r.Context())
+	renderStatus(w, r, http.StatusOK, views.Messages(s.Name, a.shopURL(r, s.Slug), s.PaymentInfo))
+}

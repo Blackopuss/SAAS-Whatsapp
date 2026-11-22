@@ -39,7 +39,9 @@ func notMine(w http.ResponseWriter, r *http.Request, rows int64) bool {
 	return false
 }
 
-func back(w http.ResponseWriter, r *http.Request, to string) { http.Redirect(w, r, to, http.StatusSeeOther) }
+func back(w http.ResponseWriter, r *http.Request, to string) {
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
 
 // ---- Categorías ----
 

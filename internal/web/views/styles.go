@@ -1,6 +1,7 @@
 package views
 
-// Style es un estilo visual de la tienda. Todas usan el mismo marcado; cambia vitrina.css vía data-estilo.
+// Style es un estilo visual de la tienda. Todas usan el mismo marcado; cambia el tema de Astryx
+// (frontend/src/themes/<id>), que Go pone en <html data-astryx-theme>.
 type Style struct {
 	ID, Name, Hint, Font string // Font: archivo en /static/fonts que se precarga
 	Brand                string // color sugerido al elegir el estilo
@@ -27,3 +28,11 @@ func StyleByID(id string) Style {
 
 // ValidStyle indica si id es un estilo conocido.
 func ValidStyle(id string) bool { return StyleByID(id).ID == id }
+
+// scheme: barbería es el único estilo oscuro; va en <html> para que el tema pinte antes de JS.
+func (s Style) scheme() string {
+	if s.ID == "barberia" {
+		return "dark"
+	}
+	return "light"
+}

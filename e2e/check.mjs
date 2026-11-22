@@ -119,6 +119,7 @@ await audit("productos", `${BASE}/panel/`);
 await audit("producto-editar", `${BASE}${editURL}`);
 await audit("producto-nuevo", `${BASE}/panel/productos/nuevo`);
 await audit("categorias", `${BASE}/panel/categorias`);
+await audit("mensajes", `${BASE}/panel/mensajes`);
 
 // WhatsApp de la tienda (número de prueba que no existe) y "Mi tienda".
 await page.goto(`${BASE}/panel/tienda`);
