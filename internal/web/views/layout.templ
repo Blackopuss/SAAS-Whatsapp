@@ -1,0 +1,26 @@
+package views
+
+templ page(title string) {
+	<!DOCTYPE html>
+	<html lang="es-MX">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="robots" content="noindex"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+		</head>
+		<body class="min-h-dvh bg-stone-50 text-stone-900 font-sans text-base antialiased">
+			{ children... }
+		</body>
+	</html>
+}
+
+templ StoreHome(name string) {
+	@page(name) {
+		<main class="mx-auto max-w-xl p-4">
+			<h1 class="text-3xl font-extrabold tracking-tight">{ name }</h1>
+			<p class="mt-2 text-stone-600">El catálogo llega en el sprint 3.</p>
+		</main>
+	}
+}

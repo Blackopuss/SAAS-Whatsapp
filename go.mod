@@ -10,7 +10,10 @@ tool (
 
 require (
 	github.com/a-h/templ v0.3.1118
+	github.com/alexedwards/scs/pgxstore v0.0.0-20261119174900-ed2e92329119
+	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/jackc/pgx/v5 v5.13.0
+	golang.org/x/crypto v0.59.0
 )
 
 require (
@@ -89,7 +92,6 @@ require (
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20261109185158-a52e3aef5920 // indirect
 	golang.org/x/mod v0.43.0 // indirect
 	golang.org/x/net v0.62.0 // indirect

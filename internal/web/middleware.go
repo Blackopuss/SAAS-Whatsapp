@@ -13,14 +13,26 @@ import (
 
 type ctxKey int
 
-const loggerKey ctxKey = iota
+const (
+	loggerKey ctxKey = iota
+	storeKey
+)
 
-// Log devuelve el logger de la petición (ya trae request_id; el middleware de tenant le agregará store_id).
+// reqLog es un puntero compartido para que el tenant agregue store_id y la línea final del logger lo incluya.
+type reqLog struct{ l *slog.Logger }
+
+// Log devuelve el logger de la petición, con request_id y, dentro de una tienda, store_id.
 func Log(ctx context.Context) *slog.Logger {
-	if l, ok := ctx.Value(loggerKey).(*slog.Logger); ok {
-		return l
+	if rl, ok := ctx.Value(loggerKey).(*reqLog); ok {
+		return rl.l
 	}
 	return slog.Default()
+}
+
+func addLogAttrs(ctx context.Context, args ...any) {
+	if rl, ok := ctx.Value(loggerKey).(*reqLog); ok {
+		rl.l = rl.l.With(args...)
+	}
 }
 
 func randToken(n int) string {
@@ -49,8 +61,8 @@ func requestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := randToken(12)
 		w.Header().Set("X-Request-Id", id)
-		l := slog.Default().With("request_id", id)
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), loggerKey, l)))
+		rl := &reqLog{slog.Default().With("request_id", id)}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), loggerKey, rl)))
 	})
 }
 
@@ -87,10 +99,7 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // chain aplica los middlewares en el orden dado (el primero es el más externo).
-// Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
-// tenant, sesión y CSRF llegan en el sprint 1.
-func chain(h http.Handler) http.Handler {
-	mws := []func(http.Handler) http.Handler{recoverer, requestID, logger, securityHeaders}
+func chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(mws) - 1; i >= 0; i-- {
 		h = mws[i](h)
 	}

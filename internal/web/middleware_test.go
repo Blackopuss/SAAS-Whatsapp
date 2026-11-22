@@ -13,9 +13,13 @@ type fakeDB struct{ err error }
 
 func (f fakeDB) Ping(context.Context) error { return f.err }
 
+func testRoutes(pingErr error) http.Handler {
+	return Routes(Deps{BaseDomain: "tiendas.test", DB: fakeDB{pingErr}, Q: newFakeQ()})
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	rec := httptest.NewRecorder()
-	Routes(fakeDB{}).ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	testRoutes(nil).ServeHTTP(rec, httptest.NewRequest("GET", "http://tiendas.test/", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
@@ -41,17 +45,17 @@ func TestSecurityHeaders(t *testing.T) {
 }
 
 func TestNoncePerRequest(t *testing.T) {
-	h := Routes(fakeDB{})
+	h := testRoutes(nil)
 	a, b := httptest.NewRecorder(), httptest.NewRecorder()
-	h.ServeHTTP(a, httptest.NewRequest("GET", "/", nil))
-	h.ServeHTTP(b, httptest.NewRequest("GET", "/", nil))
+	h.ServeHTTP(a, httptest.NewRequest("GET", "http://tiendas.test/", nil))
+	h.ServeHTTP(b, httptest.NewRequest("GET", "http://tiendas.test/", nil))
 	if a.Header().Get("Content-Security-Policy") == b.Header().Get("Content-Security-Policy") {
 		t.Fatal("el nonce se repite entre peticiones")
 	}
 }
 
 func TestRecoverer(t *testing.T) {
-	h := chain(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("boom") }))
+	h := chain(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("boom") }), recoverer, requestID, logger)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	if rec.Code != http.StatusInternalServerError || strings.Contains(rec.Body.String(), "boom") {
@@ -61,7 +65,7 @@ func TestRecoverer(t *testing.T) {
 
 func TestHealthz(t *testing.T) {
 	rec := httptest.NewRecorder()
-	Routes(fakeDB{err: errors.New("down")}).ServeHTTP(rec, httptest.NewRequest("GET", "/healthz", nil))
+	testRoutes(errors.New("down")).ServeHTTP(rec, httptest.NewRequest("GET", "/healthz", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d", rec.Code)
 	}

@@ -3,6 +3,9 @@
 CREATE ROLE tiendas_migrator LOGIN PASSWORD 'migrator_dev';
 CREATE ROLE tiendas_app LOGIN PASSWORD 'app_dev';
 
+-- Extensiones las crea el superusuario; el migrador no tiene CREATE sobre la base.
+CREATE EXTENSION IF NOT EXISTS citext;
+
 REVOKE ALL ON DATABASE tiendas FROM PUBLIC;
 GRANT CONNECT ON DATABASE tiendas TO tiendas_migrator, tiendas_app;
 

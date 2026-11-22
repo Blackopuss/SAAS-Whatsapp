@@ -10,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexedwards/scs/pgxstore"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web"
 )
 
@@ -33,20 +35,26 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer pool.Close()
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := db.Ping(pingCtx); err != nil {
+	if err := pool.Ping(pingCtx); err != nil {
 		return err
 	}
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           http.MaxBytesHandler(web.Routes(db), 12<<20), // 10 MB por foto + margen del formulario
+		Handler:           http.MaxBytesHandler(web.Routes(web.Deps{
+			BaseDomain: cfg.BaseDomain,
+			Secure:     cfg.Env == "prod",
+			DB:         pool,
+			Q:          db.New(pool),
+			Sessions:   pgxstore.New(pool),
+		}), 12<<20), // 10 MB por foto + margen del formulario
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,

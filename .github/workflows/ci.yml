@@ -12,6 +12,14 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tiendas
+          POSTGRES_PASSWORD: postgres_dev
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 2s --health-retries 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +38,15 @@ jobs:
           go tool templ generate
           sqlc generate
           git diff --exit-code
+
+      - name: Roles y migraciones en Postgres real
+        env:
+          PGPASSWORD: postgres_dev
+        run: |
+          psql -h localhost -U postgres -d tiendas -v ON_ERROR_STOP=1 -f docker/postgres/init.sql
+          go tool goose -dir migrations postgres "postgres://tiendas_migrator:migrator_dev@localhost:5432/tiendas?sslmode=disable" up
+          # La app no debe poder crear tablas.
+          ! PGPASSWORD=app_dev psql -h localhost -U tiendas_app -d tiendas -c "CREATE TABLE x(id int)"
 
       - name: Tests
         run: go test -race ./...

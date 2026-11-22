@@ -51,6 +51,12 @@ type ProductVariant struct {
 	SoldOut   bool
 }
 
+type Session struct {
+	Token  string
+	Data   []byte
+	Expiry pgtype.Timestamptz
+}
+
 type Store struct {
 	ID         int64
 	Slug       string

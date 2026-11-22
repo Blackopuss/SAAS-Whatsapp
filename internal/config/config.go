@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -19,7 +20,7 @@ func Load() (Config, error) {
 	c := Config{
 		Env:         os.Getenv("APP_ENV"),
 		Addr:        os.Getenv("ADDR"),
-		BaseDomain:  os.Getenv("BASE_DOMAIN"),
+		BaseDomain:  strings.ToLower(os.Getenv("BASE_DOMAIN")),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 	}
 	if c.Addr == "" {
