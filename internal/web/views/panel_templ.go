@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	input  = "min-h-12 w-full rounded-md border border-stone-500 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
-	btn    = "inline-flex min-h-12 items-center justify-center rounded-md bg-stone-900 px-4 font-semibold text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
-	btnAlt = "inline-flex min-h-11 items-center justify-center rounded-md border border-stone-500 px-3 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	input  = "min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btn    = "inline-flex min-h-12 items-center justify-center rounded-lg bg-stone-900 px-5 font-semibold text-white shadow-sm hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btnAlt = "inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-400 bg-white px-3 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
 )
 
 func Login(store, email, errMsg string) templ.Component {
@@ -51,7 +51,7 @@ func Login(store, email, errMsg string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4\"><h1 class=\"text-2xl font-bold\">Entrar a tu panel</h1><p class=\"mt-1 text-stone-600\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-5\"><h1 class=\"text-3xl font-bold tracking-tight\">Entrar a tu panel</h1><p class=\"mt-1 text-stone-600\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -64,7 +64,7 @@ func Login(store, email, errMsg string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><form method=\"post\" action=\"/panel/login\" class=\"mt-6 flex flex-col gap-4\" novalidate>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><form method=\"post\" action=\"/panel/login\" class=\"mt-6 flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 shadow-sm\" novalidate>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -310,7 +310,7 @@ func panelPage(store, title, current string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<main class=\"mx-auto max-w-xl p-4 pb-28\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<main class=\"mx-auto max-w-xl p-4 pb-28 sm:p-6 sm:pb-28\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -337,7 +337,7 @@ func panelPage(store, title, current string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</main><nav aria-label=\"Panel\" class=\"fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white\"><ul class=\"mx-auto grid max-w-xl grid-cols-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</main><nav aria-label=\"Panel\" class=\"fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(0_0_0/0.05)]\"><ul class=\"mx-auto grid max-w-xl grid-cols-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -524,7 +524,7 @@ func Products(store string, ps []db.Product) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var23 = []any{btn}
+				var templ_7745c5c3_Var23 = []any{btn + " shrink-0"}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_ElementWriter, templ_7745c5c3_Var23...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -1492,7 +1492,7 @@ func ProductEdit(store string, cats []db.Category, f ProductForm) templ.Componen
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "<div class=\"grid grid-cols-2 gap-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "<div class=\"flex flex-col gap-5\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

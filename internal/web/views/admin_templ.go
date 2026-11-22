@@ -47,7 +47,7 @@ func AdminLogin(email, errMsg string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4\"><h1 class=\"text-2xl font-bold\">Superadmin</h1><form method=\"post\" action=\"/login\" class=\"mt-6 flex flex-col gap-4\" novalidate>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-5\"><h1 class=\"text-3xl font-bold tracking-tight\">Superadmin</h1><form method=\"post\" action=\"/login\" class=\"mt-6 flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 shadow-sm\" novalidate>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -292,7 +292,7 @@ func adminPage(title string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<main class=\"mx-auto max-w-xl p-4 pb-12\"><nav aria-label=\"Superadmin\" class=\"mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-stone-300 pb-3\"><a href=\"/\" class=\"font-medium underline underline-offset-4\">Tiendas</a> <a href=\"/tiendas/nueva\" class=\"font-medium underline underline-offset-4\">Nueva tienda</a> <a href=\"/bitacora\" class=\"font-medium underline underline-offset-4\">Bitácora</a><form method=\"post\" action=\"/logout\" class=\"ml-auto\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<main class=\"mx-auto max-w-xl p-4 pb-12 sm:p-6\"><nav aria-label=\"Superadmin\" class=\"mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-stone-300 pb-3\"><a href=\"/\" class=\"font-medium underline underline-offset-4\">Tiendas</a> <a href=\"/tiendas/nueva\" class=\"font-medium underline underline-offset-4\">Nueva tienda</a> <a href=\"/bitacora\" class=\"font-medium underline underline-offset-4\">Bitácora</a><form method=\"post\" action=\"/logout\" class=\"ml-auto\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1134,7 +1134,7 @@ func AdminStore(v AdminStoreView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</div><dl class=\"mt-4 grid grid-cols-2 gap-2 rounded-lg border border-stone-300 bg-white p-4\"><dt class=\"text-stone-600\">Estado</dt><dd class=\"font-medium\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</div><dl class=\"mt-4 grid grid-cols-1 gap-2 rounded-xl border border-stone-300 bg-white p-4 sm:grid-cols-2\"><dt class=\"text-stone-600\">Estado</dt><dd class=\"font-medium\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1216,7 +1216,7 @@ func AdminStore(v AdminStoreView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" class=\"mt-3 flex flex-col gap-4\" novalidate><div class=\"grid grid-cols-2 gap-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" class=\"mt-3 flex flex-col gap-4\" novalidate><div class=\"flex flex-col gap-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
