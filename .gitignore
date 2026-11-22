@@ -1,0 +1,7 @@
+.env
+*.local
+/bin/
+/tmp/
+web/static/css/app.css
+*.lock
+*.stale
