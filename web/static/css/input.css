@@ -1,2 +1,24 @@
 @import "tailwindcss";
 @source "../../../internal/web/views";
+
+@font-face { font-family: Bricolage; src: url("/static/fonts/bricolage.woff2") format("woff2"); font-weight: 400 800; font-display: swap; }
+@font-face { font-family: Cormorant; src: url("/static/fonts/cormorant.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+@font-face { font-family: "Big Shoulders"; src: url("/static/fonts/bigshoulders.woff2") format("woff2"); font-weight: 600 900; font-display: swap; }
+@font-face { font-family: "Alfa Slab"; src: url("/static/fonts/alfaslab.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Lilita; src: url("/static/fonts/lilita.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Fredoka; src: url("/static/fonts/fredoka.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+
+.style-sample { display: block; width: fit-content; margin: -.15rem 0 .35rem; padding: .12rem .45rem; border-radius: .25rem; font-size: 1.15rem; line-height: 1.2; }
+.style-sample::after { content: ""; display: inline-block; width: .65rem; height: .65rem; margin-left: .4rem; border-radius: 2px; vertical-align: .02rem; background: #c2185b; }
+.style-choice-vitrina .style-sample { font-family: Bricolage, system-ui, sans-serif; color: #76203f; background: #fae5ed; }
+.style-choice-boutique .style-sample { font: 600 1.35rem/1 Cormorant, Georgia, serif; letter-spacing: -.03em; color: #30252d; background: #f1f2ef; }
+.style-choice-boutique .style-sample::after { background: #553249; }
+.style-choice-barberia .style-sample { font: 800 1.3rem/1 "Big Shoulders", Impact, sans-serif; text-transform: uppercase; color: #f4efe5; background: #242328; }
+.style-choice-barberia .style-sample::after { background: #b3202a; }
+.style-choice-carniceria .style-sample { font: 1rem/1.2 "Alfa Slab", Georgia, serif; color: #482020; background: #ead9bb; }
+.style-choice-carniceria .style-sample::after { background: #8e1b1b; }
+.style-choice-abarrotes .style-sample { font: 1.1rem/1.1 Lilita, system-ui, sans-serif; color: #173e26; background: #f2c94c; }
+.style-choice-abarrotes .style-sample::after { background: #285b35; }
+.style-choice-papeleria .style-sample { font: 600 1.1rem/1.1 Fredoka, system-ui, sans-serif; color: #233f67; background: linear-gradient(transparent 50%, #ffe9a8 50%); }
+.style-choice-papeleria .style-sample::after { background: #244c86; }
+.style-copy { min-width: 0; }
