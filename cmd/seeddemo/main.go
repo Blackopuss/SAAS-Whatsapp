@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/images"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
@@ -58,7 +59,11 @@ var catalog = []item{
 
 func main() {
 	slug := flag.String("slug", "ana", "tienda a llenar")
+	dir := flag.String("fotos", "demo/fotos", "carpeta con fotos (vacío = siluetas generadas)")
 	flag.Parse()
+	if *dir != "" {
+		realPhotos, _ = filepath.Glob(filepath.Join(*dir, "*"))
+	}
 	if err := run(*slug); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -77,7 +82,14 @@ func run(slug string) error {
 	if err != nil {
 		return fmt.Errorf("tienda %q: %w", slug, err)
 	}
-	disk := storage.Disk{Dir: "uploads"}
+	// Mismo destino que el servidor: R2 si hay variables R2_*, si no uploads/.
+	var disk storage.Storage = storage.Disk{Dir: "uploads"}
+	if cfg, _ := config.Load(); cfg.HasR2() {
+		if disk, err = storage.NewR2(cfg.R2AccountID, cfg.R2AccessKey, cfg.R2SecretKey, cfg.R2Bucket); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "fotos a R2:", cfg.R2Bucket)
+	}
 
 	// Empieza limpio: borra productos (y sus archivos) y categorías de esta tienda.
 	old, err := q.ListProducts(ctx, s.ID)
@@ -154,8 +166,8 @@ func split(s string) []string {
 	return strings.Split(s, ",")
 }
 
-// realPhotos: si hay fotos en demo/fotos se usan en orden (una por producto, en ciclo) en vez de las generadas.
-var realPhotos, _ = filepath.Glob("demo/fotos/*")
+// realPhotos: si hay fotos en -fotos se usan en orden (una por producto, en ciclo) en vez de las generadas.
+var realPhotos []string
 
 var photoN int
 
