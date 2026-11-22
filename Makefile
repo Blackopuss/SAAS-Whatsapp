@@ -7,8 +7,8 @@ CSS_OUT := web/static/css/app.css
 
 .PHONY: dev db migrate gen css build test lint audit
 
-dev: db migrate
-	go tool air
+dev:
+	docker compose up app
 
 db:
 	docker compose up -d --wait db

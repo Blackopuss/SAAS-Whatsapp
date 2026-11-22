@@ -15,5 +15,35 @@ services:
       interval: 2s
       retries: 15
 
+  # Servidor de desarrollo con recarga en caliente. En Docker para que corra en Linux como en producción
+  # (y porque Windows Defender bloquea los binarios de Go recién compilados).
+  app:
+    image: golang:1.27
+    working_dir: /src
+    command:
+      - sh
+      - -c
+      - |
+        test -x /usr/local/bin/tailwindcss || { curl -sSL -o /usr/local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.5/tailwindcss-linux-x64 && chmod +x /usr/local/bin/tailwindcss; }
+        go tool goose -dir migrations postgres "$$MIGRATIONS_URL" up
+        exec go tool air
+    environment:
+      APP_ENV: dev
+      ADDR: ":8080"
+      BASE_DOMAIN: localhost
+      DATABASE_URL: postgres://tiendas_app:app_dev@db:5432/tiendas?sslmode=disable
+      MIGRATIONS_URL: postgres://tiendas_migrator:migrator_dev@db:5432/tiendas?sslmode=disable
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - .:/src
+      - gomod:/go/pkg/mod
+      - gobuild:/root/.cache/go-build
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   pgdata:
+  gomod:
+  gobuild:
