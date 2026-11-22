@@ -48,7 +48,9 @@ jobs:
           # La app no debe poder crear tablas.
           ! PGPASSWORD=app_dev psql -h localhost -U tiendas_app -d tiendas -c "CREATE TABLE x(id int)"
 
-      - name: Tests
+      - name: Tests (incluye aislamiento entre tiendas contra Postgres real)
+        env:
+          TEST_DATABASE_URL: postgres://tiendas_app:app_dev@localhost:5432/tiendas?sslmode=disable
         run: go test -race ./...
 
       - uses: golangci/golangci-lint-action@v8

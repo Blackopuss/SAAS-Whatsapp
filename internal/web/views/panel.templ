@@ -1,38 +1,276 @@
 package views
 
+import (
+	"strconv"
+
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+)
+
+const (
+	input  = "min-h-12 w-full rounded-md border border-stone-500 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btn    = "inline-flex min-h-12 items-center justify-center rounded-md bg-stone-900 px-4 font-semibold text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btnAlt = "inline-flex min-h-11 items-center justify-center rounded-md border border-stone-500 px-3 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+)
+
 templ Login(store, email, errMsg string) {
-	@page("Entrar · " + store) {
+	@page("Entrar · "+store, "") {
 		<main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4">
 			<h1 class="text-2xl font-bold">Entrar a tu panel</h1>
 			<p class="mt-1 text-stone-600">{ store }</p>
 			<form method="post" action="/panel/login" class="mt-6 flex flex-col gap-4" novalidate>
-				if errMsg != "" {
-					<p role="alert" class="rounded-md border border-red-300 bg-red-50 p-3 text-red-800">{ errMsg }</p>
-				}
+				@alert(errMsg)
 				<div class="flex flex-col gap-1">
 					<label for="email" class="font-medium">Email</label>
-					<input id="email" name="email" type="email" value={ email } autocomplete="username" required autofocus?={ email == "" } class="min-h-12 rounded-md border border-stone-400 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"/>
+					<input id="email" name="email" type="email" value={ email } autocomplete="username" required autofocus?={ email == "" } class={ input }/>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="password" class="font-medium">Contraseña</label>
-					<input id="password" name="password" type="password" autocomplete="current-password" required autofocus?={ email != "" } class="min-h-12 rounded-md border border-stone-400 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"/>
+					<input id="password" name="password" type="password" autocomplete="current-password" required autofocus?={ email != "" } class={ input }/>
 				</div>
-				<button type="submit" class="min-h-12 rounded-md bg-stone-900 px-4 font-semibold text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900">Entrar</button>
+				<button type="submit" class={ btn }>Entrar</button>
 			</form>
 		</main>
 	}
 }
 
-templ PanelHome(store string) {
-	@page("Panel · " + store) {
-		<main class="mx-auto max-w-xl p-4">
-			<div class="flex items-center justify-between gap-4">
-				<h1 class="text-2xl font-bold">{ store }</h1>
-				<form method="post" action="/panel/logout">
-					<button type="submit" class="min-h-11 rounded-md border border-stone-400 px-4 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900">Salir</button>
-				</form>
-			</div>
-			<p class="mt-4 text-stone-600">Aquí vas a dar de alta tus productos (sprint 2).</p>
-		</main>
+templ alert(msg string) {
+	if msg != "" {
+		<p role="alert" class="rounded-md border border-red-300 bg-red-50 p-3 text-red-800">{ msg }</p>
 	}
+}
+
+// panelPage: navegación inferior fija para usarlo con el pulgar (plan 3.6).
+templ panelPage(store, title, current string) {
+	@page(title+" · "+store, "") {
+		<main class="mx-auto max-w-xl p-4 pb-28">
+			{ children... }
+		</main>
+		<nav aria-label="Panel" class="fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white">
+			<ul class="mx-auto grid max-w-xl grid-cols-3">
+				@navItem("/panel/", "Productos", current == "productos")
+				@navItem("/panel/categorias", "Categorías", current == "categorias")
+				<li>
+					<form method="post" action="/panel/logout">
+						<button type="submit" class="flex min-h-14 w-full items-center justify-center font-medium text-stone-700 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-900">Salir</button>
+					</form>
+				</li>
+			</ul>
+		</nav>
+	}
+}
+
+templ navItem(href, label string, active bool) {
+	<li>
+		<a
+			href={ templ.SafeURL(href) }
+			aria-current?={ active }
+			class={ "flex min-h-14 items-center justify-center font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-900",
+				templ.KV("text-stone-950 underline decoration-2 underline-offset-8", active),
+				templ.KV("text-stone-700", !active) }
+		>{ label }</a>
+	</li>
+}
+
+func money(cents int32) string {
+	s := strconv.FormatInt(int64(cents)/100, 10)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	if c := cents % 100; c != 0 {
+		return "$" + s + "." + strconv.FormatInt(int64(c)+100, 10)[1:]
+	}
+	return "$" + s
+}
+
+func idStr(id int64) string { return strconv.FormatInt(id, 10) }
+
+templ Products(store string, ps []db.Product) {
+	@panelPage(store, "Productos", "productos") {
+		<div class="flex items-center justify-between gap-4">
+			<h1 class="text-2xl font-bold">Productos</h1>
+			<a href="/panel/productos/nuevo" class={ btn }>Agregar producto</a>
+		</div>
+		if len(ps) == 0 {
+			<div class="mt-8 rounded-lg border border-dashed border-stone-400 p-6">
+				<p class="font-medium">Aún no tienes productos.</p>
+				<p class="mt-1 text-stone-600">Agrega el primero; luego puedes ordenarlos por categoría.</p>
+			</div>
+		}
+		<ul class="mt-6 flex flex-col gap-3">
+			for _, p := range ps {
+				<li id={ "p" + idStr(p.ID) } class={ "rounded-lg border border-stone-300 bg-white p-4", templ.KV("opacity-70", !p.Active) }>
+					<div class="flex items-start justify-between gap-3">
+						<a href={ templ.SafeURL("/panel/productos/" + idStr(p.ID)) } class="font-semibold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-stone-900">{ p.Name }</a>
+						<span class="shrink-0 tabular-nums">
+							if p.SalePriceCents.Valid && p.OnSale {
+								<s class="text-stone-500">{ money(p.PriceCents) }</s> { money(p.SalePriceCents.Int32) }
+							} else {
+								{ money(p.PriceCents) }
+							}
+						</span>
+					</div>
+					<div class="mt-3 flex flex-wrap gap-2">
+						@toggle(p.ID, "active", "Visible", p.Active)
+						@toggle(p.ID, "sold_out", "Agotado", p.SoldOut)
+						@toggle(p.ID, "is_new", "Nuevo", p.IsNew)
+						@toggle(p.ID, "on_sale", "Oferta", p.OnSale)
+					</div>
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ toggle(id int64, flag, label string, on bool) {
+	<form method="post" action={ templ.SafeURL("/panel/productos/" + idStr(id) + "/marcar/" + flag) }>
+		<button
+			type="submit"
+			aria-pressed={ strconv.FormatBool(on) }
+			class={ "min-h-11 rounded-full border px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900",
+				templ.KV("border-stone-900 bg-stone-900 text-white", on),
+				templ.KV("border-stone-400 bg-white text-stone-700", !on) }
+		>
+			if on {
+				<span aria-hidden="true">✓ </span>
+			}
+			{ label }
+		</button>
+	</form>
+}
+
+templ Categories(store string, cats []db.Category, errMsg string) {
+	@panelPage(store, "Categorías", "categorias") {
+		<h1 class="text-2xl font-bold">Categorías</h1>
+		<form method="post" action="/panel/categorias" class="mt-6 flex flex-col gap-2">
+			@alert(errMsg)
+			<label for="new-cat" class="font-medium">Nueva categoría</label>
+			<div class="flex gap-2">
+				<input id="new-cat" name="name" required maxlength="60" placeholder="Ej. Blusas" class={ input }/>
+				<button type="submit" class={ btn }>Agregar</button>
+			</div>
+		</form>
+		<ol class="mt-6 flex flex-col gap-3">
+			for i, c := range cats {
+				<li class="rounded-lg border border-stone-300 bg-white p-3">
+					<form method="post" action={ templ.SafeURL("/panel/categorias/" + idStr(c.ID) + "/renombrar") } class="flex gap-2">
+						<label for={ "cat-" + idStr(c.ID) } class="sr-only">Nombre de la categoría</label>
+						<input id={ "cat-" + idStr(c.ID) } name="name" value={ c.Name } required maxlength="60" class={ input }/>
+						<button type="submit" class={ btnAlt }>Guardar</button>
+					</form>
+					<div class="mt-2 flex gap-2">
+						<form method="post" action={ templ.SafeURL("/panel/categorias/" + idStr(c.ID) + "/mover") }>
+							<input type="hidden" name="dir" value="up"/>
+							<button type="submit" disabled?={ i == 0 } class={ btnAlt + " disabled:opacity-40" }>Subir<span class="sr-only"> { c.Name }</span></button>
+						</form>
+						<form method="post" action={ templ.SafeURL("/panel/categorias/" + idStr(c.ID) + "/mover") }>
+							<input type="hidden" name="dir" value="down"/>
+							<button type="submit" disabled?={ i == len(cats)-1 } class={ btnAlt + " disabled:opacity-40" }>Bajar<span class="sr-only"> { c.Name }</span></button>
+						</form>
+						<form method="post" action={ templ.SafeURL("/panel/categorias/" + idStr(c.ID) + "/borrar") } class="ml-auto">
+							<button type="submit" class={ btnAlt + " text-red-800" }>Borrar<span class="sr-only"> { c.Name }</span></button>
+						</form>
+					</div>
+				</li>
+			}
+		</ol>
+	}
+}
+
+type VariantRow struct {
+	Key, Label string
+	SoldOut    bool
+}
+
+type ProductForm struct {
+	ID                                  int64
+	Name, Description, Price, SalePrice string
+	CategoryID                          int64
+	Sizes, Colors                       string
+	Variants                            []VariantRow
+	Error                               string
+	Saved                               bool
+}
+
+templ ProductEdit(store string, cats []db.Category, f ProductForm) {
+	@panelPage(store, map[bool]string{true: "Nuevo producto", false: "Editar producto"}[f.ID == 0], "productos") {
+		<a href="/panel/" class="text-stone-700 underline underline-offset-4">← Productos</a>
+		<h1 class="mt-2 text-2xl font-bold">
+			if f.ID == 0 {
+				Nuevo producto
+			} else {
+				Editar producto
+			}
+		</h1>
+		<form
+			method="post"
+			action={ templ.SafeURL(map[bool]string{true: "/panel/productos", false: "/panel/productos/" + idStr(f.ID)}[f.ID == 0]) }
+			class="mt-6 flex flex-col gap-5"
+			novalidate
+		>
+			@alert(f.Error)
+			if f.Saved {
+				<p role="status" class="rounded-md border border-green-300 bg-green-50 p-3 text-green-900">Producto guardado.</p>
+			}
+			@field("name", "Nombre") {
+				<input id="name" name="name" value={ f.Name } required maxlength="120" class={ input }/>
+			}
+			<div class="grid grid-cols-2 gap-3">
+				@field("price", "Precio") {
+					<input id="price" name="price" value={ f.Price } inputmode="decimal" required placeholder="289" class={ input }/>
+				}
+				@field("sale_price", "Oferta (opcional)") {
+					<input id="sale_price" name="sale_price" value={ f.SalePrice } inputmode="decimal" placeholder="249" class={ input }/>
+				}
+			</div>
+			@field("category_id", "Categoría") {
+				<select id="category_id" name="category_id" class={ input }>
+					<option value="">Sin categoría</option>
+					for _, c := range cats {
+						<option value={ idStr(c.ID) } selected?={ c.ID == f.CategoryID }>{ c.Name }</option>
+					}
+				</select>
+			}
+			@field("sizes", "Tallas") {
+				<input id="sizes" name="sizes" value={ f.Sizes } aria-describedby="sizes-help" placeholder="S, M, L" class={ input }/>
+				<p id="sizes-help" class="text-sm text-stone-600">Sepáralas con comas. Déjalo vacío si es talla única.</p>
+			}
+			@field("colors", "Colores") {
+				<input id="colors" name="colors" value={ f.Colors } aria-describedby="colors-help" placeholder="Negro, Blanco" class={ input }/>
+				<p id="colors-help" class="text-sm text-stone-600">Sepáralos con comas. Déjalo vacío si hay un solo color.</p>
+			}
+			if len(f.Variants) > 0 {
+				<fieldset class="rounded-lg border border-stone-300 p-3">
+					<legend class="px-1 font-medium">¿Qué combinaciones están agotadas?</legend>
+					<div class="mt-2 grid grid-cols-2 gap-2">
+						for _, v := range f.Variants {
+							<label class="flex min-h-11 items-center gap-2">
+								<input type="checkbox" name="soldout" value={ v.Key } checked?={ v.SoldOut } class="size-5"/>
+								{ v.Label }
+							</label>
+						}
+					</div>
+				</fieldset>
+			}
+			@field("description", "Descripción") {
+				<textarea id="description" name="description" rows="5" maxlength="4000" class={ input + " py-2" }>{ f.Description }</textarea>
+			}
+			<button type="submit" class={ btn }>Guardar producto</button>
+		</form>
+		if f.ID != 0 {
+			<details class="mt-8 border-t border-stone-300 pt-6">
+				<summary class={ btnAlt + " cursor-pointer text-red-800" }>Borrar producto</summary>
+				<form method="post" action={ templ.SafeURL("/panel/productos/" + idStr(f.ID) + "/borrar") } class="mt-3 flex items-center gap-3">
+					<p>Se borra para siempre, con sus fotos.</p>
+					<button type="submit" class={ btn + " bg-red-800 hover:bg-red-700" }>Sí, borrar</button>
+				</form>
+			</details>
+		}
+	}
+}
+
+templ field(id, label string) {
+	<div class="flex flex-col gap-1">
+		<label for={ id } class="font-medium">{ label }</label>
+		{ children... }
+	</div>
 }

@@ -53,6 +53,7 @@ func run() error {
 			Secure:     cfg.Env == "prod",
 			DB:         pool,
 			Q:          db.New(pool),
+			Tx:         func(ctx context.Context, fn func(db.Querier) error) error { return db.InTx(ctx, pool, fn) },
 			Sessions:   pgxstore.New(pool),
 		}), 12<<20), // 10 MB por foto + margen del formulario
 		ReadHeaderTimeout: 5 * time.Second,

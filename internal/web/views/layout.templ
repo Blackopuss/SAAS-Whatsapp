@@ -1,12 +1,17 @@
 package views
 
-templ page(title string) {
+// page: description vacía = página privada (panel), que no se indexa.
+templ page(title, description string) {
 	<!DOCTYPE html>
 	<html lang="es-MX">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="robots" content="noindex"/>
+			if description == "" {
+				<meta name="robots" content="noindex"/>
+			} else {
+				<meta name="description" content={ description }/>
+			}
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/static/css/app.css"/>
 		</head>
@@ -17,7 +22,7 @@ templ page(title string) {
 }
 
 templ StoreHome(name string) {
-	@page(name) {
+	@page(name, "Catálogo de "+name+". Elige tus productos y haz tu pedido por WhatsApp.") {
 		<main class="mx-auto max-w-xl p-4">
 			<h1 class="text-3xl font-extrabold tracking-tight">{ name }</h1>
 			<p class="mt-2 text-stone-600">El catálogo llega en el sprint 3.</p>

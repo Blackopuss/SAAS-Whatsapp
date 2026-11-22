@@ -14,7 +14,9 @@ import (
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 )
 
+// fakeQ implementa solo lo que usan los tests de auth; el resto de db.Querier entra en pánico si se llama.
 type fakeQ struct {
+	db.Querier
 	stores map[string]db.Store
 	users  map[db.GetUserForLoginParams]db.GetUserForLoginRow
 }
@@ -159,3 +161,5 @@ func TestCSRFCrossOriginRejected(t *testing.T) {
 		t.Fatalf("POST cross-site: status %d", rec.Code)
 	}
 }
+
+func (f *fakeQ) ListProducts(context.Context, int64) ([]db.Product, error) { return nil, nil }

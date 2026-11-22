@@ -107,7 +107,3 @@ func (a *app) requireUser(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-func (a *app) panelHome(w http.ResponseWriter, r *http.Request) {
-	renderStatus(w, r, http.StatusOK, views.PanelHome(StoreFrom(r.Context()).Name))
-}

@@ -5,7 +5,7 @@ tmp_dir = "tmp"
   cmd = "go tool templ generate && tailwindcss -i web/static/css/input.css -o web/static/css/app.css && go build -o ./tmp/server ./cmd/server"
   entrypoint = ["./tmp/server"]
   include_ext = ["go", "templ", "sql", "css"]
-  exclude_dir = ["tmp", "bin", "node_modules", ".git", ".claude"]
+  exclude_dir = ["tmp", "bin", "node_modules", ".git", ".claude", "e2e"]
   exclude_regex = ["_templ\\.go$", "_test\\.go$", "app\\.css$"]
   delay = 300
   # Corre dentro de Docker (servicio app); los cambios desde Windows no llegan por inotify, así que se sondea.

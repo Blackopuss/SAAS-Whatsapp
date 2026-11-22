@@ -3,11 +3,13 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web/views"
@@ -15,25 +17,23 @@ import (
 
 type Pinger interface{ Ping(context.Context) error }
 
-// Queries es lo que la capa web usa de sqlc; *db.Queries lo cumple y los tests lo pueden simular.
-type Queries interface {
-	GetStoreBySlug(context.Context, string) (db.Store, error)
-	GetUserForLogin(context.Context, db.GetUserForLoginParams) (db.GetUserForLoginRow, error)
-}
-
 type Deps struct {
 	BaseDomain string
-	Secure     bool      // cookies Secure; false solo en desarrollo por http
+	Secure     bool // cookies Secure; false solo en desarrollo por http
 	DB         Pinger
-	Q          Queries
-	Sessions   scs.Store // nil = memoria (tests)
+	Q          db.Querier
+	Tx         func(context.Context, func(db.Querier) error) error // nil = sin transacción (tests con fakes)
+	Sessions   scs.Store                                           // nil = memoria (tests)
 }
 
 type app struct {
-	q        Queries
+	q        db.Querier
+	tx       func(context.Context, func(db.Querier) error) error
 	sessions *scs.SessionManager
 	limit    *limiter
 }
+
+func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
 
 func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 	sm := scs.New()
@@ -53,7 +53,10 @@ func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 
 // Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
 func Routes(d Deps) http.Handler {
-	a := &app{q: d.Q, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute)}
+	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute)}
+	if a.tx == nil {
+		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
+	}
 	t := &tenants{m: map[string]cachedStore{}, lookup: d.Q.GetStoreBySlug, base: d.BaseDomain}
 
 	root := http.NewServeMux()
@@ -63,7 +66,22 @@ func Routes(d Deps) http.Handler {
 	panel.HandleFunc("GET /panel/login", a.loginForm)
 	panel.HandleFunc("POST /panel/login", a.loginPost)
 	panel.HandleFunc("POST /panel/logout", a.logout)
-	panel.Handle("GET /panel/{$}", a.requireUser(http.HandlerFunc(a.panelHome)))
+	for pattern, h := range map[string]http.HandlerFunc{
+		"GET /panel/{$}":                            a.products,
+		"GET /panel/productos/nuevo":                a.productNew,
+		"POST /panel/productos":                     a.productSave,
+		"GET /panel/productos/{id}":                 a.productEdit,
+		"POST /panel/productos/{id}":                a.productSave,
+		"POST /panel/productos/{id}/borrar":         a.productDelete,
+		"POST /panel/productos/{id}/marcar/{flag}":  a.productToggle,
+		"GET /panel/categorias":                     a.categories,
+		"POST /panel/categorias":                    a.categoryCreate,
+		"POST /panel/categorias/{id}/renombrar":     a.categoryRename,
+		"POST /panel/categorias/{id}/borrar":        a.categoryDelete,
+		"POST /panel/categorias/{id}/mover":         a.categoryMove,
+	} {
+		panel.Handle(pattern, a.requireUser(h))
+	}
 
 	store := http.NewServeMux()
 	store.HandleFunc("GET /{$}", render(func(r *http.Request) templ.Component { return views.StoreHome(StoreFrom(r.Context()).Name) }))

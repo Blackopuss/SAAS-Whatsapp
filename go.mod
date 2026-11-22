@@ -12,8 +12,11 @@ require (
 	github.com/a-h/templ v0.3.1118
 	github.com/alexedwards/scs/pgxstore v0.0.0-20261119174900-ed2e92329119
 	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/gen2brain/avif v0.6.0
+	github.com/gen2brain/webp v0.6.4
 	github.com/jackc/pgx/v5 v5.13.0
 	golang.org/x/crypto v0.59.0
+	golang.org/x/image v0.48.0
 )
 
 require (
@@ -37,6 +40,7 @@ require (
 	github.com/cli/browser v1.3.0 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/elastic/go-sysinfo v1.15.5 // indirect
 	github.com/elastic/go-windows v1.0.2 // indirect
 	github.com/fatih/color v1.19.0 // indirect
@@ -80,6 +84,7 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/tdewolff/parse/v2 v2.8.12 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/tursodatabase/libsql-client-go v0.0.0-20260528064733-9d5d30a29a60 // indirect
 	github.com/vertica/vertica-sql-go v1.3.9 // indirect
 	github.com/yandex-cloud/go-genproto v0.137.0 // indirect
