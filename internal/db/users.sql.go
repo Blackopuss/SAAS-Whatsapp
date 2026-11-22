@@ -10,7 +10,7 @@ import (
 )
 
 const createStore = `-- name: CreateStore :one
-INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at
+INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info
 `
 
 type CreateStoreParams struct {
@@ -30,6 +30,11 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store
 		&i.BrandColor,
 		&i.Status,
 		&i.CreatedAt,
+		&i.BrandColorRaw,
+		&i.LogoKey,
+		&i.LogoWidths,
+		&i.Faq,
+		&i.PaymentInfo,
 	)
 	return i, err
 }

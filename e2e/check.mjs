@@ -109,8 +109,22 @@ await audit("categorias", `${BASE}/panel/categorias`);
 // WhatsApp de la tienda (número de prueba que no existe) y "Mi tienda".
 await page.goto(`${BASE}/panel/tienda`);
 await page.getByLabel("WhatsApp para recibir pedidos").fill("55 0000 0000");
+// Gris medio: no llega a 4.5:1 ni con blanco ni con tinta, así que el servidor debe ajustarlo y avisar.
+await page.getByLabel("Color de tu marca").fill("#7f7f7f");
+await page.getByLabel("Datos para pagar por transferencia (opcional)").fill("BBVA\nCLABE 012 180 00000000000 0\nA nombre de Ana Demo");
+await page.getByLabel("Tus preguntas frecuentes (opcional)").fill("¿Hacen envíos?\nSí, a todo México por paquetería.\n\n¿Apartan?\nSí, con el 50 %.");
 await page.getByRole("button", { name: "Guardar datos" }).click();
 await page.getByRole("status").filter({ hasText: "Datos guardados" }).waitFor();
+if (!(await page.getByText("Ajustamos un poco tu color").count())) {
+  failed = true;
+  console.log("  mi tienda: no avisó el ajuste de color");
+}
+await page.screenshot({ path: "out/mi-tienda-ajuste.png", fullPage: true });
+await page.getByLabel("Color de tu marca").fill("#c2185b");
+await page.getByRole("button", { name: "Guardar datos" }).click();
+await page.getByRole("status").filter({ hasText: "Datos guardados" }).waitFor();
+const preview = page.frameLocator('iframe[title="Vista previa de tu tienda"]');
+await preview.getByRole("heading", { level: 1 }).waitFor();
 await audit("mi-tienda", `${BASE}/panel/tienda`);
 
 // Tienda pública (plantilla Vitrina)
@@ -121,6 +135,18 @@ const prodURL = await page.locator("a.card:not(.sold)").first().getAttribute("hr
 await audit("tienda-categoria", `${BASE}${catURL}`, { auth: false });
 await audit("tienda-producto", `${BASE}${prodURL}`, { auth: false });
 await audit("tienda-preguntas", `${BASE}/preguntas`, { auth: false });
+await page.goto(`${BASE}/preguntas`);
+for (const t of ["¿Hacen envíos?", "CLABE"]) {
+  if (!(await page.getByText(t).count())) {
+    failed = true;
+    console.log(`  preguntas: falta "${t}"`);
+  }
+}
+const og = await page.goto(`${BASE}${prodURL}`).then(() => page.locator('meta[property="og:image"]').getAttribute("content"));
+if (!og?.startsWith("http")) {
+  failed = true;
+  console.log(`  producto: og:image no es absoluta: ${og}`);
+}
 
 // Carrito: elegir talla y color disponibles, agregar, revisar el mensaje de WhatsApp.
 await page.goto(`${BASE}${prodURL}`);

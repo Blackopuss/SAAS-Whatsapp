@@ -9,6 +9,7 @@ import (
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/theme"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web/views"
 )
 
@@ -48,7 +49,14 @@ func (a *app) shop(r *http.Request, current int64) (views.Shop, []db.ListStorePr
 	for _, p := range ps {
 		used[p.CategoryID.Int64] = true
 	}
-	sh := views.Shop{Name: s.Name, Current: current, Whatsapp: strings.TrimPrefix(s.Whatsapp, "+")}
+	sh := views.Shop{
+		Name: s.Name, Current: current, Whatsapp: strings.TrimPrefix(s.Whatsapp, "+"),
+		Logo: a.photo(s.LogoKey, s.LogoWidths), FAQ: parseFAQ(s.Faq), Payment: s.PaymentInfo,
+		URL: a.shopURL(r, s.Slug), OGImage: a.abs(r, s.Slug, a.photo(s.LogoKey, s.LogoWidths).Src),
+	}
+	if theme.Valid(s.BrandColor) {
+		sh.Brand, sh.BrandInk = s.BrandColor, theme.InkFor(s.BrandColor)
+	}
 	for _, c := range cats {
 		if used[c.ID] {
 			sh.Categories = append(sh.Categories, c)
@@ -78,7 +86,11 @@ func (a *app) shopHome(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	renderStatus(w, r, http.StatusOK, views.ShopHome(sh, a.cards(ps, 0)))
+	cards := a.cards(ps, 0)
+	if sh.OGImage == "" && len(cards) > 0 {
+		sh.OGImage = a.abs(r, StoreFrom(r.Context()).Slug, cards[0].Photo.Src)
+	}
+	renderStatus(w, r, http.StatusOK, views.ShopHome(sh, cards))
 }
 
 func (a *app) shopCategory(w http.ResponseWriter, r *http.Request) {
@@ -148,6 +160,11 @@ func (a *app) shopProduct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	pp.Sizes, pp.Colors, pp.SoldOutCombos = options(vs)
+	sh.URL += "p/" + strconv.FormatInt(p.ID, 10)
+	if len(imgs) > 0 && len(imgs[0].Widths) > 0 { // la versión más grande: WhatsApp y Facebook la recortan a su gusto
+		im := imgs[0]
+		sh.OGImage = a.abs(r, s.Slug, a.mediaURL+storage.VariantKey(im.R2Key, im.Widths[len(im.Widths)-1], "webp"))
+	}
 	renderStatus(w, r, http.StatusOK, views.ShopProduct(sh, pp))
 }
 
@@ -261,34 +278,4 @@ func normalizeWhatsapp(in string) (string, bool) {
 		d = "+" + d
 	}
 	return d, e164.MatchString(d)
-}
-
-func (a *app) shopURL(r *http.Request, slug string) string {
-	return strings.TrimSuffix(a.resetLink(r.Host, slug, ""), "/panel/recuperar?t=") + "/"
-}
-
-func (a *app) myStore(w http.ResponseWriter, r *http.Request) {
-	s, err := a.q.GetStoreBySlug(r.Context(), StoreFrom(r.Context()).Slug) // sin caché: muestra lo recién guardado
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	renderStatus(w, r, http.StatusOK, views.MyStore(s.Name, a.shopURL(r, s.Slug), s.Whatsapp, "", r.URL.Query().Has("guardado")))
-}
-
-func (a *app) myStoreSave(w http.ResponseWriter, r *http.Request) {
-	s := StoreFrom(r.Context())
-	raw := r.PostFormValue("whatsapp")
-	wa, ok := normalizeWhatsapp(raw)
-	if !ok || len(raw) > 40 {
-		renderStatus(w, r, http.StatusUnprocessableEntity, views.MyStore(s.Name, a.shopURL(r, s.Slug), raw,
-			"Revisa el número: deben ser 10 dígitos si es de México, o empezar con + y la lada si es de otro país.", false))
-		return
-	}
-	if err := a.q.UpdateStoreWhatsapp(r.Context(), db.UpdateStoreWhatsappParams{ID: s.ID, Whatsapp: wa}); err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	a.tenants.forget(s.Slug)
-	back(w, r, "/panel/tienda?guardado")
 }

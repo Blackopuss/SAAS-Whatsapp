@@ -76,14 +76,19 @@ type Session struct {
 }
 
 type Store struct {
-	ID         int64
-	Slug       string
-	Name       string
-	Whatsapp   string
-	Template   string
-	BrandColor string
-	Status     string
-	CreatedAt  pgtype.Timestamptz
+	ID            int64
+	Slug          string
+	Name          string
+	Whatsapp      string
+	Template      string
+	BrandColor    string
+	Status        string
+	CreatedAt     pgtype.Timestamptz
+	BrandColorRaw string
+	LogoKey       string
+	LogoWidths    []int32
+	Faq           string
+	PaymentInfo   string
 }
 
 type User struct {

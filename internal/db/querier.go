@@ -47,10 +47,13 @@ type Querier interface {
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)
 	// @ids es la lista completa en el nuevo orden.
 	ReorderCategories(ctx context.Context, arg ReorderCategoriesParams) error
+	// Devuelve el logo anterior para borrar sus archivos.
+	SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (SetStoreLogoRow, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	// @flag ya viene validado por el handler (active, sold_out, is_new, on_sale).
 	ToggleProductFlag(ctx context.Context, arg ToggleProductFlagParams) (int64, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error)
+	UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettingsParams) error
 	UpdateStoreWhatsapp(ctx context.Context, arg UpdateStoreWhatsappParams) error
 	// Un solo uso: dos peticiones simultáneas con el mismo token no pueden ganar ambas.
 	UsePasswordReset(ctx context.Context, arg UsePasswordResetParams) (int64, error)

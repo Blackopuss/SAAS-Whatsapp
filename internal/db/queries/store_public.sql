@@ -24,3 +24,13 @@ WHERE v.store_id = $1 AND p.active ORDER BY v.id;
 
 -- name: UpdateStoreWhatsapp :exec
 UPDATE stores SET whatsapp = $2 WHERE id = $1;
+
+-- name: UpdateStoreSettings :exec
+UPDATE stores SET name = $2, brand_color = $3, brand_color_raw = $4, faq = $5, payment_info = $6 WHERE id = $1;
+
+-- name: SetStoreLogo :one
+-- Devuelve el logo anterior para borrar sus archivos.
+UPDATE stores s SET logo_key = @logo_key, logo_widths = @logo_widths
+FROM (SELECT o.id, o.logo_key, o.logo_widths FROM stores o WHERE o.id = @id FOR UPDATE) old
+WHERE s.id = old.id
+RETURNING old.logo_key, old.logo_widths;

@@ -117,6 +117,57 @@ func (q *Queries) ListStoreVariants(ctx context.Context, storeID int64) ([]ListS
 	return items, nil
 }
 
+const setStoreLogo = `-- name: SetStoreLogo :one
+UPDATE stores s SET logo_key = $1, logo_widths = $2
+FROM (SELECT o.id, o.logo_key, o.logo_widths FROM stores o WHERE o.id = $3 FOR UPDATE) old
+WHERE s.id = old.id
+RETURNING old.logo_key, old.logo_widths
+`
+
+type SetStoreLogoParams struct {
+	LogoKey    string
+	LogoWidths []int32
+	ID         int64
+}
+
+type SetStoreLogoRow struct {
+	LogoKey    string
+	LogoWidths []int32
+}
+
+// Devuelve el logo anterior para borrar sus archivos.
+func (q *Queries) SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (SetStoreLogoRow, error) {
+	row := q.db.QueryRow(ctx, setStoreLogo, arg.LogoKey, arg.LogoWidths, arg.ID)
+	var i SetStoreLogoRow
+	err := row.Scan(&i.LogoKey, &i.LogoWidths)
+	return i, err
+}
+
+const updateStoreSettings = `-- name: UpdateStoreSettings :exec
+UPDATE stores SET name = $2, brand_color = $3, brand_color_raw = $4, faq = $5, payment_info = $6 WHERE id = $1
+`
+
+type UpdateStoreSettingsParams struct {
+	ID            int64
+	Name          string
+	BrandColor    string
+	BrandColorRaw string
+	Faq           string
+	PaymentInfo   string
+}
+
+func (q *Queries) UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettingsParams) error {
+	_, err := q.db.Exec(ctx, updateStoreSettings,
+		arg.ID,
+		arg.Name,
+		arg.BrandColor,
+		arg.BrandColorRaw,
+		arg.Faq,
+		arg.PaymentInfo,
+	)
+	return err
+}
+
 const updateStoreWhatsapp = `-- name: UpdateStoreWhatsapp :exec
 UPDATE stores SET whatsapp = $2 WHERE id = $1
 `

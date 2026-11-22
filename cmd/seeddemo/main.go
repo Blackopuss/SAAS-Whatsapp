@@ -3,6 +3,7 @@
 //	go run ./cmd/seeddemo -slug ana
 //
 // Solo para desarrollo: guarda las fotos en uploads/ y borra antes el catálogo de esa tienda.
+// Si pones fotos en demo/fotos/ (JPG, PNG o WebP) las usa en orden; si no, genera siluetas.
 package main
 
 import (
@@ -13,6 +14,7 @@ import (
 	"image/color"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -152,8 +154,24 @@ func split(s string) []string {
 	return strings.Split(s, ",")
 }
 
+// realPhotos: si hay fotos en demo/fotos se usan en orden (una por producto, en ciclo) en vez de las generadas.
+var realPhotos, _ = filepath.Glob("demo/fotos/*")
+
+var photoN int
+
 func addPhoto(ctx context.Context, q *db.Queries, st storage.Storage, storeID, pid int64, hue float64) error {
 	img := fakePhoto(hue)
+	if len(realPhotos) > 0 {
+		f := realPhotos[photoN%len(realPhotos)]
+		photoN++
+		data, err := os.ReadFile(f) // #nosec G304 -- herramienta local de desarrollo
+		if err != nil {
+			return err
+		}
+		if img, err = images.Decode(data); err != nil {
+			return fmt.Errorf("%s: %w", f, err)
+		}
+	}
 	rs, err := images.Renditions(img)
 	if err != nil {
 		return err

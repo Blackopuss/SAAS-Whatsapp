@@ -19,7 +19,7 @@
 
 @layer tokens {
   :root {
-    --brand: oklch(0.62 0.19 350);
+    --brand: #c2185b; /* el servidor lo cambia por el de la vendedora, ya con contraste garantizado */
     --brand-strong: oklch(from var(--brand) calc(l - 0.14) c h);
     --brand-ink: white;
     --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper));
@@ -150,7 +150,11 @@
     display: flex; align-items: center; justify-content: center; min-height: 3.25rem; width: 100%;
     border: 0; border-radius: 0.75rem; font-weight: 700; text-decoration: none; cursor: pointer;
   }
-  .primary { background: var(--brand-strong); color: var(--brand-ink); }
+  .primary { background: var(--brand); color: var(--brand-ink); }
+  .share { justify-self: start; min-height: 44px; display: flex; align-items: center; font-weight: 700; }
+  .pay { white-space: pre-line; }
+  .top { display: flex; align-items: center; gap: var(--space-3); }
+  .logo { width: 56px; height: 56px; object-fit: contain; flex: none; }
   .wa { background: var(--wa); color: #052e16; }
   .add-status:empty { display: none; }
   .desc { display: grid; gap: var(--space-3); max-width: 40ch; }

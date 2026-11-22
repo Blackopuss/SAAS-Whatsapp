@@ -60,3 +60,13 @@ func TestOptions(t *testing.T) {
 		t.Errorf("agotadas: %v", sold)
 	}
 }
+
+func TestParseFAQ(t *testing.T) {
+	got := parseFAQ("¿Hacen envíos?\nSí, a todo México.\n\n\n¿Apartan?\n\nSolo pregunta sin respuesta")
+	if len(got) != 3 || got[0].Q != "¿Hacen envíos?" || got[0].A != "Sí, a todo México." || got[1].A != "" || got[2].Q != "Solo pregunta sin respuesta" {
+		t.Fatalf("%+v", got)
+	}
+	if len(parseFAQ("  \n\n ")) != 0 {
+		t.Fatal("texto vacío dio preguntas")
+	}
+}

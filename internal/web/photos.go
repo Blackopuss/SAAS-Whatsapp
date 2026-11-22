@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"errors"
+	"image"
 	"io"
 	"net/http"
 	"net/url"
@@ -59,62 +60,17 @@ func (a *app) photoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("foto")
-	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
-			fail("pesada")
-			return
-		}
-		fail("falta")
-		return
-	}
-	defer func() { _ = file.Close() }()
-	data, err := io.ReadAll(io.LimitReader(file, images.MaxBytes+1))
-	if err != nil {
-		fail("falta")
-		return
-	}
-	img, err := images.Decode(data)
-	if err != nil {
-		Log(ctx).Warn("foto rechazada", "err", err)
-		if errors.Is(err, images.ErrInvalid) {
-			fail("invalida")
-		} else {
-			fail("pesada")
-		}
-		return
-	}
-
-	select {
-	case photoSlots <- struct{}{}:
-		defer func() { <-photoSlots }()
-	case <-ctx.Done():
-		return
-	}
-	rends, err := images.Renditions(img)
+	up, code, err := a.saveUpload(r, "foto", s.ID, 0)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	base := storage.NewBaseKey(s.ID)
-	var widths []int32
-	var saved []string
-	for _, rd := range rends {
-		w32 := int32(rd.Width) // #nosec G115 -- anchos acotados a 1200
-		key := storage.VariantKey(base, w32, rd.Format)
-		if err := a.store.Put(ctx, key, rd.Data, "image/"+rd.Format); err != nil {
-			a.cleanup(ctx, saved)
-			a.fail(w, r, err)
-			return
-		}
-		saved = append(saved, key)
-		if !slices.Contains(widths, w32) {
-			widths = append(widths, w32)
-		}
+	if code != "" {
+		fail(code)
+		return
 	}
-	if _, err := a.q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: s.ID, ProductID: id, R2Key: base, DominantColor: images.DominantColor(img), Widths: widths}); err != nil {
-		a.cleanup(ctx, saved)
+	if _, err := a.q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: s.ID, ProductID: id, R2Key: up.base, DominantColor: images.DominantColor(up.img), Widths: up.widths}); err != nil {
+		a.cleanup(ctx, up.keys)
 		a.fail(w, r, err)
 		return
 	}
@@ -157,4 +113,67 @@ func (a *app) photoViews(imgs []db.ProductImage) []views.Photo {
 		out = append(out, p)
 	}
 	return out
+}
+
+type stored struct {
+	base   string
+	widths []int32
+	keys   []string
+	img    image.Image
+}
+
+// saveUpload lee el archivo del campo, lo valida, lo recodifica a WebP y lo guarda.
+// code != "" es un error del usuario (clave de photoErrors); err es un error interno.
+// maxRenditions > 0 limita cuántos anchos se guardan (el logo solo necesita 400 px).
+func (a *app) saveUpload(r *http.Request, field string, storeID int64, maxRenditions int) (stored, string, error) {
+	ctx := r.Context()
+	file, _, err := r.FormFile(field)
+	if err != nil {
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			return stored{}, "pesada", nil
+		}
+		return stored{}, "falta", nil
+	}
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, images.MaxBytes+1))
+	if err != nil {
+		return stored{}, "falta", nil
+	}
+	img, err := images.Decode(data)
+	if err != nil {
+		Log(ctx).Warn("imagen rechazada", "err", err)
+		if errors.Is(err, images.ErrInvalid) {
+			return stored{}, "invalida", nil
+		}
+		return stored{}, "pesada", nil
+	}
+
+	select {
+	case photoSlots <- struct{}{}:
+		defer func() { <-photoSlots }()
+	case <-ctx.Done():
+		return stored{}, "", ctx.Err()
+	}
+	rends, err := images.Renditions(img)
+	if err != nil {
+		return stored{}, "", err
+	}
+	if maxRenditions > 0 && len(rends) > maxRenditions {
+		rends = rends[:maxRenditions]
+	}
+	up := stored{base: storage.NewBaseKey(storeID), img: img}
+	for _, rd := range rends {
+		w32 := int32(rd.Width) // #nosec G115 -- anchos acotados a 1200
+		key := storage.VariantKey(up.base, w32, rd.Format)
+		if err := a.store.Put(ctx, key, rd.Data, "image/"+rd.Format); err != nil {
+			a.cleanup(ctx, up.keys)
+			return stored{}, "", err
+		}
+		up.keys = append(up.keys, key)
+		if !slices.Contains(up.widths, w32) {
+			up.widths = append(up.widths, w32)
+		}
+	}
+	return up, "", nil
 }
