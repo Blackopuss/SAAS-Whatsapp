@@ -30,7 +30,7 @@ var photoErrors = map[string]string{
 }
 
 func photoKeys(base string, widths []int32) []string {
-	var keys []string
+	keys := []string{storage.OGKey(base)}
 	for _, w := range widths {
 		keys = append(keys, storage.VariantKey(base, w, "webp"))
 	}
@@ -175,5 +175,14 @@ func (a *app) saveUpload(r *http.Request, field string, storeID int64, maxRendit
 			up.widths = append(up.widths, w32)
 		}
 	}
+	og, err := images.OGJPEG(img)
+	if err == nil {
+		err = a.store.Put(ctx, storage.OGKey(up.base), og, "image/jpeg")
+	}
+	if err != nil {
+		a.cleanup(ctx, up.keys)
+		return stored{}, "", err
+	}
+	up.keys = append(up.keys, storage.OGKey(up.base))
 	return up, "", nil
 }

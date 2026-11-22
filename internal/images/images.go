@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	_ "image/jpeg" // registra decodificadores
+	"image/jpeg"
 	_ "image/png"
 	"net/http"
 
@@ -93,4 +93,18 @@ func DominantColor(img image.Image) string {
 		}
 	}
 	return fmt.Sprintf("#%02x%02x%02x", r/64, g/64, b/64)
+}
+
+// OGJPEG es la versión para Open Graph: WhatsApp y otras apps no siempre muestran og:image en WebP.
+func OGJPEG(img image.Image) ([]byte, error) {
+	b := img.Bounds()
+	w := min(1200, b.Dx())
+	h := max(1, b.Dy()*w/b.Dx())
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 80}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

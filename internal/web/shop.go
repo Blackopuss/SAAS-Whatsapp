@@ -21,6 +21,7 @@ func (a *app) photo(key string, widths []int32) views.Photo {
 	}
 	if len(widths) > 0 {
 		p.Src = a.mediaURL + storage.VariantKey(key, widths[0], "webp")
+		p.OG = a.mediaURL + storage.OGKey(key)
 	}
 	return p
 }
@@ -52,7 +53,7 @@ func (a *app) shop(r *http.Request, current int64) (views.Shop, []db.ListStorePr
 	sh := views.Shop{
 		Name: s.Name, Current: current, Whatsapp: strings.TrimPrefix(s.Whatsapp, "+"),
 		Logo: a.photo(s.LogoKey, s.LogoWidths), FAQ: parseFAQ(s.Faq), Payment: s.PaymentInfo,
-		URL: a.shopURL(r, s.Slug), OGImage: a.abs(r, s.Slug, a.photo(s.LogoKey, s.LogoWidths).Src),
+		URL: a.shopURL(r, s.Slug), OGImage: a.abs(r, s.Slug, a.photo(s.LogoKey, s.LogoWidths).OG),
 		Style: s.Style,
 	}
 	if theme.Valid(s.BrandColor) {
@@ -91,7 +92,7 @@ func (a *app) shopHome(w http.ResponseWriter, r *http.Request) {
 	}
 	cards := a.cards(ps, 0)
 	if sh.OGImage == "" && len(cards) > 0 {
-		sh.OGImage = a.abs(r, StoreFrom(r.Context()).Slug, cards[0].Photo.Src)
+		sh.OGImage = a.abs(r, StoreFrom(r.Context()).Slug, cards[0].Photo.OG)
 	}
 	renderStatus(w, r, http.StatusOK, views.ShopHome(sh, cards))
 }
@@ -166,7 +167,7 @@ func (a *app) shopProduct(w http.ResponseWriter, r *http.Request) {
 	sh.URL += "p/" + strconv.FormatInt(p.ID, 10)
 	if len(imgs) > 0 && len(imgs[0].Widths) > 0 { // la versión más grande: WhatsApp y Facebook la recortan a su gusto
 		im := imgs[0]
-		sh.OGImage = a.abs(r, s.Slug, a.mediaURL+storage.VariantKey(im.R2Key, im.Widths[len(im.Widths)-1], "webp"))
+		sh.OGImage = a.abs(r, s.Slug, a.mediaURL+storage.OGKey(im.R2Key))
 	}
 	renderStatus(w, r, http.StatusOK, views.ShopProduct(sh, pp))
 }

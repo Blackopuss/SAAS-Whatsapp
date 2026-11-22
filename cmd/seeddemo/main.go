@@ -102,6 +102,7 @@ func run(slug string) error {
 			for _, w := range im.Widths {
 				_ = disk.Delete(ctx, storage.VariantKey(im.R2Key, w, "webp"))
 			}
+			_ = disk.Delete(ctx, storage.OGKey(im.R2Key))
 		}
 		if _, err := q.DeleteProduct(ctx, db.DeleteProductParams{StoreID: s.ID, ID: p.ID}); err != nil {
 			return err
@@ -196,6 +197,13 @@ func addPhoto(ctx context.Context, q *db.Queries, st storage.Storage, storeID, p
 			return err
 		}
 		widths = append(widths, w)
+	}
+	og, err := images.OGJPEG(img)
+	if err != nil {
+		return err
+	}
+	if err := st.Put(ctx, storage.OGKey(base), og, "image/jpeg"); err != nil {
+		return err
 	}
 	_, err = q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: storeID, ProductID: pid, R2Key: base, DominantColor: images.DominantColor(img), Widths: widths})
 	return err

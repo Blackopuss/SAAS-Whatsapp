@@ -29,6 +29,9 @@ func NewBaseKey(storeID int64) string {
 	return fmt.Sprintf("stores/%d/%s", storeID, hex.EncodeToString(b))
 }
 
+// OGKey es el JPG de 1200 px para Open Graph (las demás versiones son WebP).
+func OGKey(base string) string { return base + "-og.jpg" }
+
 func VariantKey(base string, width int32, format string) string {
 	return fmt.Sprintf("%s-%d.%s", base, width, format)
 }

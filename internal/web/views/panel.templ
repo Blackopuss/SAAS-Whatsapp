@@ -204,6 +204,7 @@ type ProductForm struct {
 type Photo struct {
 	ID          int64
 	Src, SrcSet string
+	OG          string // JPG para og:image
 }
 
 templ ProductEdit(store string, cats []db.Category, f ProductForm) {

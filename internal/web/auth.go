@@ -32,14 +32,21 @@ func renderStatus(w http.ResponseWriter, r *http.Request, status int, c templ.Co
 	}
 }
 
-// clientIP usa RemoteAddr.
-// shortcut: detrás de Cloudflare/Caddy todas las IP serán la del proxy; en el sprint 6 leer el header
-// del proxy solo cuando la conexión venga de una IP de Cloudflare.
+// clientIP devuelve la IP de la compradora para los límites de intentos.
+// En producción la app escucha en 127.0.0.1 detrás de Caddy, y Caddy solo pone X-Real-IP con la IP real
+// cuando la petición viene de Cloudflare (trusted_proxies). Por eso el header solo se cree si la conexión
+// llega de loopback; de cualquier otro lado se usa RemoteAddr y el header se ignora (no se puede falsificar).
 func clientIP(r *http.Request) string {
-	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return h
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
 	}
-	return r.RemoteAddr
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		if real := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Real-IP"))); real != nil {
+			return real.String()
+		}
+	}
+	return host
 }
 
 func (a *app) loginForm(w http.ResponseWriter, r *http.Request) {

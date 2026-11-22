@@ -19,14 +19,20 @@ const page = await ctx.newPage();
 const results = [];
 let failed = false;
 
-async function audit(name, url, { auth = true } = {}) {
+async function audit(name, url, { auth = true, lighthouseRun = true } = {}) {
   await page.goto(url);
+  // axe mide la opacidad real: espera a que termine la entrada animada de las tarjetas.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
   await page.screenshot({ path: `out/${name}.png`, fullPage: true });
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
   for (const v of axe.violations) {
     failed = true;
     console.log(`  axe [${name}] ${v.id} (${v.impact}): ${v.help}`);
     for (const n of v.nodes.slice(0, 3)) console.log(`      ${n.target.join(" ")}`);
+  }
+  if (!lighthouseRun) { // Lighthouse no audita respuestas que no son 2xx (la pausa es 503 a propósito)
+    results.push({ página: name, axe: axe.violations.length });
+    return;
   }
   const cookie = auth ? (await ctx.cookies(url)).map((c) => `${c.name}=${c.value}`).join("; ") : "";
   const lh = await lighthouse(url, {
@@ -213,7 +219,7 @@ if (process.env.ADMIN_TOTP) {
   await page.getByRole("button", { name: "Pausar Paca Luz" }).click();
   await page.getByRole("status").filter({ hasText: "Tienda pausada" }).waitFor();
   await page.waitForTimeout(61_000); // el caché de tiendas del servidor dura 60 s
-  await audit("tienda-en-pausa", BASE.replace("ana.", "luz.") + "/", { auth: false });
+  await audit("tienda-en-pausa", BASE.replace("ana.", "luz.") + "/", { auth: false, lighthouseRun: false });
   await page.goto(`${ADMIN}${luz}`);
   await page.getByRole("button", { name: "Reactivar tienda" }).click();
   await audit("admin-bitacora", `${ADMIN}/bitacora`);
