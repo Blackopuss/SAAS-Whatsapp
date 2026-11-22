@@ -20,12 +20,3 @@ templ page(title, description string) {
 		</body>
 	</html>
 }
-
-templ StoreHome(name string) {
-	@page(name, "Catálogo de "+name+". Elige tus productos y haz tu pedido por WhatsApp.") {
-		<main class="mx-auto max-w-xl p-4">
-			<h1 class="text-3xl font-extrabold tracking-tight">{ name }</h1>
-			<p class="mt-2 text-stone-600">El catálogo llega en el sprint 3.</p>
-		</main>
-	}
-}

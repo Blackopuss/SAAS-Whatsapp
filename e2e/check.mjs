@@ -50,7 +50,6 @@ async function audit(name, url, { auth = true } = {}) {
 
 // Sin sesión
 await audit("login", `${BASE}/panel/login`, { auth: false });
-await audit("tienda", `${BASE}/`, { auth: false });
 await audit("recuperar", `${BASE}/panel/recuperar`, { auth: false });
 await audit("admin-login", BASE.replace("ana.", "admin.") + "/login", { auth: false });
 
@@ -106,6 +105,55 @@ await audit("productos", `${BASE}/panel/`);
 await audit("producto-editar", `${BASE}${editURL}`);
 await audit("producto-nuevo", `${BASE}/panel/productos/nuevo`);
 await audit("categorias", `${BASE}/panel/categorias`);
+
+// WhatsApp de la tienda (número de prueba que no existe) y "Mi tienda".
+await page.goto(`${BASE}/panel/tienda`);
+await page.getByLabel("WhatsApp para recibir pedidos").fill("55 0000 0000");
+await page.getByRole("button", { name: "Guardar datos" }).click();
+await page.getByRole("status").filter({ hasText: "Datos guardados" }).waitFor();
+await audit("mi-tienda", `${BASE}/panel/tienda`);
+
+// Tienda pública (plantilla Vitrina)
+await audit("tienda", `${BASE}/`, { auth: false });
+await page.goto(`${BASE}/`);
+const catURL = await page.getByRole("navigation", { name: "Categorías" }).getByRole("link").nth(1).getAttribute("href");
+const prodURL = await page.locator("a.card:not(.sold)").first().getAttribute("href");
+await audit("tienda-categoria", `${BASE}${catURL}`, { auth: false });
+await audit("tienda-producto", `${BASE}${prodURL}`, { auth: false });
+await audit("tienda-preguntas", `${BASE}/preguntas`, { auth: false });
+
+// Carrito: elegir talla y color disponibles, agregar, revisar el mensaje de WhatsApp.
+await page.goto(`${BASE}${prodURL}`);
+const name = (await page.getByRole("heading", { level: 1 }).textContent()).trim();
+for (const group of ["Talla", "Color"]) {
+  const radios = page.getByRole("group", { name: group }).getByRole("radio");
+  for (let i = 0; i < (await radios.count()); i++) {
+    if (await radios.nth(i).isEnabled()) {
+      await radios.nth(i).check({ force: true });
+      if (!(await page.getByText("Esa combinación está agotada").count())) break;
+    }
+  }
+}
+await page.getByRole("button", { name: "Agregar al carrito" }).click();
+const dialog = page.getByRole("dialog", { name: "Tu carrito" });
+await dialog.waitFor();
+const wa = dialog.getByRole("link", { name: "Enviar pedido por WhatsApp" });
+await wa.waitFor();
+const href = await wa.getAttribute("href");
+const msg = decodeURIComponent(href.split("?text=")[1]);
+console.log(`Mensaje de WhatsApp:\n${msg}`);
+if (!href.startsWith("https://wa.me/525500000000?text=") || !msg.includes(name) || !msg.includes("Total: $") || !msg.includes(`${BASE}/p/`)) {
+  failed = true;
+  console.log("  carrito: mensaje de WhatsApp mal formado");
+}
+await page.waitForTimeout(400); // deja terminar la animación del cajón
+await page.screenshot({ path: "out/carrito.png" });
+const axeCart = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
+for (const v of axeCart.violations) {
+  failed = true;
+  console.log(`  axe [carrito] ${v.id}: ${v.help} ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3)}`);
+}
+results.push({ página: "carrito (abierto)", axe: axeCart.violations.length });
 
 console.table(results);
 console.log(`Capturas y reportes en e2e/out/`);

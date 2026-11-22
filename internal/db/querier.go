@@ -39,6 +39,9 @@ type Querier interface {
 	ListCategories(ctx context.Context, storeID int64) ([]Category, error)
 	ListProductImages(ctx context.Context, arg ListProductImagesParams) ([]ProductImage, error)
 	ListProducts(ctx context.Context, storeID int64) ([]Product, error)
+	// Tienda pública: solo productos activos, siempre filtrados por store_id del Host.
+	ListStoreProducts(ctx context.Context, storeID int64) ([]ListStoreProductsRow, error)
+	ListStoreVariants(ctx context.Context, storeID int64) ([]ListStoreVariantsRow, error)
 	ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, error)
 	ListVariants(ctx context.Context, arg ListVariantsParams) ([]ProductVariant, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)
@@ -48,6 +51,7 @@ type Querier interface {
 	// @flag ya viene validado por el handler (active, sold_out, is_new, on_sale).
 	ToggleProductFlag(ctx context.Context, arg ToggleProductFlagParams) (int64, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error)
+	UpdateStoreWhatsapp(ctx context.Context, arg UpdateStoreWhatsappParams) error
 	// Un solo uso: dos peticiones simultáneas con el mismo token no pueden ganar ambas.
 	UsePasswordReset(ctx context.Context, arg UsePasswordResetParams) (int64, error)
 	// Solo acepta un paso más nuevo que el último usado: un código interceptado no se puede repetir.

@@ -168,3 +168,9 @@ func (f *fakeQ) ListProducts(context.Context, int64) ([]db.Product, error) { ret
 func (f *fakeQ) GetUserPasswordChangedAt(context.Context, db.GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Valid: true}, nil
 }
+
+func (f *fakeQ) ListCategories(context.Context, int64) ([]db.Category, error) { return nil, nil }
+
+func (f *fakeQ) ListStoreProducts(context.Context, int64) ([]db.ListStoreProductsRow, error) {
+	return nil, nil
+}

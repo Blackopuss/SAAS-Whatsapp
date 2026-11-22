@@ -46,6 +46,7 @@ type app struct {
 	admin        *scs.SessionManager
 	totpKey      []byte
 	sendReset    func(ctx context.Context, to, link string) error
+	tenants      *tenants
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
@@ -74,6 +75,7 @@ func Routes(d Deps) http.Handler {
 		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
 	}
 	t := &tenants{m: map[string]cachedStore{}, lookup: d.Q.GetStoreBySlug, base: d.BaseDomain}
+	a.tenants = t
 
 	root := http.NewServeMux()
 	root.HandleFunc("GET /{$}", render(func(*http.Request) templ.Component { return views.Hello() }))
@@ -106,6 +108,8 @@ func Routes(d Deps) http.Handler {
 		"POST /panel/productos/{id}/marcar/{flag}":  a.productToggle,
 		"POST /panel/productos/{id}/fotos":          a.photoUpload,
 		"POST /panel/fotos/{id}/borrar":             a.photoDelete,
+		"GET /panel/tienda":                         a.myStore,
+		"POST /panel/tienda":                        a.myStoreSave,
 		"GET /panel/categorias":                     a.categories,
 		"POST /panel/categorias":                    a.categoryCreate,
 		"POST /panel/categorias/{id}/renombrar":     a.categoryRename,
@@ -116,7 +120,11 @@ func Routes(d Deps) http.Handler {
 	}
 
 	store := http.NewServeMux()
-	store.HandleFunc("GET /{$}", render(func(r *http.Request) templ.Component { return views.StoreHome(StoreFrom(r.Context()).Name) }))
+	store.HandleFunc("GET /{$}", a.shopHome)
+	store.HandleFunc("GET /c/{id}", a.shopCategory)
+	store.HandleFunc("GET /p/{id}", a.shopProduct)
+	store.HandleFunc("GET /preguntas", a.shopFAQ)
+	store.HandleFunc("GET /carrito.json", a.shopCartJSON)
 	store.Handle("/panel/", chain(panel, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
 
 	top := http.NewServeMux()

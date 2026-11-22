@@ -47,9 +47,10 @@ templ panelPage(store, title, current string) {
 			{ children... }
 		</main>
 		<nav aria-label="Panel" class="fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white">
-			<ul class="mx-auto grid max-w-xl grid-cols-3">
+			<ul class="mx-auto grid max-w-xl grid-cols-4">
 				@navItem("/panel/", "Productos", current == "productos")
 				@navItem("/panel/categorias", "Categorías", current == "categorias")
+				@navItem("/panel/tienda", "Mi tienda", current == "tienda")
 				<li>
 					<form method="post" action="/panel/logout">
 						<button type="submit" class="flex min-h-14 w-full items-center justify-center font-medium text-stone-700 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-stone-900">Salir</button>
@@ -317,4 +318,23 @@ templ photos(f ProductForm) {
 			<script src="/static/js/fotos.js" defer></script>
 		}
 	</section>
+}
+
+templ MyStore(store, shopURL, whatsapp, errMsg string, saved bool) {
+	@panelPage(store, "Mi tienda", "tienda") {
+		<h1 class="text-2xl font-bold">Mi tienda</h1>
+		<p class="mt-2">Tu tienda: <a href={ templ.SafeURL(shopURL) } class="font-medium underline underline-offset-4">{ shopURL }</a></p>
+		<form method="post" action="/panel/tienda" class="mt-6 flex flex-col gap-4" novalidate>
+			@alert(errMsg)
+			if saved {
+				<p role="status" class="rounded-md border border-green-300 bg-green-50 p-3 text-green-900">Datos guardados.</p>
+			}
+			<div class="flex flex-col gap-1">
+				<label for="whatsapp" class="font-medium">WhatsApp para recibir pedidos</label>
+				<input id="whatsapp" name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" value={ whatsapp } aria-describedby="whatsapp-help" class={ input }/>
+				<p id="whatsapp-help" class="text-sm text-stone-600">10 dígitos si es de México, por ejemplo 55 1234 5678. Si es de otro país, empieza con + y la lada.</p>
+			</div>
+			<button type="submit" class={ btn }>Guardar datos</button>
+		</form>
+	}
 }

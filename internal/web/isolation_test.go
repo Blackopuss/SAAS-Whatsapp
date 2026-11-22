@@ -94,6 +94,20 @@ func TestStoreIsolation(t *testing.T) {
 		}
 	}
 
+	// Tienda pública: el producto de B no se ve desde el subdominio de A, ni en su carrito.json.
+	if rec := do(h, "GET", aHost+"/p/"+pid, nil, nil); rec.Code != http.StatusNotFound {
+		t.Errorf("producto de B en tienda A: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", aHost+"/c/"+cid, nil, nil); rec.Code != http.StatusNotFound {
+		t.Errorf("categoría de B en tienda A: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", aHost+"/carrito.json", nil, nil); rec.Code != 200 || strings.Contains(rec.Body.String(), "Producto de B") {
+		t.Errorf("carrito.json de A: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(h, "GET", "http://"+b.Slug+".tiendas.test/p/"+pid, nil, nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), "Producto de B") {
+		t.Errorf("producto de B en su tienda: status %d", rec.Code)
+	}
+
 	// Fotos: subir al producto de B o borrar la foto de B también da 404.
 	if rec := upload(h, aHost+"/panel/productos/"+pid+"/fotos", pngBytes(), cookie); rec.Code != http.StatusNotFound {
 		t.Errorf("subir foto a producto de B: status %d", rec.Code)
