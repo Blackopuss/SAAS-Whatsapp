@@ -1,12 +1,19 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/png"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +22,7 @@ import (
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/auth"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
 )
 
 // TestStoreIsolation (plan, sprint 1 y 2): la vendedora A intenta leer, editar y borrar datos de B por ID
@@ -56,10 +64,15 @@ func TestStoreIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	disk := storage.Disk{Dir: t.TempDir()}
 	h := Routes(Deps{
-		BaseDomain: "tiendas.test", DB: pool, Q: q,
+		BaseDomain: "tiendas.test", DB: pool, Q: q, Storage: disk, MediaURL: "/media/",
 		Tx: func(ctx context.Context, fn func(db.Querier) error) error { return db.InTx(ctx, pool, fn) },
 	})
+	bImg, err := q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: b.ID, ProductID: bProd, R2Key: storage.NewBaseKey(b.ID), Widths: []int32{400}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	aHost := "http://" + a.Slug + ".tiendas.test"
 	cookie := login(t, h, a.Slug+".tiendas.test", a.Slug+"@x.mx")
 	pid, cid := strconv.FormatInt(bProd, 10), strconv.FormatInt(bCat.ID, 10)
@@ -79,6 +92,17 @@ func TestStoreIsolation(t *testing.T) {
 		if rec := do(h, c.method, aHost+c.path, c.form, cookie); rec.Code != http.StatusNotFound {
 			t.Errorf("%s %s como A: status %d, quiero 404", c.method, c.path, rec.Code)
 		}
+	}
+
+	// Fotos: subir al producto de B o borrar la foto de B también da 404.
+	if rec := upload(h, aHost+"/panel/productos/"+pid+"/fotos", pngBytes(), cookie); rec.Code != http.StatusNotFound {
+		t.Errorf("subir foto a producto de B: status %d", rec.Code)
+	}
+	if rec := do(h, "POST", aHost+"/panel/fotos/"+strconv.FormatInt(bImg, 10)+"/borrar", url.Values{}, cookie); rec.Code != http.StatusNotFound {
+		t.Errorf("borrar foto de B: status %d", rec.Code)
+	}
+	if n, _ := q.CountProductImages(ctx, db.CountProductImagesParams{StoreID: b.ID, ProductID: bProd}); n != 1 {
+		t.Errorf("fotos de B = %d, quiero 1", n)
 	}
 
 	// Crear un producto de A colgado de la categoría de B: la FK compuesta lo impide.
@@ -126,4 +150,50 @@ func TestStoreIsolation(t *testing.T) {
 	if soldOut != 1 {
 		t.Errorf("agotadas = %d, quiero 1", soldOut)
 	}
+
+	// Subida de fotos de A: un archivo falso se rechaza, una foto real se guarda recodificada.
+	photos := aHost + "/panel/productos/" + aPid + "/fotos"
+	if rec := upload(h, photos, []byte("<?php system($_GET[1]); ?>"), cookie); rec.Header().Get("Location") != "/panel/productos/"+aPid+"?foto=invalida#fotos" {
+		t.Errorf("archivo falso: Location %q", rec.Header().Get("Location"))
+	}
+	if rec := upload(h, photos, pngBytes(), cookie); rec.Header().Get("Location") != "/panel/productos/"+aPid+"?foto=ok#fotos" {
+		t.Fatalf("foto válida: status %d Location %q", rec.Code, rec.Header().Get("Location"))
+	}
+	imgs, _ := q.ListProductImages(ctx, db.ListProductImagesParams{StoreID: a.ID, ProductID: ps[0].ID})
+	if len(imgs) != 1 || len(imgs[0].Widths) == 0 || !strings.HasPrefix(imgs[0].R2Key, "stores/"+strconv.FormatInt(a.ID, 10)+"/") {
+		t.Fatalf("imagen guardada: %+v", imgs)
+	}
+	for _, k := range photoKeys(imgs[0].R2Key, imgs[0].Widths) {
+		if _, err := os.Stat(filepath.Join(disk.Dir, filepath.FromSlash(k))); err != nil {
+			t.Errorf("falta archivo %s", k)
+		}
+	}
+	// Borrar el producto borra también sus archivos.
+	do(h, "POST", aHost+"/panel/productos/"+aPid+"/borrar", url.Values{}, cookie)
+	for _, k := range photoKeys(imgs[0].R2Key, imgs[0].Widths) {
+		if _, err := os.Stat(filepath.Join(disk.Dir, filepath.FromSlash(k))); err == nil {
+			t.Errorf("quedó el archivo %s", k)
+		}
+	}
+}
+
+func pngBytes() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 500, 625))
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, img)
+	return buf.Bytes()
+}
+
+func upload(h http.Handler, target string, data []byte, cookie *http.Cookie) *httptest.ResponseRecorder {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	fw, _ := mw.CreateFormFile("foto", "foto.png")
+	_, _ = fw.Write(data)
+	_ = mw.Close()
+	r := httptest.NewRequest("POST", target, &body)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	r.AddCookie(cookie)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, r)
+	return rec
 }

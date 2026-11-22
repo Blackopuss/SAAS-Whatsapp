@@ -9,13 +9,16 @@ import (
 )
 
 type Querier interface {
+	CountProductImages(ctx context.Context, arg CountProductImagesParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (int64, error)
+	CreateProductImage(ctx context.Context, arg CreateProductImageParams) (int64, error)
 	CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (int64, error)
 	CreateVariant(ctx context.Context, arg CreateVariantParams) error
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) (int64, error)
 	DeleteProduct(ctx context.Context, arg DeleteProductParams) (int64, error)
+	DeleteProductImage(ctx context.Context, arg DeleteProductImageParams) (DeleteProductImageRow, error)
 	DeleteVariants(ctx context.Context, arg DeleteVariantsParams) error
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	// Base del middleware de tenant (sprint 1): Host -> slug -> tienda.
@@ -24,6 +27,7 @@ type Querier interface {
 	GetUserForLogin(ctx context.Context, arg GetUserForLoginParams) (GetUserForLoginRow, error)
 	// Toda query lleva store_id, que sale del tenant (Host) y nunca del formulario.
 	ListCategories(ctx context.Context, storeID int64) ([]Category, error)
+	ListProductImages(ctx context.Context, arg ListProductImagesParams) ([]ProductImage, error)
 	ListProducts(ctx context.Context, storeID int64) ([]Product, error)
 	ListVariants(ctx context.Context, arg ListVariantsParams) ([]ProductVariant, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)

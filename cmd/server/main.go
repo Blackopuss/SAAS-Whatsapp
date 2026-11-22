@@ -15,6 +15,7 @@ import (
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web"
 )
 
@@ -55,6 +56,9 @@ func run() error {
 			Q:          db.New(pool),
 			Tx:         func(ctx context.Context, fn func(db.Querier) error) error { return db.InTx(ctx, pool, fn) },
 			Sessions:   pgxstore.New(pool),
+			Storage:    storage.Disk{Dir: "uploads"},
+			MediaURL:   "/media/",
+			MediaDir:   "uploads",
 		}), 12<<20), // 10 MB por foto + margen del formulario
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

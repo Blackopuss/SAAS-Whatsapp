@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web/views"
 )
 
@@ -24,6 +25,9 @@ type Deps struct {
 	Q          db.Querier
 	Tx         func(context.Context, func(db.Querier) error) error // nil = sin transacción (tests con fakes)
 	Sessions   scs.Store                                           // nil = memoria (tests)
+	Storage    storage.Storage
+	MediaURL   string // prefijo público de las fotos, p. ej. "/media/"
+	MediaDir   string // si no está vacío, se sirve en /media/ (solo desarrollo)
 }
 
 type app struct {
@@ -31,6 +35,8 @@ type app struct {
 	tx       func(context.Context, func(db.Querier) error) error
 	sessions *scs.SessionManager
 	limit    *limiter
+	store    storage.Storage
+	mediaURL string
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
@@ -53,7 +59,7 @@ func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 
 // Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
 func Routes(d Deps) http.Handler {
-	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute)}
+	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), store: d.Storage, mediaURL: d.MediaURL}
 	if a.tx == nil {
 		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
 	}
@@ -74,6 +80,8 @@ func Routes(d Deps) http.Handler {
 		"POST /panel/productos/{id}":                a.productSave,
 		"POST /panel/productos/{id}/borrar":         a.productDelete,
 		"POST /panel/productos/{id}/marcar/{flag}":  a.productToggle,
+		"POST /panel/productos/{id}/fotos":          a.photoUpload,
+		"POST /panel/fotos/{id}/borrar":             a.photoDelete,
 		"GET /panel/categorias":                     a.categories,
 		"POST /panel/categorias":                    a.categoryCreate,
 		"POST /panel/categorias/{id}/renombrar":     a.categoryRename,
@@ -89,6 +97,13 @@ func Routes(d Deps) http.Handler {
 
 	top := http.NewServeMux()
 	top.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	if d.MediaDir != "" {
+		media := http.StripPrefix("/media/", http.FileServer(http.Dir(d.MediaDir)))
+		top.Handle("GET /media/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // llaves aleatorias: nunca cambian
+			media.ServeHTTP(w, r)
+		}))
+	}
 	top.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := d.DB.Ping(r.Context()); err != nil {
 			Log(r.Context()).Error("healthz", "err", err)

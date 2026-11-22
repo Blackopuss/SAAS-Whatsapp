@@ -189,6 +189,15 @@ type ProductForm struct {
 	Variants                            []VariantRow
 	Error                               string
 	Saved                               bool
+	Photos                              []Photo
+	PhotoOK                             bool
+	PhotoError                          string
+}
+
+// Photo: srcset ya armados por el handler.
+type Photo struct {
+	ID              int64
+	Src, WebP, AVIF string
 }
 
 templ ProductEdit(store string, cats []db.Category, f ProductForm) {
@@ -257,6 +266,7 @@ templ ProductEdit(store string, cats []db.Category, f ProductForm) {
 			<button type="submit" class={ btn }>Guardar producto</button>
 		</form>
 		if f.ID != 0 {
+			@photos(f)
 			<details class="mt-8 border-t border-stone-300 pt-6">
 				<summary class={ btnAlt + " cursor-pointer text-red-800" }>Borrar producto</summary>
 				<form method="post" action={ templ.SafeURL("/panel/productos/" + idStr(f.ID) + "/borrar") } class="mt-3 flex items-center gap-3">
@@ -273,4 +283,41 @@ templ field(id, label string) {
 		<label for={ id } class="font-medium">{ label }</label>
 		{ children... }
 	</div>
+}
+
+templ photos(f ProductForm) {
+	<section id="fotos" aria-labelledby="fotos-h" class="mt-8 border-t border-stone-300 pt-6">
+		<h2 id="fotos-h" class="text-xl font-bold">Fotos <span class="font-normal text-stone-600">({ strconv.Itoa(len(f.Photos)) } de 10)</span></h2>
+		<div aria-live="polite" class="mt-3 empty:hidden" data-foto-estado>
+			@alert(f.PhotoError)
+			if f.PhotoOK {
+				<p role="status" class="rounded-md border border-green-300 bg-green-50 p-3 text-green-900">Foto agregada.</p>
+			}
+		</div>
+		if len(f.Photos) > 0 {
+			<ul class="mt-4 grid grid-cols-2 gap-3">
+				for i, p := range f.Photos {
+					<li class="overflow-hidden rounded-lg border border-stone-300 bg-white">
+						<picture>
+							<source type="image/avif" srcset={ p.AVIF } sizes="(min-width: 576px) 270px, 45vw"/>
+							<source type="image/webp" srcset={ p.WebP } sizes="(min-width: 576px) 270px, 45vw"/>
+							<img src={ p.Src } alt={ "Foto " + strconv.Itoa(i+1) + " de " + f.Name } loading="lazy" decoding="async" width="400" height="500" class="aspect-[4/5] w-full bg-stone-200 object-cover"/>
+						</picture>
+						<form method="post" action={ templ.SafeURL("/panel/fotos/" + idStr(p.ID) + "/borrar") } class="p-2">
+							<button type="submit" class={ btnAlt + " w-full text-red-800" }>Quitar<span class="sr-only"> foto { strconv.Itoa(i+1) }</span></button>
+						</form>
+					</li>
+				}
+			</ul>
+		}
+		if len(f.Photos) < 10 {
+			<form method="post" enctype="multipart/form-data" action={ templ.SafeURL("/panel/productos/" + idStr(f.ID) + "/fotos") } class="mt-4 flex flex-col gap-2" data-foto-form>
+				<label for="foto" class="font-medium">Agregar foto</label>
+				<input id="foto" name="foto" type="file" accept="image/jpeg,image/png,image/webp" required aria-describedby="foto-help" class="min-h-12 rounded-md border border-stone-500 bg-white p-2 file:mr-3 file:min-h-10 file:rounded file:border-0 file:bg-stone-200 file:px-3 file:font-medium"/>
+				<p id="foto-help" class="text-sm text-stone-600">JPG, PNG o WebP. La reducimos en tu celular antes de subirla para ahorrar datos.</p>
+				<button type="submit" class={ btn }>Subir foto</button>
+			</form>
+			<script src="/static/js/fotos.js" defer></script>
+		}
+	</section>
 }

@@ -187,13 +187,22 @@ func (a *app) productDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	n, err := a.q.DeleteProduct(r.Context(), db.DeleteProductParams{StoreID: StoreFrom(r.Context()).ID, ID: id})
+	sid := StoreFrom(r.Context()).ID
+	imgs, err := a.q.ListProductImages(r.Context(), db.ListProductImagesParams{StoreID: sid, ProductID: id})
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	n, err := a.q.DeleteProduct(r.Context(), db.DeleteProductParams{StoreID: sid, ID: id})
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	if notMine(w, r, n) {
 		return
+	}
+	for _, im := range imgs { // las filas se borran en cascada; los archivos, aquí
+		a.cleanup(r.Context(), photoKeys(im.R2Key, im.Widths))
 	}
 	back(w, r, "/panel/")
 }
@@ -236,6 +245,8 @@ func (a *app) productEdit(w http.ResponseWriter, r *http.Request) {
 		f.Variants = append(f.Variants, views.VariantRow{Key: variantKey{v.Size, v.Color}.String(), Label: variantLabel(v.Size, v.Color), SoldOut: v.SoldOut})
 	}
 	f.Sizes, f.Colors = strings.Join(sizes, ", "), strings.Join(colors, ", ")
+	f.PhotoOK = r.URL.Query().Get("foto") == "ok"
+	f.PhotoError = photoErrors[r.URL.Query().Get("foto")]
 	a.renderProductForm(w, r, http.StatusOK, f)
 }
 
@@ -249,6 +260,14 @@ func (a *app) renderProductForm(w http.ResponseWriter, r *http.Request, status i
 	if err != nil {
 		a.fail(w, r, err)
 		return
+	}
+	if f.ID != 0 {
+		imgs, err := a.q.ListProductImages(r.Context(), db.ListProductImagesParams{StoreID: s.ID, ProductID: f.ID})
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		f.Photos = a.photoViews(imgs)
 	}
 	renderStatus(w, r, status, views.ProductEdit(s.Name, cats, f))
 }

@@ -40,6 +40,7 @@ type ProductImage struct {
 	Position      int32
 	DominantColor string
 	CreatedAt     pgtype.Timestamptz
+	Widths        []int32
 }
 
 type ProductVariant struct {

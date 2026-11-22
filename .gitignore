@@ -5,3 +5,4 @@
 web/static/css/app.css
 *.lock
 *.stale
+/uploads/

@@ -13,7 +13,7 @@ const PORT = 9333;
 mkdirSync("out", { recursive: true });
 
 const browser = await chromium.launch({ args: [`--remote-debugging-port=${PORT}`] });
-const ctx = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 360, height: 800 } });
+const ctx = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, locale: "es-MX" });
 const page = await ctx.newPage();
 const results = [];
 let failed = false;
@@ -81,6 +81,24 @@ if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
 }
 await page.goto(`${BASE}/panel/`);
 const editURL = await page.getByRole("link", { name: "Blusa lino" }).getAttribute("href");
+
+// Subir una foto (generada en el navegador) si el producto no tiene; pasa por la compresión de fotos.js.
+await page.goto(`${BASE}${editURL}`);
+if (!(await page.getByRole("img", { name: /Foto 1 de/ }).count())) {
+  const bytes = await page.evaluate(async () => {
+    const c = new OffscreenCanvas(1200, 1500);
+    const g = c.getContext("2d");
+    const grad = g.createLinearGradient(0, 0, 1200, 1500);
+    grad.addColorStop(0, "#e6a5b8");
+    grad.addColorStop(1, "#7a2f4b");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 1200, 1500);
+    return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
+  });
+  await page.getByLabel("Agregar foto").setInputFiles({ name: "blusa.png", mimeType: "image/png", buffer: Buffer.from(bytes) });
+  await page.getByRole("button", { name: "Subir foto" }).click();
+  await page.getByRole("status").filter({ hasText: "Foto agregada" }).waitFor({ timeout: 60_000 });
+}
 
 await audit("productos", `${BASE}/panel/`);
 await audit("producto-editar", `${BASE}${editURL}`);
