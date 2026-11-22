@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,7 +34,7 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 	q := db.New(pool)
 	suffix := strconv.FormatInt(time.Now().UnixNano()%1e9, 36)
 	hash, _ := auth.Hash("contraseña-segura")
-	mk := func(slug string) db.Store {
+	mk := func(slug string) db.CreateStoreRow {
 		s, err := q.CreateStore(ctx, db.CreateStoreParams{Slug: slug, Name: slug})
 		if err != nil {
 			t.Fatal(err)
@@ -143,5 +144,80 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 	rec = do(h, "POST", adminURL+"/tiendas/"+strconv.FormatInt(b.ID, 10)+"/recuperar", url.Values{}, adminCookie)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "http://"+b.Slug+".tiendas.test/panel/recuperar?t=") {
 		t.Fatalf("enlace desde admin: status %d", rec.Code)
+	}
+
+	// Alta de tienda desde el admin: crea tienda, dueña y suscripción, y da el enlace para su contraseña.
+	newSlug := "alta-" + suffix
+	rec = do(h, "POST", adminURL+"/tiendas", url.Values{"slug": {newSlug}, "name": {"Alta Moda"}, "email": {newSlug + "@x.mx"}, "whatsapp": {"55 1111 2222"}, "price": {"149"}, "founder": {"on"}}, adminCookie)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), newSlug+".tiendas.test/panel/recuperar?t=") || !strings.Contains(rec.Body.String(), "https://wa.me/525511112222") {
+		t.Fatalf("alta de tienda: status %d", rec.Code)
+	}
+	ns, err := q.GetStoreBySlug(ctx, newSlug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(ctx, "DELETE FROM stores WHERE id = $1", ns.ID) })
+	if rec := do(h, "POST", adminURL+"/tiendas", url.Values{"slug": {newSlug}, "name": {"Otra"}, "email": {"o@x.mx"}, "price": {"149"}}, adminCookie); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("subdominio repetido: status %d", rec.Code)
+	}
+	nsID := strconv.FormatInt(ns.ID, 10)
+
+	// Pago: la fecha avanza y la racha cuenta.
+	today, _ := q.Today(ctx)
+	pay := url.Values{"amount": {"149"}, "months": {"3"}, "paid_on": {today.Time.Format("2006-01-02")}}
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pagos", pay, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("registrar pago: status %d", rec.Code)
+	}
+	sub, _ := q.GetSubscription(ctx, ns.ID)
+	if !sub.PaidUntil.Valid || !sub.PaidUntil.Time.Equal(today.Time.AddDate(0, 3, 0)) || sub.StreakMonths != 3 || !sub.IsFounder || sub.PriceCents != 14900 {
+		t.Errorf("suscripción tras pago: %+v", sub)
+	}
+	future := url.Values{"amount": {"149"}, "months": {"1"}, "paid_on": {today.Time.AddDate(0, 0, 2).Format("2006-01-02")}}
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pagos", future, adminCookie); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("pago con fecha futura: status %d", rec.Code)
+	}
+
+	// Pausa manual: la tienda pública no revela nada de la vendedora; el panel sigue abierto.
+	nsHost := "http://" + newSlug + ".tiendas.test"
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pausar", url.Values{"reason": {"prueba"}}, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("pausar: status %d", rec.Code)
+	}
+	for _, path := range []string{"/", "/carrito.json", "/preguntas"} {
+		rec := do(h, "GET", nsHost+path, nil, nil)
+		if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), "Alta Moda") || strings.Contains(rec.Body.String(), "5511112222") {
+			t.Errorf("tienda en pausa %s: status %d", path, rec.Code)
+		}
+	}
+	if rec := do(h, "GET", nsHost+"/panel/login", nil, nil); rec.Code != 200 {
+		t.Errorf("panel de tienda en pausa: status %d", rec.Code)
+	}
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/reactivar", url.Values{}, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("reactivar: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", nsHost+"/", nil, nil); rec.Code != 200 {
+		t.Errorf("tienda reactivada: status %d", rec.Code)
+	}
+
+	// Corte automático: vencida hace 6 días se pausa; un pago al corriente la reabre.
+	if _, err := pool.Exec(ctx, "UPDATE subscriptions SET paid_until = $2 WHERE store_id = $1", ns.ID, today.Time.AddDate(0, 0, -6)); err != nil {
+		t.Fatal(err)
+	}
+	cut, err := q.SuspendOverdue(ctx)
+	if err != nil || !slices.ContainsFunc(cut, func(r db.SuspendOverdueRow) bool { return r.ID == ns.ID }) {
+		t.Fatalf("corte automático: %v %v", cut, err)
+	}
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pagos", pay, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("pago tras corte: status %d", rec.Code)
+	}
+	if s, _ := q.GetStoreAdmin(ctx, ns.ID); s.Status != "active" || s.StreakMonths != 3 {
+		t.Errorf("tras pagar atrasado: estado %s racha %d (quiero active y racha reiniciada a 3)", s.Status, s.StreakMonths)
+	}
+
+	// Bitácora: cada acción con quién la hizo.
+	rec = do(h, "GET", adminURL+"/bitacora", nil, adminCookie)
+	for _, action := range []string{"alta de tienda", "pago registrado", "pausada", "reactivada", adminEmail} {
+		if !strings.Contains(rec.Body.String(), action) {
+			t.Errorf("bitácora sin %q", action)
+		}
 	}
 }

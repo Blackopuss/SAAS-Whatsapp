@@ -34,8 +34,10 @@ UPDATE admins SET last_totp_step = $2 WHERE id = $1 AND last_totp_step < $2;
 INSERT INTO admins (email, password_hash, totp_secret) VALUES ($1, $2, $3) RETURNING id;
 
 -- name: ListStoresAdmin :many
-SELECT s.id, s.slug, s.name, s.status, s.created_at, (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products
-FROM stores s ORDER BY s.created_at DESC;
+SELECT s.id, s.slug, s.name, s.status, s.created_at, sub.paid_until, sub.streak_months, sub.is_founder,
+    (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products
+FROM stores s JOIN subscriptions sub ON sub.store_id = s.id
+ORDER BY sub.paid_until NULLS FIRST, s.created_at DESC;
 
 -- name: GetStoreOwner :one
 SELECT u.id AS user_id, s.slug, s.name, s.whatsapp FROM stores s JOIN users u ON u.store_id = s.id

@@ -17,6 +17,15 @@ type Admin struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type AdminAudit struct {
+	ID        int64
+	AdminID   pgtype.Int8
+	StoreID   pgtype.Int8
+	Action    string
+	Detail    string
+	CreatedAt pgtype.Timestamptz
+}
+
 type Category struct {
 	ID        int64
 	StoreID   int64
@@ -31,6 +40,20 @@ type PasswordReset struct {
 	UserID    int64
 	ExpiresAt pgtype.Timestamptz
 	UsedAt    pgtype.Timestamptz
+}
+
+type Payment struct {
+	ID            int64
+	StoreID       int64
+	AmountCents   int32
+	Months        int32
+	PaidOn        pgtype.Date
+	Note          string
+	OnTime        bool
+	PrevPaidUntil pgtype.Date
+	NewPaidUntil  pgtype.Date
+	AdminID       pgtype.Int8
+	CreatedAt     pgtype.Timestamptz
 }
 
 type Product struct {
@@ -89,6 +112,14 @@ type Store struct {
 	LogoWidths    []int32
 	Faq           string
 	PaymentInfo   string
+}
+
+type Subscription struct {
+	StoreID      int64
+	PaidUntil    pgtype.Date
+	StreakMonths int32
+	IsFounder    bool
+	PriceCents   int32
 }
 
 type User struct {

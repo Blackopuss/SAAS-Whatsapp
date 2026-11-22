@@ -5,6 +5,7 @@ import { chromium, devices } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
 import lighthouse from "lighthouse";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 
 const BASE = process.env.BASE ?? "http://ana.localhost:8080";
 const EMAIL = process.env.EMAIL ?? "ana@demo.mx";
@@ -181,7 +182,47 @@ for (const v of axeCart.violations) {
 }
 results.push({ página: "carrito (abierto)", axe: axeCart.violations.length });
 
+// Superadmin (necesita ADMIN_TOTP: la clave que imprimió cmd/createadmin).
+const ADMIN = BASE.replace("ana.", "admin.");
+if (process.env.ADMIN_TOTP) {
+  await page.goto(`${ADMIN}/login`);
+  await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL ?? "admin@demo.mx");
+  await page.getByLabel("Contraseña").fill(process.env.ADMIN_PASS ?? "admin-dev-2026-largo");
+  await page.getByLabel("Código de tu app de autenticación").fill(totp(process.env.ADMIN_TOTP));
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.waitForURL(`${ADMIN}/`);
+  await audit("admin-tiendas", `${ADMIN}/`);
+  const luz = await page.getByRole("link", { name: "Paca Luz" }).getAttribute("href");
+  await audit("admin-tienda", `${ADMIN}${luz}`);
+  await audit("admin-nueva", `${ADMIN}/tiendas/nueva`);
+  // Pausar luz para revisar la página pública de pausa y reactivarla al final.
+  await page.goto(`${ADMIN}${luz}`);
+  await page.getByText("Pausar tienda").click();
+  await page.getByRole("button", { name: "Pausar Paca Luz" }).click();
+  await page.getByRole("status").filter({ hasText: "Tienda pausada" }).waitFor();
+  await page.waitForTimeout(61_000); // el caché de tiendas del servidor dura 60 s
+  await audit("tienda-en-pausa", BASE.replace("ana.", "luz.") + "/", { auth: false });
+  await page.goto(`${ADMIN}${luz}`);
+  await page.getByRole("button", { name: "Reactivar tienda" }).click();
+  await audit("admin-bitacora", `${ADMIN}/bitacora`);
+} else {
+  console.log("  (sin ADMIN_TOTP: se salta el superadmin)");
+}
+
 console.table(results);
 console.log(`Capturas y reportes en e2e/out/`);
 await browser.close();
 process.exit(failed ? 1 : 0);
+
+// totp: RFC 6238 (SHA-1, 6 dígitos, 30 s) con la clave en base32.
+function totp(secret) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const c of secret.replace(/=+$/, "").toUpperCase()) bits += alphabet.indexOf(c).toString(2).padStart(5, "0");
+  const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
+  const msg = Buffer.alloc(8);
+  msg.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const h = createHmac("sha1", key).update(msg).digest();
+  const o = h[h.length - 1] & 15;
+  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}

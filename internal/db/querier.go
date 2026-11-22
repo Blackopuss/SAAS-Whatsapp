@@ -11,14 +11,18 @@ import (
 )
 
 type Querier interface {
+	AddAudit(ctx context.Context, arg AddAuditParams) error
+	ApplyPayment(ctx context.Context, arg ApplyPaymentParams) error
 	CheckPasswordReset(ctx context.Context, arg CheckPasswordResetParams) (int64, error)
 	CountProductImages(ctx context.Context, arg CountProductImagesParams) (int64, error)
 	CreateAdmin(ctx context.Context, arg CreateAdminParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error
+	CreatePayment(ctx context.Context, arg CreatePaymentParams) error
 	CreateProduct(ctx context.Context, arg CreateProductParams) (int64, error)
 	CreateProductImage(ctx context.Context, arg CreateProductImageParams) (int64, error)
-	CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error)
+	// Toda tienda nace con su suscripción (sin pagar aún), así ningún JOIN la pierde.
+	CreateStore(ctx context.Context, arg CreateStoreParams) (CreateStoreRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (int64, error)
 	CreateVariant(ctx context.Context, arg CreateVariantParams) error
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) (int64, error)
@@ -28,15 +32,19 @@ type Querier interface {
 	GetAdmin(ctx context.Context, id int64) (Admin, error)
 	GetAdminByEmail(ctx context.Context, email string) (Admin, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
+	GetStoreAdmin(ctx context.Context, id int64) (GetStoreAdminRow, error)
 	// Base del middleware de tenant (sprint 1): Host -> slug -> tienda.
 	GetStoreBySlug(ctx context.Context, slug string) (Store, error)
 	GetStoreOwner(ctx context.Context, id int64) (GetStoreOwnerRow, error)
+	GetSubscription(ctx context.Context, storeID int64) (Subscription, error)
 	GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (int64, error)
 	// store_id sale del tenant (Host), nunca del formulario: las credenciales de luz no sirven en ana.
 	GetUserForLogin(ctx context.Context, arg GetUserForLoginParams) (GetUserForLoginRow, error)
 	GetUserPasswordChangedAt(ctx context.Context, arg GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error)
+	ListAudit(ctx context.Context) ([]ListAuditRow, error)
 	// Toda query lleva store_id, que sale del tenant (Host) y nunca del formulario.
 	ListCategories(ctx context.Context, storeID int64) ([]Category, error)
+	ListPayments(ctx context.Context, storeID int64) ([]Payment, error)
 	ListProductImages(ctx context.Context, arg ListProductImagesParams) ([]ProductImage, error)
 	ListProducts(ctx context.Context, storeID int64) ([]Product, error)
 	// Tienda pública: solo productos activos, siempre filtrados por store_id del Host.
@@ -44,17 +52,24 @@ type Querier interface {
 	ListStoreVariants(ctx context.Context, storeID int64) ([]ListStoreVariantsRow, error)
 	ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, error)
 	ListVariants(ctx context.Context, arg ListVariantsParams) ([]ProductVariant, error)
+	LockSubscription(ctx context.Context, storeID int64) (Subscription, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)
 	// @ids es la lista completa en el nuevo orden.
 	ReorderCategories(ctx context.Context, arg ReorderCategoriesParams) error
 	// Devuelve el logo anterior para borrar sus archivos.
 	SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (SetStoreLogoRow, error)
+	SetStoreStatus(ctx context.Context, arg SetStoreStatusParams) (int64, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
+	// Día 5 de atraso: se pausa. Solo tiendas activas con fecha de pago; las recién dadas de alta (NULL) no.
+	SuspendOverdue(ctx context.Context) ([]SuspendOverdueRow, error)
+	// Fechas en hora de México: "hoy" de la vendedora, no de UTC.
+	Today(ctx context.Context) (pgtype.Date, error)
 	// @flag ya viene validado por el handler (active, sold_out, is_new, on_sale).
 	ToggleProductFlag(ctx context.Context, arg ToggleProductFlagParams) (int64, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error)
 	UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettingsParams) error
 	UpdateStoreWhatsapp(ctx context.Context, arg UpdateStoreWhatsappParams) error
+	UpdateSubscriptionPlan(ctx context.Context, arg UpdateSubscriptionPlanParams) error
 	// Un solo uso: dos peticiones simultáneas con el mismo token no pueden ganar ambas.
 	UsePasswordReset(ctx context.Context, arg UsePasswordResetParams) (int64, error)
 	// Solo acepta un paso más nuevo que el último usado: un código interceptado no se puede repetir.

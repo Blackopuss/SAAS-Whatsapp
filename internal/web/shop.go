@@ -279,3 +279,15 @@ func normalizeWhatsapp(in string) (string, bool) {
 	}
 	return d, e164.MatchString(d)
 }
+
+// requireOpen: una tienda en pausa no muestra nada de la vendedora (ni nombre, ni WhatsApp, ni productos).
+func (a *app) requireOpen(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if StoreFrom(r.Context()).Status != "active" {
+			w.Header().Set("Retry-After", "86400")
+			renderStatus(w, r, http.StatusServiceUnavailable, views.Paused())
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

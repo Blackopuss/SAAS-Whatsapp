@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"net/url"
 	"strings"
 	"time"
@@ -37,7 +38,19 @@ func (a *app) adminRoutes(store scs.Store, secure bool) http.Handler {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	})
 	mux.Handle("GET /{$}", a.requireAdmin(http.HandlerFunc(a.adminStores)))
-	mux.Handle("POST /tiendas/{id}/recuperar", a.requireAdmin(http.HandlerFunc(a.adminReset)))
+	for pattern, h := range map[string]http.HandlerFunc{
+		"POST /tiendas/{id}/recuperar":  a.adminReset,
+		"GET /tiendas/nueva":            a.adminStoreNew,
+		"POST /tiendas":                 a.adminStoreCreate,
+		"GET /tiendas/{id}":             a.adminStore,
+		"POST /tiendas/{id}/pagos":      a.adminPayment,
+		"POST /tiendas/{id}/pausar":     a.adminSetStatus("suspended", "pausada", "pausada"),
+		"POST /tiendas/{id}/reactivar":  a.adminSetStatus("active", "reactivada", "reactivada"),
+		"POST /tiendas/{id}/plan":       a.adminPlan,
+		"GET /bitacora":                 a.adminAudit,
+	} {
+		mux.Handle(pattern, a.requireAdmin(h))
+	}
 	return chain(mux, sm.LoadAndSave, http.NewCrossOriginProtection().Handler)
 }
 
@@ -144,6 +157,9 @@ func (a *app) adminReset(w http.ResponseWriter, r *http.Request) {
 	if o.Whatsapp != "" {
 		wa = "https://wa.me/" + strings.TrimPrefix(o.Whatsapp, "+") + "?text=" + url.QueryEscape("Hola, este es tu enlace para crear una nueva contraseña de "+o.Name+" (vence en 30 minutos): "+link)
 	}
-	Log(ctx).Info("admin: enlace de recuperación", "admin_id", a.admin.GetInt64(ctx, "admin_id"), "store_id", id, "user_id", o.UserID)
-	renderStatus(w, r, http.StatusOK, views.AdminResetLink(o.Name, link, wa))
+	if err := a.audit(ctx, a.q, id, "enlace de recuperación", "para el usuario "+strconv.FormatInt(o.UserID, 10)); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	renderStatus(w, r, http.StatusOK, views.AdminResetLink("Enlace de "+o.Name, link, wa, id))
 }

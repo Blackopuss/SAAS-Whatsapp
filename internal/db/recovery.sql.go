@@ -159,17 +159,22 @@ func (q *Queries) GetUserPasswordChangedAt(ctx context.Context, arg GetUserPassw
 }
 
 const listStoresAdmin = `-- name: ListStoresAdmin :many
-SELECT s.id, s.slug, s.name, s.status, s.created_at, (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products
-FROM stores s ORDER BY s.created_at DESC
+SELECT s.id, s.slug, s.name, s.status, s.created_at, sub.paid_until, sub.streak_months, sub.is_founder,
+    (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products
+FROM stores s JOIN subscriptions sub ON sub.store_id = s.id
+ORDER BY sub.paid_until NULLS FIRST, s.created_at DESC
 `
 
 type ListStoresAdminRow struct {
-	ID        int64
-	Slug      string
-	Name      string
-	Status    string
-	CreatedAt pgtype.Timestamptz
-	Products  int64
+	ID           int64
+	Slug         string
+	Name         string
+	Status       string
+	CreatedAt    pgtype.Timestamptz
+	PaidUntil    pgtype.Date
+	StreakMonths int32
+	IsFounder    bool
+	Products     int64
 }
 
 func (q *Queries) ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, error) {
@@ -187,6 +192,9 @@ func (q *Queries) ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, er
 			&i.Name,
 			&i.Status,
 			&i.CreatedAt,
+			&i.PaidUntil,
+			&i.StreakMonths,
+			&i.IsFounder,
 			&i.Products,
 		); err != nil {
 			return nil, err

@@ -124,11 +124,15 @@ func Routes(d Deps) http.Handler {
 	}
 
 	store := http.NewServeMux()
-	store.HandleFunc("GET /{$}", a.shopHome)
-	store.HandleFunc("GET /c/{id}", a.shopCategory)
-	store.HandleFunc("GET /p/{id}", a.shopProduct)
-	store.HandleFunc("GET /preguntas", a.shopFAQ)
-	store.HandleFunc("GET /carrito.json", a.shopCartJSON)
+	for pattern, h := range map[string]http.HandlerFunc{
+		"GET /{$}":          a.shopHome,
+		"GET /c/{id}":       a.shopCategory,
+		"GET /p/{id}":       a.shopProduct,
+		"GET /preguntas":    a.shopFAQ,
+		"GET /carrito.json": a.shopCartJSON,
+	} {
+		store.Handle(pattern, a.requireOpen(h))
+	}
 	store.Handle("/panel/", chain(panel, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
 
 	top := http.NewServeMux()

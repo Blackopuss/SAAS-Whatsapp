@@ -42,7 +42,7 @@ func TestStoreIsolation(t *testing.T) {
 
 	suffix := strconv.FormatInt(time.Now().UnixNano()%1e9, 36)
 	hash, _ := auth.Hash("contraseña-segura")
-	mk := func(slug string) db.Store {
+	mk := func(slug string) db.CreateStoreRow {
 		s, err := q.CreateStore(ctx, db.CreateStoreParams{Slug: slug, Name: slug})
 		if err != nil {
 			t.Fatal(err)

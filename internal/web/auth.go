@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/auth"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/billing"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web/views"
 )
@@ -118,6 +120,23 @@ func (a *app) requireUser(next http.Handler) http.Handler {
 			http.Redirect(w, r, "/panel/login", http.StatusSeeOther)
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(views.WithNotice(ctx, a.billingNotice(ctx, sid))))
 	})
+}
+
+// billingNotice: aviso de vencimiento o pausa para el panel; si falla la consulta no se avisa (no bloquea el panel).
+func (a *app) billingNotice(ctx context.Context, storeID int64) string {
+	sub, err := a.q.GetSubscription(ctx, storeID)
+	if err != nil {
+		if !isNoRows(err) {
+			Log(ctx).Error("suscripción", "err", err)
+		}
+		return ""
+	}
+	today, err := a.q.Today(ctx)
+	if err != nil {
+		Log(ctx).Error("fecha", "err", err)
+		return ""
+	}
+	return billing.Notice(StoreFrom(ctx).Status, dateOf(sub.PaidUntil), today.Time)
 }

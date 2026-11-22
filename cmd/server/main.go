@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/config"
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/billing"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/storage"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/web"
@@ -67,6 +68,8 @@ func run() error {
 			return nil
 		}
 	}
+
+	go billing.Run(ctx, db.New(pool), func(string) {}) // el caché de tiendas vence solo en 60 s
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

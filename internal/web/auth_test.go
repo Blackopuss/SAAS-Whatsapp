@@ -28,7 +28,7 @@ func newFakeQ() *fakeQ {
 		panic(err)
 	}
 	return &fakeQ{
-		stores: map[string]db.Store{"ana": {ID: 1, Slug: "ana", Name: "Ana Moda"}, "luz": {ID: 2, Slug: "luz", Name: "Paca Luz"}},
+		stores: map[string]db.Store{"ana": {ID: 1, Slug: "ana", Name: "Ana Moda", Status: "active"}, "luz": {ID: 2, Slug: "luz", Name: "Paca Luz", Status: "active"}},
 		users: map[db.GetUserForLoginParams]db.GetUserForLoginRow{
 			{StoreID: 1, Email: "ana@x.mx"}: {ID: 10, StoreID: 1, PasswordHash: hash},
 			{StoreID: 2, Email: "luz@x.mx"}: {ID: 20, StoreID: 2, PasswordHash: hash},
@@ -173,4 +173,8 @@ func (f *fakeQ) ListCategories(context.Context, int64) ([]db.Category, error) { 
 
 func (f *fakeQ) ListStoreProducts(context.Context, int64) ([]db.ListStoreProductsRow, error) {
 	return nil, nil
+}
+
+func (f *fakeQ) GetSubscription(context.Context, int64) (db.Subscription, error) {
+	return db.Subscription{}, pgx.ErrNoRows
 }
