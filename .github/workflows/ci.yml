@@ -57,6 +57,15 @@ jobs:
         with:
           version: latest
 
+      - name: Presupuesto de peso de la tienda (60 KB, deja 8 KB para el HTML)
+        run: |
+          css=$(gzip -9c web/static/css/vitrina.css | wc -c)
+          js=$(gzip -9c web/static/js/carrito.js | wc -c)
+          font=$(ls -l web/static/fonts/*.woff2 | awk '{print $5}' | sort -n | tail -1) # la más pesada; cada tienda carga una
+          total=$((css + js + font))
+          echo "css=$css js=$js fuente=$font total=$total bytes"
+          test "$total" -le 53248
+
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 

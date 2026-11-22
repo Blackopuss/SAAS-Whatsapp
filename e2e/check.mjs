@@ -22,7 +22,11 @@ let failed = false;
 async function audit(name, url, { auth = true, lighthouseRun = true } = {}) {
   await page.goto(url);
   // axe mide la opacidad real: espera a que termine la entrada animada de las tarjetas.
-  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+  await page.evaluate(() => {
+    const finite = document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity);
+    const all = Promise.all(finite.map((a) => a.finished.catch(() => {})));
+    return Promise.race([all, new Promise((r) => setTimeout(r, 3000))]);
+  });
   await page.screenshot({ path: `out/${name}.png`, fullPage: true });
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
   for (const v of axe.violations) {
