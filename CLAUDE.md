@@ -10,9 +10,9 @@ Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la comprad
 | 1 Auth y tenant | Hecho | Incluye recuperación de contraseña y superadmin con 2FA (adelantado del 5) |
 | 2 Catálogo en el panel | Hecho | Categorías, productos, variantes talla × color, marcas, fotos |
 | 3 Vitrina y carrito | Hecho | Inicio, categoría, producto, preguntas, carrito, mensaje de WhatsApp |
-| 4 Personalización | Hecho | Mi tienda, color con contraste, vista previa, logo, QR, Open Graph |
+| 4 Personalización | Hecho | Mi tienda, color con contraste, vista previa, logo, QR, Open Graph, 6 estilos por giro |
 | 5 Fundadoras y cobro | Hecho | Alta de tiendas, pagos manuales, racha, pausa automática, aviso en panel, bitácora |
-| 6 Producción | Pendiente | |
+| 6 Producción | Listo en el repo | `deploy/` y `docs/PRODUCCION.md`; falta rentar el VPS y seguir la guía. Auditoría en `SECURITY.md` |
 
 Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es público (CI gratis). Sin `Co-Authored-By` ni atribución a Claude en commits o PRs.
 
@@ -53,7 +53,10 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - **Recuperación sin proveedor**: en dev el enlace sale en el log; en prod lo genera el superadmin y lo manda por WhatsApp. Pendiente: Cloudflare Email cuando haya dominio.
 - **Cobro**: pagos manuales registrados por el superadmin (sin pasarela). Racha = meses pagados a tiempo; pagar tarde la reinicia y cuenta desde el día del pago. Al 6.º día de atraso la tienda se pausa (proceso cada hora en el mismo servidor, `shortcut:` en `billing.go`, no River). Pausada: 503 sin datos de la vendedora; el panel sigue abierto. Aviso en el panel desde 3 días antes de vencer. Fechas en America/Mexico_City.
 - **Alta de tiendas**: la hace el superadmin; la dueña recibe por WhatsApp el enlace para crear su contraseña.
-- **Diseño visual**: se delega a Codex en la rama `visual` (worktree `../Saas-Whatsapp-visual`); se integra solo si e2e sigue en 100.
+- **Estilos por giro**: columna `stores.style` (vitrina, boutique, barberia, carniceria, abarrotes, papeleria); mismo marcado, cambia `vitrina.css` vía `body[data-estilo]`. Catálogo en `internal/web/views/styles.go` (nombre, fuente que se precarga, color sugerido). Fuentes self-hosted OFL (`web/static/fonts/OFL-estilos.txt`). Exploración con 3 propuestas por giro y 5 giros nuevos (panadería, florería, ferretería, antojitos, mascotas) en el artifact "Estilos por giro".
+- **Codex**: hace diseño y archivos de despliegue en worktrees (`../Saas-Whatsapp-visual`, `../Saas-Whatsapp-prod`) con `codex exec -m gpt-6-luna -s workspace-write` (el modelo por defecto de su config no sirve con cuenta ChatGPT). Su sandbox no puede hacer commit: los hace Claude tras revisar. Se integra solo si e2e sigue en 100.
+- **Open Graph**: cada foto y logo guarda además `<base>-og.jpg` (1200 px) porque WhatsApp no siempre muestra WebP.
+- **IP real**: la app confía en `X-Real-IP` solo si la conexión viene de loopback (Caddy); Caddy lo pone solo para IPs de Cloudflare.
 - **Plantillas**: solo Vitrina. Selector de plantilla y banner llegan con Lista/Boutique.
 - **Fuente**: Bricolage Grotesque recortada a latín + español y peso 400–800 (24 KB). No tiene eje de ancho.
 - **WAVE** no corre local; se usa axe-core (mismo motor de Lighthouse).
@@ -61,7 +64,9 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 
 ## Pendientes conocidos
 
-- Sprint 6 completo. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas). `clientIP` usa RemoteAddr (`shortcut:` en `auth.go`): detrás de Cloudflare hay que leer el header del proxy.
-- Revisar que WhatsApp muestre `og:image` en WebP; si no, generar un JPG para Open Graph.
+- Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
+- Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
+- SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
+- Fotos de la demo anteriores al JPG de Open Graph: correr `seeddemo` de nuevo.
 - El presupuesto de peso (60 KB) se midió a mano (~33 KB), no está en CI.
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
