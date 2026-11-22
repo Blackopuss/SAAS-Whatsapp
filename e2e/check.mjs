@@ -51,6 +51,8 @@ async function audit(name, url, { auth = true } = {}) {
 // Sin sesión
 await audit("login", `${BASE}/panel/login`, { auth: false });
 await audit("tienda", `${BASE}/`, { auth: false });
+await audit("recuperar", `${BASE}/panel/recuperar`, { auth: false });
+await audit("admin-login", BASE.replace("ana.", "admin.") + "/login", { auth: false });
 
 // Entrar
 await page.goto(`${BASE}/panel/login`);

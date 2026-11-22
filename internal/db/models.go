@@ -8,12 +8,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Admin struct {
+	ID           int64
+	Email        string
+	PasswordHash string
+	TotpSecret   []byte
+	LastTotpStep int64
+	CreatedAt    pgtype.Timestamptz
+}
+
 type Category struct {
 	ID        int64
 	StoreID   int64
 	Name      string
 	Position  int32
 	CreatedAt pgtype.Timestamptz
+}
+
+type PasswordReset struct {
+	TokenHash []byte
+	StoreID   int64
+	UserID    int64
+	ExpiresAt pgtype.Timestamptz
+	UsedAt    pgtype.Timestamptz
 }
 
 type Product struct {
@@ -70,9 +87,10 @@ type Store struct {
 }
 
 type User struct {
-	ID           int64
-	StoreID      int64
-	Email        string
-	PasswordHash string
-	CreatedAt    pgtype.Timestamptz
+	ID                int64
+	StoreID           int64
+	Email             string
+	PasswordHash      string
+	CreatedAt         pgtype.Timestamptz
+	PasswordChangedAt pgtype.Timestamptz
 }

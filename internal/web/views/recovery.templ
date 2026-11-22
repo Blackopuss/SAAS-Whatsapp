@@ -1,0 +1,68 @@
+package views
+
+templ authPage(title, store string) {
+	@page(title+" · "+store, "") {
+		<main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4">
+			<h1 class="text-2xl font-bold">{ title }</h1>
+			<p class="mt-1 text-stone-600">{ store }</p>
+			{ children... }
+		</main>
+	}
+}
+
+templ backToLogin() {
+	<p class="mt-6"><a href="/panel/login" class="font-medium underline underline-offset-4">Volver a entrar</a></p>
+}
+
+templ Forgot(store string, enabled bool, sent, errMsg string) {
+	@authPage("Recuperar contraseña", store) {
+		if !enabled {
+			<p class="mt-6">Pide a soporte un enlace para crear una nueva contraseña; te lo mandamos por WhatsApp.</p>
+		} else if sent != "" {
+			<p role="status" class="mt-6 rounded-md border border-green-300 bg-green-50 p-3 text-green-900">{ sent }</p>
+		} else {
+			<form method="post" action="/panel/recuperar" class="mt-6 flex flex-col gap-4" novalidate>
+				@alert(errMsg)
+				<div class="flex flex-col gap-1">
+					<label for="email" class="font-medium">Email</label>
+					<input id="email" name="email" type="email" autocomplete="username" required autofocus class={ input }/>
+				</div>
+				<button type="submit" class={ btn }>Enviar enlace</button>
+			</form>
+		}
+		@backToLogin()
+	}
+}
+
+templ ResetForm(store, token, errMsg string) {
+	@authPage("Nueva contraseña", store) {
+		<form method="post" action={ templ.SafeURL("/panel/recuperar?t=" + token) } class="mt-6 flex flex-col gap-4" novalidate>
+			@alert(errMsg)
+			<div class="flex flex-col gap-1">
+				<label for="password" class="font-medium">Nueva contraseña</label>
+				<input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus aria-describedby="password-help" class={ input }/>
+				<p id="password-help" class="text-sm text-stone-600">Mínimo 10 caracteres.</p>
+			</div>
+			<div class="flex flex-col gap-1">
+				<label for="confirm" class="font-medium">Repite la contraseña</label>
+				<input id="confirm" name="confirm" type="password" autocomplete="new-password" required class={ input }/>
+			</div>
+			<button type="submit" class={ btn }>Guardar contraseña</button>
+		</form>
+	}
+}
+
+templ ResetDone(store string) {
+	@authPage("Contraseña cambiada", store) {
+		<p role="status" class="mt-6">Listo. Por seguridad cerramos las sesiones abiertas en otros dispositivos.</p>
+		<p class="mt-6"><a href="/panel/login" class={ btn + " block text-center" }>Entrar</a></p>
+	}
+}
+
+templ ResetExpired(store string) {
+	@authPage("Enlace vencido", store) {
+		<p class="mt-6">Este enlace ya se usó o venció. Pide uno nuevo.</p>
+		<p class="mt-6"><a href="/panel/recuperar" class={ btn + " block text-center" }>Pedir otro enlace</a></p>
+		@backToLogin()
+	}
+}

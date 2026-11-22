@@ -1,0 +1,74 @@
+package views
+
+import (
+	"strconv"
+
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+)
+
+templ AdminLogin(email, errMsg string) {
+	@page("Superadmin", "") {
+		<main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4">
+			<h1 class="text-2xl font-bold">Superadmin</h1>
+			<form method="post" action="/login" class="mt-6 flex flex-col gap-4" novalidate>
+				@alert(errMsg)
+				<div class="flex flex-col gap-1">
+					<label for="email" class="font-medium">Email</label>
+					<input id="email" name="email" type="email" value={ email } autocomplete="username" required autofocus?={ email == "" } class={ input }/>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label for="password" class="font-medium">Contraseña</label>
+					<input id="password" name="password" type="password" autocomplete="current-password" required autofocus?={ email != "" } class={ input }/>
+				</div>
+				<div class="flex flex-col gap-1">
+					<label for="code" class="font-medium">Código de tu app de autenticación</label>
+					<input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" required class={ input }/>
+				</div>
+				<button type="submit" class={ btn }>Entrar</button>
+			</form>
+		</main>
+	}
+}
+
+templ adminPage(title string) {
+	@page(title+" · Superadmin", "") {
+		<main class="mx-auto max-w-xl p-4">
+			<div class="flex items-center justify-between gap-4">
+				<h1 class="text-2xl font-bold">{ title }</h1>
+				<form method="post" action="/logout"><button type="submit" class={ btnAlt }>Salir</button></form>
+			</div>
+			{ children... }
+		</main>
+	}
+}
+
+templ AdminStores(stores []db.ListStoresAdminRow) {
+	@adminPage("Tiendas") {
+		if len(stores) == 0 {
+			<p class="mt-6">Aún no hay tiendas.</p>
+		}
+		<ul class="mt-6 flex flex-col gap-3">
+			for _, s := range stores {
+				<li class="rounded-lg border border-stone-300 bg-white p-4">
+					<p class="font-bold">{ s.Name }</p>
+					<p class="text-stone-600">{ s.Slug } · { s.Status } · { strconv.FormatInt(s.Products, 10) } productos</p>
+					<form method="post" action={ templ.SafeURL("/tiendas/" + idStr(s.ID) + "/recuperar") } class="mt-3">
+						<button type="submit" class={ btnAlt }>Enlace para nueva contraseña<span class="sr-only"> de { s.Name }</span></button>
+					</form>
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ AdminResetLink(store, link, wa string) {
+	@adminPage("Enlace de " + store) {
+		<p class="mt-6">Vence en 30 minutos y sirve una sola vez. Mándaselo solo a la dueña.</p>
+		<label for="link" class="mt-4 block font-medium">Enlace</label>
+		<input id="link" type="text" readonly value={ link } class={ input + " w-full" }/>
+		if wa != "" {
+			<a href={ templ.SafeURL(wa) } class={ btn + " mt-4 block text-center" }>Enviar por WhatsApp</a>
+		}
+		<p class="mt-6"><a href="/" class="font-medium underline underline-offset-4">Volver a tiendas</a></p>
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5"
@@ -85,6 +86,7 @@ func (a *app) loginPost(w http.ResponseWriter, r *http.Request) {
 	}
 	a.sessions.Put(ctx, "user_id", u.ID)
 	a.sessions.Put(ctx, "store_id", s.ID)
+	a.sessions.Put(ctx, "auth_at", time.Now().Unix())
 	Log(ctx).Info("login", "user_id", u.ID)
 	http.Redirect(w, r, "/panel/", http.StatusSeeOther)
 }
@@ -100,7 +102,19 @@ func (a *app) logout(w http.ResponseWriter, r *http.Request) {
 func (a *app) requireUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if a.sessions.GetInt64(ctx, "user_id") == 0 || a.sessions.GetInt64(ctx, "store_id") != StoreFrom(ctx).ID {
+		uid, sid := a.sessions.GetInt64(ctx, "user_id"), StoreFrom(ctx).ID
+		if uid == 0 || a.sessions.GetInt64(ctx, "store_id") != sid {
+			http.Redirect(w, r, "/panel/login", http.StatusSeeOther)
+			return
+		}
+		// Sesiones iniciadas antes de cambiar la contraseña dejan de servir (p. ej. tras recuperarla).
+		changed, err := a.q.GetUserPasswordChangedAt(ctx, db.GetUserPasswordChangedAtParams{StoreID: sid, ID: uid})
+		if err != nil && !isNoRows(err) {
+			a.fail(w, r, err)
+			return
+		}
+		if err != nil || changed.Time.Unix() > a.sessions.GetInt64(ctx, "auth_at") {
+			_ = a.sessions.Destroy(ctx)
 			http.Redirect(w, r, "/panel/login", http.StatusSeeOther)
 			return
 		}

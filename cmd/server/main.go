@@ -58,6 +58,16 @@ func run() error {
 	}
 	slog.Info("fotos", "destino", mediaURL)
 
+	// shortcut: sin proveedor de email/WhatsApp; en desarrollo el enlace sale en el log y en producción
+	// la vendedora lo pide a soporte (superadmin). Conectar Cloudflare Email cuando haya dominio.
+	var sendReset func(context.Context, string, string) error
+	if cfg.Env == "dev" {
+		sendReset = func(_ context.Context, to, link string) error {
+			slog.Info("enlace de recuperación (solo desarrollo)", "para", to, "enlace", link)
+			return nil
+		}
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           http.MaxBytesHandler(web.Routes(web.Deps{
@@ -70,6 +80,8 @@ func run() error {
 			Storage:    store,
 			MediaURL:   mediaURL,
 			MediaDir:   mediaDir,
+			TOTPKey:    cfg.TOTPKey,
+			SendReset:  sendReset,
 		}), 12<<20), // 10 MB por foto + margen del formulario
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

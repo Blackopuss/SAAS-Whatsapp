@@ -28,6 +28,9 @@ type Deps struct {
 	Storage    storage.Storage
 	MediaURL   string // prefijo público de las fotos, p. ej. "/media/"
 	MediaDir   string // si no está vacío, se sirve en /media/ (solo desarrollo)
+	TOTPKey    []byte // 32 bytes; sin ella no se monta admin.<dominio>
+	// SendReset entrega el enlace de recuperación; nil = la vendedora lo pide a soporte (admin).
+	SendReset func(ctx context.Context, to, link string) error
 }
 
 type app struct {
@@ -37,6 +40,12 @@ type app struct {
 	limit    *limiter
 	store    storage.Storage
 	mediaURL string
+
+	base      string
+	secure    bool
+	admin        *scs.SessionManager
+	totpKey      []byte
+	sendReset    func(ctx context.Context, to, link string) error
 }
 
 func isNoRows(err error) bool { return errors.Is(err, pgx.ErrNoRows) }
@@ -59,7 +68,8 @@ func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 
 // Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
 func Routes(d Deps) http.Handler {
-	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), store: d.Storage, mediaURL: d.MediaURL}
+	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), store: d.Storage, mediaURL: d.MediaURL,
+		base: d.BaseDomain, secure: d.Secure, totpKey: d.TOTPKey, sendReset: d.SendReset}
 	if a.tx == nil {
 		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
 	}
@@ -72,6 +82,20 @@ func Routes(d Deps) http.Handler {
 	panel.HandleFunc("GET /panel/login", a.loginForm)
 	panel.HandleFunc("POST /panel/login", a.loginPost)
 	panel.HandleFunc("POST /panel/logout", a.logout)
+	panel.HandleFunc("GET /panel/recuperar", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("t") {
+			a.resetForm(w, r)
+			return
+		}
+		a.forgotForm(w, r)
+	})
+	panel.HandleFunc("POST /panel/recuperar", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("t") {
+			a.resetPost(w, r)
+			return
+		}
+		a.forgotPost(w, r)
+	})
 	for pattern, h := range map[string]http.HandlerFunc{
 		"GET /panel/{$}":                            a.products,
 		"GET /panel/productos/nuevo":                a.productNew,
@@ -113,9 +137,18 @@ func Routes(d Deps) http.Handler {
 		_, _ = w.Write([]byte("ok"))
 	})
 	tenantHandler := t.middleware(store)
+	admin := http.NotFoundHandler()
+	if len(d.TOTPKey) == 32 {
+		admin = a.adminRoutes(d.Sessions, d.Secure)
+	}
 	top.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, isRoot := slugFromHost(r.Host, d.BaseDomain); isRoot {
+		slug, isRoot := slugFromHost(r.Host, d.BaseDomain)
+		if isRoot {
 			root.ServeHTTP(w, r)
+			return
+		}
+		if slug == "admin" {
+			admin.ServeHTTP(w, r)
 			return
 		}
 		tenantHandler.ServeHTTP(w, r)

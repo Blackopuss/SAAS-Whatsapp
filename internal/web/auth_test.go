@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/auth"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
@@ -163,3 +164,7 @@ func TestCSRFCrossOriginRejected(t *testing.T) {
 }
 
 func (f *fakeQ) ListProducts(context.Context, int64) ([]db.Product, error) { return nil, nil }
+
+func (f *fakeQ) GetUserPasswordChangedAt(context.Context, db.GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error) {
+	return pgtype.Timestamptz{Valid: true}, nil
+}
