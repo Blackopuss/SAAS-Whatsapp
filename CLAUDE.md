@@ -68,5 +68,5 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
 - Fotos de la demo anteriores al JPG de Open Graph: correr `seeddemo` de nuevo.
-- El presupuesto de peso (60 KB) se midió a mano (~33 KB), no está en CI.
+- El presupuesto de peso (60 KB) lo revisa CI con CSS + JS + la fuente más pesada (~43 KB hoy).
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
