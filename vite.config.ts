@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 // shortcut: nombres fijos sin hash (Go no lee manifiesto); pasar a manifest + cache immutable si el tráfico lo pide.
 export default defineConfig({
   root: "frontend",
+  base: "/static/app/",
   publicDir: false,
   oxc: { jsx: { runtime: "automatic" } },
   build: {

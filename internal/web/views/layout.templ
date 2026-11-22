@@ -48,7 +48,8 @@ templ reactPage(title, description, entry, page string, data any) {
 		<body>
 			<div id="root"></div>
 			<noscript><p>Activa JavaScript para usar esta página.</p></noscript>
-			@templ.JSONScript("page-data", pageData{Page: page, Data: data})
+			// Sin nonce: es JSON (no se ejecuta) y así la respuesta no cambia entre peticiones iguales.
+			@templ.JSONScript("page-data", pageData{Page: page, Data: data}).WithNonceFromString("")
 			<script type="module" src={ "/static/app/" + entry + ".js" }></script>
 		</body>
 	</html>

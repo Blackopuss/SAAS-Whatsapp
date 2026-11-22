@@ -84,7 +84,8 @@ if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
   await page.getByRole("link", { name: "Agregar producto" }).click();
   await page.getByLabel("Nombre").fill("Blusa lino");
   await page.getByLabel("Precio", { exact: true }).fill("289");
-  await page.getByLabel("Categoría").selectOption({ label: "Blusas" });
+  await page.getByRole("combobox", { name: "Categoría" }).click();
+  await page.getByRole("option", { name: "Blusas" }).click();
   await page.getByLabel("Tallas").fill("S, M, L");
   await page.getByLabel("Colores").fill("Blanco, Negro");
   await page.getByLabel("Descripción").fill("Blusa de lino fresco.\nIdeal para calor.");

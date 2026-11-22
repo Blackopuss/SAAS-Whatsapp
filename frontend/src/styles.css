@@ -32,3 +32,39 @@
 form.inline-form {
   display: contents;
 }
+form.grow-form {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* Piezas del panel sin componente en Astryx: color nativo, vista previa, logo, QR, muestras de color. */
+.color-input {
+  inline-size: calc(var(--spacing-10) * 2);
+  block-size: var(--spacing-10);
+  padding: var(--spacing-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface, transparent);
+  cursor: pointer;
+}
+.preview-frame {
+  inline-size: 100%;
+  block-size: 32rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: white;
+}
+.logo-preview,
+.qr {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: white;
+  object-fit: contain;
+}
+.swatch {
+  display: inline-block;
+  inline-size: var(--spacing-5);
+  block-size: var(--spacing-5);
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+}

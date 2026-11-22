@@ -69,7 +69,7 @@ export function Shell({ app, sub, nav, current, logout, banner, title, back, act
 export function AuthCard({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
   return (
     <Center minHeight="100dvh" padding={4}>
-      <VStack gap={4} width="100%" maxWidth={400} className="rise">
+      <VStack as="main" gap={4} width="100%" maxWidth={400} className="rise">
         <VStack gap={1}>
           <Heading level={1}>{title}</Heading>
           {sub && <Text color="secondary">{sub}</Text>}
