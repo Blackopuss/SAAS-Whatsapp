@@ -1,0 +1,9 @@
+[Unit]
+Description=Respaldo diario de Tiendas a las 03:30 hora de Ciudad de México
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 America/Mexico_City
+Persistent=true
+
+[Install]
+WantedBy=timers.target
