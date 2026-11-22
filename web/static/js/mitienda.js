@@ -12,5 +12,10 @@ if (form && frame) {
   };
   form.elements.name.addEventListener("input", update);
   form.elements.color.addEventListener("input", update);
-  for (const r of form.elements.style) r.addEventListener("change", update);
+  for (const r of form.elements.style) {
+    r.addEventListener("change", () => {
+      form.elements.color.value = r.dataset.color; // color sugerido del estilo
+      update();
+    });
+  }
 }

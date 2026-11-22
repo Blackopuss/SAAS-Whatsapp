@@ -182,6 +182,18 @@ for (const v of axeCart.violations) {
 }
 results.push({ página: "carrito (abierto)", axe: axeCart.violations.length });
 
+// Estilos por giro: cada uno con su inicio y producto (contraste, foco y textos cambian con el CSS).
+const styles = { boutique: "Boutique", barberia: "Barbería", carniceria: "Carnicería", abarrotes: "Abarrotes", papeleria: "Papelería", vitrina: "Vitrina" };
+for (const [id, label] of Object.entries(styles)) {
+  await page.goto(`${BASE}/panel/tienda`);
+  await page.getByRole("radio", { name: new RegExp(`^${label}`) }).check();
+  await page.getByRole("button", { name: "Guardar datos" }).click();
+  await page.getByRole("status").filter({ hasText: "Datos guardados" }).waitFor();
+  if (id === "vitrina") break; // vuelve al estilo original sin repetir las auditorías de arriba
+  await audit(`estilo-${id}`, `${BASE}/`, { auth: false });
+  await audit(`estilo-${id}-producto`, `${BASE}${prodURL}`, { auth: false });
+}
+
 // Superadmin (necesita ADMIN_TOTP: la clave que imprimió cmd/createadmin).
 const ADMIN = BASE.replace("ana.", "admin.");
 if (process.env.ADMIN_TOTP) {

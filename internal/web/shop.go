@@ -57,6 +57,8 @@ func (a *app) shop(r *http.Request, current int64) (views.Shop, []db.ListStorePr
 	}
 	if theme.Valid(s.BrandColor) {
 		sh.Brand, sh.BrandInk = s.BrandColor, theme.InkFor(s.BrandColor)
+	} else if b, ink, _, err := theme.Fit(views.StyleByID(s.Style).Brand); err == nil {
+		sh.Brand, sh.BrandInk = b, ink // sin color propio: el del estilo
 	}
 	for _, c := range cats {
 		if used[c.ID] {

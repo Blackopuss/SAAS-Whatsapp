@@ -28,7 +28,7 @@ func (a *app) abs(r *http.Request, slug, u string) string {
 func (a *app) myStoreForm(r *http.Request, s db.Store) views.StoreForm {
 	color := s.BrandColorRaw
 	if color == "" {
-		color = theme.Default
+		color = views.StyleByID(s.Style).Brand
 	}
 	return views.StoreForm{
 		Name: s.Name, ShopURL: a.shopURL(r, s.Slug), Whatsapp: s.Whatsapp, Color: color, Applied: s.BrandColor,
