@@ -32,7 +32,7 @@ func (a *app) myStoreForm(r *http.Request, s db.Store) views.StoreForm {
 	}
 	return views.StoreForm{
 		Name: s.Name, ShopURL: a.shopURL(r, s.Slug), Whatsapp: s.Whatsapp, Color: color, Applied: s.BrandColor,
-		FAQ: s.Faq, Payment: s.PaymentInfo, Logo: a.photo(s.LogoKey, s.LogoWidths),
+		FAQ: s.Faq, Payment: s.PaymentInfo, Logo: a.photo(s.LogoKey, s.LogoWidths), Style: s.Style,
 	}
 }
 
@@ -64,6 +64,7 @@ func (a *app) myStoreSave(w http.ResponseWriter, r *http.Request) {
 	f.Color = strings.ToLower(strings.TrimSpace(r.PostFormValue("color")))
 	f.FAQ = strings.TrimSpace(strings.ReplaceAll(r.PostFormValue("faq"), "\r\n", "\n"))
 	f.Payment = strings.TrimSpace(strings.ReplaceAll(r.PostFormValue("payment"), "\r\n", "\n"))
+	f.Style = r.PostFormValue("style")
 
 	wa, waOK := normalizeWhatsapp(f.Whatsapp)
 	brand, _, _, colorErr := theme.Fit(f.Color)
@@ -78,6 +79,8 @@ func (a *app) myStoreSave(w http.ResponseWriter, r *http.Request) {
 		f.Error = "Las preguntas frecuentes pueden tener hasta 4000 letras."
 	case utf8.RuneCountInString(f.Payment) > 1000:
 		f.Error = "Los datos de pago pueden tener hasta 1000 letras."
+	case !views.ValidStyle(f.Style):
+		f.Error = "Elige un estilo para tu tienda."
 	}
 	if f.Error != "" {
 		renderStatus(w, r, http.StatusUnprocessableEntity, views.MyStore(f))
@@ -88,7 +91,7 @@ func (a *app) myStoreSave(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		return q.UpdateStoreSettings(ctx, db.UpdateStoreSettingsParams{
-			ID: s.ID, Name: f.Name, BrandColor: brand, BrandColorRaw: f.Color, Faq: f.FAQ, PaymentInfo: f.Payment,
+			ID: s.ID, Name: f.Name, BrandColor: brand, BrandColorRaw: f.Color, Faq: f.FAQ, PaymentInfo: f.Payment, Style: f.Style,
 		})
 	})
 	if err != nil {
@@ -115,6 +118,9 @@ func (a *app) myStorePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	if brand, ink, _, err := theme.Fit(strings.ToLower(q.Get("color"))); err == nil {
 		sh.Brand, sh.BrandInk = brand, ink
+	}
+	if st := q.Get("estilo"); views.ValidStyle(st) {
+		sh.Style = st
 	}
 	sh.Preview = true
 	renderStatus(w, r, http.StatusOK, views.ShopHome(sh, a.cards(ps, 0)))

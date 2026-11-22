@@ -53,6 +53,7 @@ func (a *app) shop(r *http.Request, current int64) (views.Shop, []db.ListStorePr
 		Name: s.Name, Current: current, Whatsapp: strings.TrimPrefix(s.Whatsapp, "+"),
 		Logo: a.photo(s.LogoKey, s.LogoWidths), FAQ: parseFAQ(s.Faq), Payment: s.PaymentInfo,
 		URL: a.shopURL(r, s.Slug), OGImage: a.abs(r, s.Slug, a.photo(s.LogoKey, s.LogoWidths).Src),
+		Style: s.Style,
 	}
 	if theme.Valid(s.BrandColor) {
 		sh.Brand, sh.BrandInk = s.BrandColor, theme.InkFor(s.BrandColor)

@@ -144,7 +144,7 @@ func (q *Queries) SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (Set
 }
 
 const updateStoreSettings = `-- name: UpdateStoreSettings :exec
-UPDATE stores SET name = $2, brand_color = $3, brand_color_raw = $4, faq = $5, payment_info = $6 WHERE id = $1
+UPDATE stores SET name = $2, brand_color = $3, brand_color_raw = $4, faq = $5, payment_info = $6, style = $7 WHERE id = $1
 `
 
 type UpdateStoreSettingsParams struct {
@@ -154,6 +154,7 @@ type UpdateStoreSettingsParams struct {
 	BrandColorRaw string
 	Faq           string
 	PaymentInfo   string
+	Style         string
 }
 
 func (q *Queries) UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettingsParams) error {
@@ -164,6 +165,7 @@ func (q *Queries) UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettin
 		arg.BrandColorRaw,
 		arg.Faq,
 		arg.PaymentInfo,
+		arg.Style,
 	)
 	return err
 }
