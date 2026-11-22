@@ -7,7 +7,6 @@ import (
 	"image/png"
 	"testing"
 
-	"github.com/gen2brain/avif"
 	"github.com/gen2brain/webp"
 )
 
@@ -49,20 +48,14 @@ func TestRenditions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 400 y 800 en dos formatos, y 1000 (original, sin agrandar a 1200).
-	want := []int{400, 400, 800, 800, 1000, 1000}
+	// 400, 800 y 1000 (original, sin agrandar a 1200), todo en WebP.
+	want := []int{400, 800, 1000}
 	if len(rs) != len(want) {
 		t.Fatalf("renditions = %d, quiero %d", len(rs), len(want))
 	}
 	for i, r := range rs {
-		var cfg image.Config
-		var err error
-		if r.Format == "webp" {
-			cfg, err = webp.DecodeConfig(bytes.NewReader(r.Data))
-		} else {
-			cfg, err = avif.DecodeConfig(bytes.NewReader(r.Data))
-		}
-		if err != nil || cfg.Width != want[i] || cfg.Height != want[i]*5/4 {
+		cfg, err := webp.DecodeConfig(bytes.NewReader(r.Data))
+		if r.Format != "webp" || err != nil || cfg.Width != want[i] || cfg.Height != want[i]*5/4 {
 			t.Errorf("%d: %s %dx%d err=%v, quiero ancho %d", i, r.Format, cfg.Width, cfg.Height, err, want[i])
 		}
 	}

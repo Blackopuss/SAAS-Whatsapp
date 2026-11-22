@@ -47,6 +47,17 @@ func run() error {
 		return err
 	}
 
+	var store storage.Storage = storage.Disk{Dir: "uploads"}
+	mediaURL, mediaDir := "/media/", "uploads"
+	if cfg.HasR2() {
+		r2, err := storage.NewR2(cfg.R2AccountID, cfg.R2AccessKey, cfg.R2SecretKey, cfg.R2Bucket)
+		if err != nil {
+			return err
+		}
+		store, mediaURL, mediaDir = r2, cfg.R2PublicURL+"/", ""
+	}
+	slog.Info("fotos", "destino", mediaURL)
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           http.MaxBytesHandler(web.Routes(web.Deps{
@@ -56,9 +67,9 @@ func run() error {
 			Q:          db.New(pool),
 			Tx:         func(ctx context.Context, fn func(db.Querier) error) error { return db.InTx(ctx, pool, fn) },
 			Sessions:   pgxstore.New(pool),
-			Storage:    storage.Disk{Dir: "uploads"},
-			MediaURL:   "/media/",
-			MediaDir:   "uploads",
+			Storage:    store,
+			MediaURL:   mediaURL,
+			MediaDir:   mediaDir,
 		}), 12<<20), // 10 MB por foto + margen del formulario
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,

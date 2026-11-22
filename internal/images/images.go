@@ -12,7 +12,6 @@ import (
 	_ "image/png"
 	"net/http"
 
-	"github.com/gen2brain/avif"
 	"github.com/gen2brain/webp"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
@@ -31,7 +30,7 @@ var ErrInvalid = errors.New("el archivo no es una foto JPG, PNG o WebP válida")
 
 type Rendition struct {
 	Width  int
-	Format string // "webp" | "avif"
+	Format string // siempre "webp": ligero y lo soporta todo navegador actual
 	Data   []byte
 }
 
@@ -59,7 +58,7 @@ func Decode(data []byte) (image.Image, error) {
 	return img, nil
 }
 
-// Renditions genera 400, 800 y 1200 px de ancho en WebP y AVIF, sin agrandar fotos pequeñas.
+// Renditions genera 400, 800 y 1200 px de ancho en WebP, sin agrandar fotos pequeñas.
 func Renditions(img image.Image) ([]Rendition, error) {
 	var out []Rendition
 	b := img.Bounds()
@@ -70,14 +69,11 @@ func Renditions(img image.Image) ([]Rendition, error) {
 		dst := image.NewRGBA(image.Rect(0, 0, w, h))
 		draw.CatmullRom.Scale(dst, dst.Bounds(), img, b, draw.Src, nil)
 
-		var wb, ab bytes.Buffer
+		var wb bytes.Buffer
 		if err := webp.Encode(&wb, dst, webp.Options{Quality: 78, Method: 4}); err != nil {
 			return nil, err
 		}
-		if err := avif.Encode(&ab, dst, avif.Options{Quality: 55, Speed: 8}); err != nil {
-			return nil, err
-		}
-		out = append(out, Rendition{w, "webp", wb.Bytes()}, Rendition{w, "avif", ab.Bytes()})
+		out = append(out, Rendition{w, "webp", wb.Bytes()})
 		if last {
 			break
 		}

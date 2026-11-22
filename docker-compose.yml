@@ -27,7 +27,10 @@ services:
         test -x /usr/local/bin/tailwindcss || { curl -sSL -o /usr/local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.5/tailwindcss-linux-x64 && chmod +x /usr/local/bin/tailwindcss; }
         go tool goose -dir migrations postgres "$$MIGRATIONS_URL" up
         exec go tool air
-    environment:
+    env_file:
+      - path: .env
+        required: false
+    environment: # pisa lo que venga de .env: dentro de Docker la base se llama "db"
       APP_ENV: dev
       ADDR: ":8080"
       BASE_DOMAIN: localhost

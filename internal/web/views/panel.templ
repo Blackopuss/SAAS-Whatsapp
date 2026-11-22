@@ -196,8 +196,8 @@ type ProductForm struct {
 
 // Photo: srcset ya armados por el handler.
 type Photo struct {
-	ID              int64
-	Src, WebP, AVIF string
+	ID          int64
+	Src, SrcSet string
 }
 
 templ ProductEdit(store string, cats []db.Category, f ProductForm) {
@@ -298,11 +298,7 @@ templ photos(f ProductForm) {
 			<ul class="mt-4 grid grid-cols-2 gap-3">
 				for i, p := range f.Photos {
 					<li class="overflow-hidden rounded-lg border border-stone-300 bg-white">
-						<picture>
-							<source type="image/avif" srcset={ p.AVIF } sizes="(min-width: 576px) 270px, 45vw"/>
-							<source type="image/webp" srcset={ p.WebP } sizes="(min-width: 576px) 270px, 45vw"/>
-							<img src={ p.Src } alt={ "Foto " + strconv.Itoa(i+1) + " de " + f.Name } loading="lazy" decoding="async" width="400" height="500" class="aspect-[4/5] w-full bg-stone-200 object-cover"/>
-						</picture>
+						<img src={ p.Src } srcset={ p.SrcSet } sizes="(min-width: 576px) 270px, 45vw" alt={ "Foto " + strconv.Itoa(i+1) + " de " + f.Name } loading="lazy" decoding="async" width="400" height="500" class="aspect-[4/5] w-full bg-stone-200 object-cover"/>
 						<form method="post" action={ templ.SafeURL("/panel/fotos/" + idStr(p.ID) + "/borrar") } class="p-2">
 							<button type="submit" class={ btnAlt + " w-full text-red-800" }>Quitar<span class="sr-only"> foto { strconv.Itoa(i+1) }</span></button>
 						</form>

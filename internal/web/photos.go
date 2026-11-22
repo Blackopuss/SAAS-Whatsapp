@@ -31,7 +31,7 @@ var photoErrors = map[string]string{
 func photoKeys(base string, widths []int32) []string {
 	var keys []string
 	for _, w := range widths {
-		keys = append(keys, storage.VariantKey(base, w, "webp"), storage.VariantKey(base, w, "avif"))
+		keys = append(keys, storage.VariantKey(base, w, "webp"))
 	}
 	return keys
 }
@@ -149,8 +149,7 @@ func (a *app) photoViews(imgs []db.ProductImage) []views.Photo {
 		p := views.Photo{ID: im.ID}
 		for _, w := range im.Widths {
 			ws := strconv.Itoa(int(w))
-			p.WebP += a.mediaURL + storage.VariantKey(im.R2Key, w, "webp") + " " + ws + "w, "
-			p.AVIF += a.mediaURL + storage.VariantKey(im.R2Key, w, "avif") + " " + ws + "w, "
+			p.SrcSet += a.mediaURL + storage.VariantKey(im.R2Key, w, "webp") + " " + ws + "w, "
 		}
 		if len(im.Widths) > 0 {
 			p.Src = a.mediaURL + storage.VariantKey(im.R2Key, im.Widths[0], "webp")
