@@ -7,3 +7,5 @@ web/static/css/app.css
 *.stale
 /uploads/
 /demo/
+node_modules/
+/web/static/app/
