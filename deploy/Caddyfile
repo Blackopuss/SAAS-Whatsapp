@@ -1,0 +1,46 @@
+{
+	admin 127.0.0.1:2019
+	servers {
+		# Lista de Cloudflare (refrescar junto con cloudflare-ufw.sh).
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+	}
+}
+
+{$BASE_DOMAIN}, *.{$BASE_DOMAIN} {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	encode zstd gzip
+	# La aplicación ya escribe CSP, HSTS no; estos headers solo completan el proxy.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	log {
+		output file /var/log/caddy/tiendas-access.json {
+			roll_size 100MiB
+			roll_keep 14
+			roll_keep_for 336h
+		}
+		format filter {
+			request>uri query {
+				delete t
+			}
+			wrap json
+		}
+	}
+	reverse_proxy 127.0.0.1:8080 {
+		header_up X-Real-IP {client_ip}
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# Dominio propio futuro (PLAN_IMPLEMENTACION.md §5, extra 4): solo habilitar junto
+# con un endpoint interno que confirme que el host está registrado y verificado.
+# {
+#   on_demand_tls {
+#     ask http://127.0.0.1:8090/internal/tls/ask
+#   }
+# }
+# dominio-propio-ejemplo.mx {
+#   tls { on_demand }
+#   reverse_proxy 127.0.0.1:8080
+# }
