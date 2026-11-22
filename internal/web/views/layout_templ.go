@@ -69,7 +69,7 @@ func page(title, description string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</title><link rel=\"stylesheet\" href=\"/static/css/app.css\"></head><body class=\"min-h-dvh bg-stone-50 text-stone-900 font-sans text-base antialiased\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</title><link rel=\"stylesheet\" href=\"/static/css/app.css\"></head><body class=\"min-h-dvh bg-stone-100 text-stone-900 font-sans text-base antialiased selection:bg-stone-200\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

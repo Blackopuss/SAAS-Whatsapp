@@ -7,6 +7,11 @@
   font-weight: 400 800;
   font-display: swap;
 }
+@font-face { font-family: Cormorant; src: url("/static/fonts/cormorant.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+@font-face { font-family: "Big Shoulders"; src: url("/static/fonts/bigshoulders.woff2") format("woff2"); font-weight: 600 900; font-display: swap; }
+@font-face { font-family: "Alfa Slab"; src: url("/static/fonts/alfaslab.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Lilita; src: url("/static/fonts/lilita.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Fredoka; src: url("/static/fonts/fredoka.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
 
 @layer reset {
   *, *::before, *::after { box-sizing: border-box; }
@@ -49,7 +54,7 @@
     padding-bottom: 5rem;
   }
   a { color: inherit; }
-  :focus-visible { outline: 2px solid var(--brand-strong); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .muted { color: var(--ink-muted); }
   .skip { position: absolute; left: var(--space-2); top: -4rem; background: var(--ink); color: var(--paper); padding: var(--space-2) var(--space-4); z-index: 10; }
@@ -57,23 +62,29 @@
 }
 
 @layer theme {
+  :root:has(body[data-estilo="vitrina"]) { --brand: #c2185b; --brand-ink: #fff; }
+  :root:has(body[data-estilo="boutique"]) { --brand: #553249; --brand-ink: #fff; }
+  :root:has(body[data-estilo="barberia"]) { --brand: #b3202a; --brand-ink: #fff; }
+  :root:has(body[data-estilo="carniceria"]) { --brand: #8e1b1b; --brand-ink: #fff; }
+  :root:has(body[data-estilo="abarrotes"]) { --brand: #285b35; --brand-ink: #fff; }
+  :root:has(body[data-estilo="papeleria"]) { --brand: #244c86; --brand-ink: #fff; }
   @media (prefers-reduced-motion: no-preference) {
     @view-transition { navigation: auto; }
   }
 
   /* Nombre de la tienda a todo lo ancho, como letrero. */
-  .top { padding: var(--space-4) var(--space-4) var(--space-2); }
+  .top { padding: var(--space-4) var(--space-4) var(--space-3); border-bottom: 1px solid var(--line); }
   .shop-name {
-    display: block; font-size: var(--step-3); font-weight: 800; line-height: 1;
-    letter-spacing: -0.03em; text-transform: uppercase; text-decoration: none;
+    display: block; min-width: 0; flex: 1; font-size: var(--step-3); font-weight: 800; line-height: .96;
+    letter-spacing: -0.045em; text-transform: uppercase; text-decoration: none;
     overflow-wrap: anywhere; transform-origin: left bottom;
   }
   @supports ((animation-timeline: scroll()) and (animation-range: 0% 100%)) {
     @media (prefers-reduced-motion: no-preference) {
-      .shop-name { animation: encoger linear both; animation-timeline: scroll(); animation-range: 0 8rem; }
+      body[data-estilo="vitrina"] .shop-name { animation: encoger linear both; animation-timeline: scroll(); animation-range: 0 8rem; }
     }
   }
-  @keyframes encoger { to { transform: scale(0.6); opacity: 0.4; } }
+  @keyframes encoger { to { transform: scale(0.6); } }
 
   .cats {
     position: sticky; top: 0; z-index: 2; background: var(--paper);
@@ -82,22 +93,23 @@
   .cats ul { display: flex; gap: var(--space-1); overflow-x: auto; padding: 0 var(--space-2); scrollbar-width: none; }
   .cats a {
     display: flex; align-items: center; min-height: var(--nav-h); padding: 0 var(--space-3);
-    white-space: nowrap; text-decoration: none; font-weight: 500; color: var(--ink-muted);
+    white-space: nowrap; text-decoration: none; font-weight: 600; color: var(--ink-muted);
   }
   .cats a[aria-current] { color: var(--ink); box-shadow: inset 0 -3px 0 var(--brand-strong); }
 
-  main { max-width: 64rem; margin: 0 auto; padding: var(--space-4) var(--space-2); }
-  .page-h { font-size: var(--step-2); font-weight: 800; line-height: 1.15; margin: 0 var(--space-2) var(--space-4); }
+  main { max-width: 64rem; margin: 0 auto; padding: var(--space-6) var(--space-3); }
+  .page-h { font-size: var(--step-2); font-weight: 800; line-height: 1.1; letter-spacing: -0.025em; margin: 0 var(--space-2) var(--space-4); }
   .empty { padding: var(--space-8) var(--space-2); }
   .paused { min-height: 80dvh; display: grid; align-content: center; gap: var(--space-2); max-width: 30rem; }
 
-  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-2); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-3); }
   @media (min-width: 640px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .card { display: flex; flex-direction: column; gap: var(--space-1); text-decoration: none; }
-  .ph { position: relative; display: block; aspect-ratio: 4 / 5; background: var(--brand-soft); overflow: hidden; }
-  .ph img { width: 100%; height: 100%; object-fit: cover; }
+  .card { display: flex; flex-direction: column; gap: var(--space-1); text-decoration: none; min-width: 0; }
+  .ph { position: relative; display: block; aspect-ratio: 4 / 5; background: var(--brand-soft); overflow: hidden; border-radius: .75rem; }
+  .ph img { width: 100%; height: 100%; object-fit: cover; transition: transform 180ms ease; }
+  .card:hover .ph img { transform: scale(1.025); }
   .sold img, .gallery.sold img { filter: grayscale(0.8); }
-  .name { font-weight: 500; line-height: 1.3; }
+  .name { font-weight: 600; line-height: 1.3; }
   .price { font-variant-numeric: tabular-nums; }
   .price .now { color: var(--sale); font-weight: 700; }
   .price s { color: var(--ink-muted); font-size: var(--step--1); }
@@ -105,9 +117,9 @@
 
   /* Pestaña recortada en la esquina de la foto. */
   .tag {
-    position: absolute; top: 0; left: 0; padding: var(--space-1) var(--space-4) var(--space-1) var(--space-2);
+    position: absolute; top: var(--space-2); left: 0; padding: var(--space-1) var(--space-4) var(--space-1) var(--space-2);
     background: var(--ink); color: var(--paper); font-size: var(--step--1); font-weight: 700;
-    clip-path: polygon(0 0, 100% 0, calc(100% - 0.75rem) 100%, 0 100%);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 0.65rem) 100%, 0 100%); border-radius: 0 .25rem .25rem 0;
   }
   .tag-sale { background: var(--sale); color: white; }
   .tag-out { background: var(--paper); color: var(--ink); }
@@ -156,7 +168,8 @@
   .pay { white-space: pre-line; }
   .top { display: flex; align-items: center; gap: var(--space-3); }
   .logo { width: 56px; height: 56px; object-fit: contain; flex: none; }
-  .wa { background: var(--wa); color: #052e16; }
+  .wa { background: #1f7a43; color: white; }
+  .wa:hover { background: #0d7130; }
   .add-status:empty { display: none; }
   .desc { display: grid; gap: var(--space-3); max-width: 40ch; }
 
@@ -169,14 +182,15 @@
   .cart-btn {
     position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 3;
     display: flex; align-items: center; gap: var(--space-2); min-height: 3.25rem; padding: 0 var(--space-6);
-    border: 0; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 700; cursor: pointer;
+    border: 0; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font-weight: 700; cursor: pointer;
     box-shadow: 0 4px 16px oklch(0 0 0 / 0.2);
   }
   .cart-btn[hidden] { display: none; }
   .cart-n { min-width: 1.5rem; padding: 0 var(--space-1); border-radius: 999px; background: var(--paper); color: var(--ink); text-align: center; }
   .cart {
     margin: auto 0 0; width: 100%; max-width: 100%; max-height: 85dvh; padding: var(--space-4);
-    border: 0; border-radius: 1rem 1rem 0 0; background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line); border-bottom: 0; border-radius: 1.25rem 1.25rem 0 0; background: var(--paper); color: var(--ink);
+    box-shadow: 0 -12px 40px oklch(0 0 0 / .12); overscroll-behavior: contain;
   }
   @media (min-width: 640px) { .cart { margin: auto; max-width: 28rem; border-radius: 1rem; } }
   .cart::backdrop { background: oklch(0 0 0 / 0.45); }
@@ -184,7 +198,7 @@
     .cart[open] { animation: subir 200ms ease-out; }
     @keyframes subir { from { transform: translateY(2rem); opacity: 0; } }
   }
-  .cart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
+  .cart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--line); }
   .cart-head h2 { font-size: var(--step-1); }
   .link { min-height: 44px; padding: 0 var(--space-2); border: 0; background: none; text-decoration: underline; cursor: pointer; }
   .cart-list { display: grid; gap: var(--space-3); margin: var(--space-2) 0; }
@@ -195,4 +209,93 @@
   .step button { width: 44px; height: 44px; border: 1px solid var(--ink-muted); border-radius: 0.5rem; background: white; cursor: pointer; }
   .cart-total { display: flex; justify-content: space-between; font-size: var(--step-1); margin-bottom: var(--space-3); font-variant-numeric: tabular-nums; }
   .cart-empty a { font-weight: 700; }
+  @media (prefers-reduced-motion: reduce) { .ph img { transition: none; } }
+
+  /* Una sola entrada escalonada al catálogo; solo la primera docena lleva retraso. */
+  @media (prefers-reduced-motion: no-preference) {
+    .grid > li { animation: aparecer 220ms both; }
+    .grid > li:nth-child(2) { animation-delay: 35ms; }
+    .grid > li:nth-child(3) { animation-delay: 70ms; }
+    .grid > li:nth-child(4) { animation-delay: 105ms; }
+    .grid > li:nth-child(5) { animation-delay: 140ms; }
+    .grid > li:nth-child(6) { animation-delay: 175ms; }
+    .grid > li:nth-child(7) { animation-delay: 210ms; }
+    .grid > li:nth-child(8) { animation-delay: 245ms; }
+    .grid > li:nth-child(9) { animation-delay: 280ms; }
+    .grid > li:nth-child(10) { animation-delay: 315ms; }
+    .grid > li:nth-child(11) { animation-delay: 350ms; }
+    .grid > li:nth-child(12) { animation-delay: 385ms; }
+    .cart-btn.bump .cart-n { animation: rebote 260ms cubic-bezier(.2,1.5,.5,1); }
+    .primary:active, .wa:active, .cart-btn:active, .link:active { transform: scale(.97); }
+    @keyframes aparecer { from { opacity: 0; } }
+    @keyframes rebote { 50% { transform: scale(1.25); } }
+  }
+
+  /* Boutique: papel frío y fotografía de galería. */
+  body[data-estilo="boutique"] { --paper: #f5f6f4; --ink: #222321; --ink-muted: #525652; --line: #d7d9d5; --sale: #7b303a; --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper)); font-family: system-ui, sans-serif; }
+  [data-estilo="boutique"] .top { padding: 2rem 1.25rem 1.5rem; border-color: #c9ccc8; }
+  [data-estilo="boutique"] .shop-name, [data-estilo="boutique"] .page-h, [data-estilo="boutique"] .cart-head h2 { font-family: Cormorant, Georgia, serif; font-weight: 600; letter-spacing: -.035em; }
+  [data-estilo="boutique"] .shop-name { font-size: clamp(2.7rem, 13vw, 4.5rem); text-transform: none; }
+  [data-estilo="boutique"] main { max-width: 72rem; padding-inline: 1.25rem; }
+  [data-estilo="boutique"] .grid { gap: 2.5rem 1rem; }
+  [data-estilo="boutique"] .ph { border-radius: 0; background: #e8eae7; }
+  [data-estilo="boutique"] .name { font-weight: 500; }
+  [data-estilo="boutique"] .price { color: #454844; font-size: .94rem; }
+  [data-estilo="boutique"] .tag { border-radius: 0; clip-path: none; }
+  [data-estilo="boutique"] .primary, [data-estilo="boutique"] .cart-btn { border-radius: 2px; }
+  [data-estilo="boutique"] .cart { border-radius: 0; }
+
+  /* Barbería: carbón con un guiño discreto al poste en el rótulo. */
+  body[data-estilo="barberia"] { --paper: #242328; --ink: #f4efe5; --ink-muted: #d0c9bd; --line: #655846; --sale: #dfbc7a; --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper)); background: var(--paper); color: var(--ink); font-family: system-ui, sans-serif; }
+  [data-estilo="barberia"] .top { background: repeating-linear-gradient(135deg, #29282d 0 18px, #302e32 18px 20px, #29282d 20px 38px); border-color: #85734e; }
+  [data-estilo="barberia"] .shop-name, [data-estilo="barberia"] .page-h, [data-estilo="barberia"] .cart-head h2 { font-family: "Big Shoulders", Impact, sans-serif; font-weight: 800; letter-spacing: .015em; }
+  [data-estilo="barberia"] .shop-name { font-size: clamp(2.5rem, 12vw, 4rem); text-transform: uppercase; }
+  [data-estilo="barberia"] .cats, [data-estilo="barberia"] .cart { background: #242328; color: var(--ink); }
+  [data-estilo="barberia"] .ph { border: 1px solid #85734e; border-radius: 3px; }
+  [data-estilo="barberia"] .tag { background: #e3d6ba; color: #242328; clip-path: none; border-radius: 2px; }
+  [data-estilo="barberia"] .tag-sale { background: #b3202a; color: #fff; }
+  [data-estilo="barberia"] .tag-out { background: #f4efe5; color: #242328; }
+  [data-estilo="barberia"] .opt > span:not(.sr-only):not(.sw), [data-estilo="barberia"] .qty input, [data-estilo="barberia"] .step button { background: #302f34; color: #f4efe5; }
+  [data-estilo="barberia"] .primary, [data-estilo="barberia"] .cart-btn { border: 1px solid #ad9666; border-radius: 3px; }
+
+  /* Carnicería: azulejo blanco y papel kraft limpio en el encabezado. */
+  body[data-estilo="carniceria"] { --paper: #fff; --ink: #292726; --ink-muted: #56504d; --line: #d9d4ce; --sale: #8e1b1b; --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper)); font-family: system-ui, sans-serif; background-color: #fff; background-image: linear-gradient(#eeeae5 1px, transparent 1px), linear-gradient(90deg, #eeeae5 1px, transparent 1px); background-size: 28px 28px; }
+  [data-estilo="carniceria"] .top { background: #dfc79f; border-bottom: 3px solid #b99a6d; }
+  [data-estilo="carniceria"] .shop-name, [data-estilo="carniceria"] .page-h, [data-estilo="carniceria"] .cart-head h2 { font-family: "Alfa Slab", Rockwell, serif; font-weight: 400; }
+  [data-estilo="carniceria"] .shop-name { font-size: clamp(1.9rem, 9vw, 3rem); letter-spacing: -.025em; }
+  [data-estilo="carniceria"] .cats, [data-estilo="carniceria"] .cart { background: #fff; }
+  [data-estilo="carniceria"] .ph { border-radius: 4px; border: 1px solid #d1c8bd; }
+  [data-estilo="carniceria"] .price, [data-estilo="carniceria"] .price.big { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  [data-estilo="carniceria"] .tag { clip-path: none; border-radius: 2px; }
+  [data-estilo="carniceria"] .primary, [data-estilo="carniceria"] .cart-btn { border-radius: 4px; }
+
+  /* Abarrotes: mucho producto, rótulo de colores y etiquetas legibles. */
+  body[data-estilo="abarrotes"] { --paper: #fffdf3; --ink: #25251f; --ink-muted: #4c4b3f; --line: #d9d3b8; --sale: #8c2520; --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper)); font-family: system-ui, sans-serif; }
+  [data-estilo="abarrotes"] .top { background: #f2c94c; border-bottom: 4px solid #285b35; }
+  [data-estilo="abarrotes"] .shop-name, [data-estilo="abarrotes"] .page-h, [data-estilo="abarrotes"] .cart-head h2 { font-family: Lilita, system-ui, sans-serif; font-weight: 400; }
+  [data-estilo="abarrotes"] .shop-name { font-size: clamp(2.1rem, 10vw, 3.4rem); color: #183f27; letter-spacing: -.02em; }
+  [data-estilo="abarrotes"] .cats { background: #285b35; }
+  [data-estilo="abarrotes"] .cats a { color: #fff; }
+  [data-estilo="abarrotes"] .cats a[aria-current] { color: #fff; box-shadow: inset 0 -3px #f2c94c; }
+  [data-estilo="abarrotes"] .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem .55rem; }
+  [data-estilo="abarrotes"] .ph { border: 1px solid #d1c78f; border-radius: 5px; }
+  [data-estilo="abarrotes"] .name { font-size: .9rem; }
+  [data-estilo="abarrotes"] .price { font-size: .92rem; font-weight: 800; }
+  [data-estilo="abarrotes"] .tag { background: #214e32; color: white; border-radius: 2px; clip-path: none; padding-inline: .4rem; }
+  [data-estilo="abarrotes"] .tag-sale { background: #8c2520; }
+  [data-estilo="abarrotes"] .tag-out { background: #fff; color: #25251f; border: 1px solid #49483e; }
+  [data-estilo="abarrotes"] .primary, [data-estilo="abarrotes"] .cart-btn { border-radius: 5px; }
+
+  /* Papelería: hoja cuadriculada y trazos de plumón en los encabezados. */
+  body[data-estilo="papeleria"] { --paper: #fbfcff; --ink: #242b38; --ink-muted: #4c5869; --line: #d8e1ef; --sale: #8c275b; --brand-soft: color-mix(in oklch, var(--brand) 12%, var(--paper)); font-family: system-ui, sans-serif; background-color: #fbfcff; background-image: linear-gradient(#e8eef7 1px, transparent 1px), linear-gradient(90deg, #e8eef7 1px, transparent 1px); background-size: 22px 22px; }
+  [data-estilo="papeleria"] .top, [data-estilo="papeleria"] .cats, [data-estilo="papeleria"] .cart { background-color: #fbfcff; }
+  [data-estilo="papeleria"] .shop-name, [data-estilo="papeleria"] .page-h, [data-estilo="papeleria"] .cart-head h2, [data-estilo="papeleria"] .primary, [data-estilo="papeleria"] .cart-btn { font-family: Fredoka, system-ui, sans-serif; }
+  [data-estilo="papeleria"] .shop-name { font-size: clamp(2.1rem, 10vw, 3.3rem); font-weight: 650; letter-spacing: -.025em; }
+  [data-estilo="papeleria"] .page-h { width: fit-content; padding: 0 .12em; background: linear-gradient(transparent 61%, #ffe9a8 61% 91%, transparent 91%); }
+  [data-estilo="papeleria"] .ph { border: 1px solid #c7d5e8; border-radius: 1rem; }
+  [data-estilo="papeleria"] .tag { border-radius: 999px; clip-path: none; background: #234e86; }
+  [data-estilo="papeleria"] .tag-sale { color: #242b38; background: #ffd6e7; }
+  [data-estilo="papeleria"] .tag-out { background: #fff; color: #242b38; border: 1px solid #78869a; }
+  [data-estilo="papeleria"] .primary, [data-estilo="papeleria"] .cart-btn { border-radius: 1rem; }
+  [data-estilo="papeleria"] .cart { border-radius: 1.25rem 1.25rem 0 0; }
 }

@@ -36,9 +36,22 @@ function save(items) {
   count(items);
 }
 
+let counted = false; // al cargar la página no rebota, solo al cambiar
 function count(items) {
   const n = items.reduce((s, i) => s + i.qty, 0);
-  for (const el of document.querySelectorAll("[data-cart-count]")) el.textContent = n;
+  for (const el of document.querySelectorAll("[data-cart-count]")) {
+    if (counted && el.textContent !== String(n)) bump(el.closest(".cart-btn"));
+    el.textContent = n;
+  }
+  counted = true;
+}
+
+// bump reinicia la animación del contador (el CSS la omite con reduced-motion).
+function bump(btn) {
+  if (!btn) return;
+  btn.classList.remove("bump");
+  void btn.offsetWidth;
+  btn.classList.add("bump");
 }
 
 let catalog;

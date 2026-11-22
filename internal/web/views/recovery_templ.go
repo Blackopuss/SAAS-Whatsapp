@@ -165,7 +165,7 @@ func Forgot(store string, enabled bool, sent, errMsg string) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<form method=\"post\" action=\"/panel/recuperar\" class=\"mt-6 flex flex-col gap-4\" novalidate>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<form method=\"post\" action=\"/panel/recuperar\" class=\"mt-6 flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 shadow-sm\" novalidate>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -318,7 +318,7 @@ func ResetForm(store, token, errMsg string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"mt-6 flex flex-col gap-4\" novalidate>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"mt-6 flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 shadow-sm\" novalidate>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

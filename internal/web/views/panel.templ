@@ -8,17 +8,17 @@ import (
 )
 
 const (
-	input  = "min-h-12 w-full rounded-md border border-stone-500 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
-	btn    = "inline-flex min-h-12 items-center justify-center rounded-md bg-stone-900 px-4 font-semibold text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
-	btnAlt = "inline-flex min-h-11 items-center justify-center rounded-md border border-stone-500 px-3 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	input  = "min-h-12 w-full rounded-lg border border-stone-400 bg-white px-3 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btn    = "inline-flex min-h-12 items-center justify-center rounded-lg bg-stone-900 px-5 font-semibold text-white shadow-sm hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+	btnAlt = "inline-flex min-h-11 items-center justify-center rounded-lg border border-stone-400 bg-white px-3 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
 )
 
 templ Login(store, email, errMsg string) {
 	@page("Entrar · "+store, "") {
-		<main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4">
-			<h1 class="text-2xl font-bold">Entrar a tu panel</h1>
+		<main class="mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-5">
+			<h1 class="text-3xl font-bold tracking-tight">Entrar a tu panel</h1>
 			<p class="mt-1 text-stone-600">{ store }</p>
-			<form method="post" action="/panel/login" class="mt-6 flex flex-col gap-4" novalidate>
+			<form method="post" action="/panel/login" class="mt-6 flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 shadow-sm" novalidate>
 				@alert(errMsg)
 				<div class="flex flex-col gap-1">
 					<label for="email" class="font-medium">Email</label>
@@ -44,13 +44,13 @@ templ alert(msg string) {
 // panelPage: navegación inferior fija para usarlo con el pulgar (plan 3.6).
 templ panelPage(store, title, current string) {
 	@page(title+" · "+store, "") {
-		<main class="mx-auto max-w-xl p-4 pb-28">
+		<main class="mx-auto max-w-xl p-4 pb-28 sm:p-6 sm:pb-28">
 			if n := noticeFrom(ctx); n != "" {
 				<p class="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950">{ n }</p>
 			}
 			{ children... }
 		</main>
-		<nav aria-label="Panel" class="fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white">
+		<nav aria-label="Panel" class="fixed inset-x-0 bottom-0 border-t border-stone-300 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(0_0_0/0.05)]">
 			<ul class="mx-auto grid max-w-xl grid-cols-4">
 				@navItem("/panel/", "Productos", current == "productos")
 				@navItem("/panel/categorias", "Categorías", current == "categorias")
@@ -94,7 +94,7 @@ templ Products(store string, ps []db.Product) {
 	@panelPage(store, "Productos", "productos") {
 		<div class="flex items-center justify-between gap-4">
 			<h1 class="text-2xl font-bold">Productos</h1>
-			<a href="/panel/productos/nuevo" class={ btn }>Agregar producto</a>
+			<a href="/panel/productos/nuevo" class={ btn + " shrink-0" }>Agregar producto</a>
 		</div>
 		if len(ps) == 0 {
 			<div class="mt-8 rounded-lg border border-dashed border-stone-400 p-6">
@@ -229,7 +229,7 @@ templ ProductEdit(store string, cats []db.Category, f ProductForm) {
 			@field("name", "Nombre") {
 				<input id="name" name="name" value={ f.Name } required maxlength="120" class={ input }/>
 			}
-			<div class="grid grid-cols-2 gap-3">
+			<div class="flex flex-col gap-5">
 				@field("price", "Precio") {
 					<input id="price" name="price" value={ f.Price } inputmode="decimal" required placeholder="289" class={ input }/>
 				}
@@ -366,9 +366,9 @@ templ MyStore(f StoreForm) {
 				<legend class="font-medium">Estilo de tu tienda</legend>
 				<p class="text-sm text-stone-600">Elige el que va con tu giro. Al elegirlo te sugerimos su color; puedes cambiarlo.</p>
 				for _, st := range Styles {
-					<label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-stone-300 bg-white p-3 has-checked:border-stone-900 has-checked:ring-2 has-checked:ring-stone-900">
+					<label class={ "style-choice style-choice-" + st.ID, "flex min-h-11 cursor-pointer items-start gap-3 rounded-md border border-stone-300 bg-white p-3 has-checked:border-stone-900 has-checked:ring-2 has-checked:ring-stone-900" }>
 						<input type="radio" name="style" value={ st.ID } data-color={ st.Brand } checked?={ StyleByID(f.Style).ID == st.ID } class="mt-1 size-5"/>
-						<span><span class="block font-medium">{ st.Name }</span><span class="block text-sm text-stone-600">{ st.Hint }</span></span>
+						<span class="style-copy"><span class="style-sample">{ st.Name }</span><span class="block text-sm text-stone-600">{ st.Hint }</span></span>
 					</label>
 				}
 			</fieldset>
