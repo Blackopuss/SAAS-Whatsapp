@@ -13,6 +13,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,7 +92,10 @@ func run(slug string) error {
 		fmt.Fprintln(os.Stderr, "fotos a R2:", cfg.R2Bucket)
 	}
 
-	// Empieza limpio: borra productos (y sus archivos) y categorías de esta tienda.
+	// Empieza limpio: borra pedidos, productos (y sus archivos) y categorías de esta tienda.
+	if _, err := pool.Exec(ctx, "DELETE FROM orders WHERE store_id = $1", s.ID); err != nil {
+		return err
+	}
 	old, err := q.ListProducts(ctx, s.ID)
 	if err != nil {
 		return err
@@ -129,6 +133,7 @@ func run(slug string) error {
 		pid, err := q.CreateProduct(ctx, db.CreateProductParams{
 			StoreID: s.ID, CategoryID: pgtype.Int8{Int64: catIDs[it.cat], Valid: true},
 			Name: it.name, Description: it.desc, PriceCents: it.price, SalePriceCents: sale,
+			Unit: "pieza", Step: 1000, Stock: pgtype.Int4{Int32: int32(3+i%6) * 1000, Valid: it.sizes == "" && it.colors == ""}, // #nosec G115 -- índice chico
 		})
 		if err != nil {
 			return err
@@ -142,8 +147,11 @@ func run(slug string) error {
 		}
 		for si, size := range split(it.sizes) {
 			for ci, col := range split(it.colors) {
-				sold := si == 0 && ci == 1 // una combinación agotada para ver el estado
-				if err := q.CreateVariant(ctx, db.CreateVariantParams{StoreID: s.ID, ProductID: pid, Size: size, Color: col, SoldOut: sold}); err != nil {
+				stock := int32((si*3+ci*2+i)%6) * 1000 // #nosec G115 -- índices chicos; algunas quedan en 0 (agotadas)
+				if si == 0 && ci == 1 {
+					stock = 0
+				}
+				if err := q.CreateVariant(ctx, db.CreateVariantParams{StoreID: s.ID, ProductID: pid, Size: size, Color: col, Stock: pgtype.Int4{Int32: stock, Valid: true}}); err != nil {
 					return err
 				}
 			}
@@ -156,6 +164,78 @@ func run(slug string) error {
 		fmt.Fprintf(os.Stderr, ".")
 	}
 	fmt.Fprintf(os.Stderr, "\n%d productos en %s\n", len(catalog), slug)
+	return seedOrders(ctx, pool, q, s.ID)
+}
+
+// seedOrders llena 90 días de pedidos de ejemplo para ver las gráficas de Ventas. No toca existencias.
+func seedOrders(ctx context.Context, pool *pgxpool.Pool, q *db.Queries, storeID int64) error {
+	all, err := q.ListPanelProducts(ctx, storeID)
+	if err != nil {
+		return err
+	}
+	ids := make([]int64, 0, len(all))
+	for _, p := range all {
+		ids = append(ids, p.ID)
+	}
+	ps, err := q.OrderProducts(ctx, db.OrderProductsParams{StoreID: storeID, Ids: ids})
+	if err != nil || len(ps) == 0 {
+		return err
+	}
+	vs, err := q.OrderVariants(ctx, db.OrderVariantsParams{StoreID: storeID, Ids: ids})
+	if err != nil {
+		return err
+	}
+	combos := map[int64][]db.OrderVariantsRow{}
+	for _, v := range vs {
+		combos[v.ProductID] = append(combos[v.ProductID], v)
+	}
+	rng := rand.New(rand.NewPCG(7, uint64(storeID))) // #nosec G404 -- datos de ejemplo
+	const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	for n := range 70 {
+		code := make([]byte, 6)
+		for i := range code {
+			code[i] = letters[rng.IntN(len(letters))]
+		}
+		var total int64
+		var items []db.AddOrderItemParams
+		for range 1 + rng.IntN(3) {
+			p := ps[rng.IntN(len(ps))]
+			it := db.AddOrderItemParams{StoreID: storeID, ProductID: pgtype.Int8{Int64: p.ID, Valid: true}, Name: p.Name, Category: p.Category,
+				Unit: p.Unit, Qty: int32(1+rng.IntN(2)) * 1000, PriceCents: p.PriceCents} // #nosec G115 -- 1 o 2
+			if cs := combos[p.ID]; len(cs) > 0 {
+				c := cs[rng.IntN(len(cs))]
+				it.Size, it.Color = c.Size, c.Color
+			}
+			total += (int64(it.PriceCents)*int64(it.Qty) + 500) / 1000
+			items = append(items, it)
+		}
+		id, err := q.CreateOrder(ctx, db.CreateOrderParams{StoreID: storeID, Code: string(code), TotalCents: int32(total)}) // #nosec G115 -- montos chicos
+		if err != nil {
+			continue // código repetido: se salta
+		}
+		for _, it := range items {
+			it.OrderID = id
+			if err := q.AddOrderItem(ctx, it); err != nil {
+				return err
+			}
+		}
+		// Los más recientes quedan pendientes; de los demás, 7 de cada 10 se venden.
+		status, reason := 1, 0
+		switch {
+		case n < 4:
+			status = 0
+		case rng.IntN(10) >= 7:
+			status, reason = 2, 1+rng.IntN(4)
+		}
+		days := n * 90 / 70
+		if _, err := pool.Exec(ctx, `UPDATE orders SET status = $3::smallint, reason = $4::smallint,
+			created_at = now() - make_interval(days => $5::int, hours => $6::int),
+			decided_at = CASE WHEN $3::smallint = 0 THEN NULL ELSE now() - make_interval(days => $5::int) END
+			WHERE store_id = $1 AND id = $2`, storeID, id, status, reason, days, rng.IntN(12)); err != nil {
+			return err
+		}
+	}
+	fmt.Fprintln(os.Stderr, "pedidos de ejemplo listos")
 	return nil
 }
 

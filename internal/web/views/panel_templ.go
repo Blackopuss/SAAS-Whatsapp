@@ -46,6 +46,7 @@ func Login(store, email, errMsg string) templ.Component {
 func panelData(ctx context.Context, store string, data map[string]any) map[string]any {
 	data["store"] = store
 	data["notice"] = noticeFrom(ctx)
+	data["pending"], _ = ctx.Value(pendingKey{}).(int64)
 	return data
 }
 
@@ -62,30 +63,29 @@ func money(cents int32) string {
 
 func idStr(id int64) string { return strconv.FormatInt(id, 10) }
 
-type productRow struct {
-	ID      int64  `json:"id"`
-	Name    string `json:"name"`
-	Price   string `json:"price"`
-	Was     string `json:"was"` // precio normal tachado cuando está en oferta
-	Active  bool   `json:"active"`
-	SoldOut bool   `json:"soldOut"`
-	IsNew   bool   `json:"isNew"`
-	OnSale  bool   `json:"onSale"`
+type StockRow struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	Stock string `json:"stock"`
 }
 
-func productRows(ps []db.Product) []productRow {
-	out := make([]productRow, 0, len(ps))
-	for _, p := range ps {
-		r := productRow{ID: p.ID, Name: p.Name, Price: money(p.PriceCents), Active: p.Active, SoldOut: p.SoldOut, IsNew: p.IsNew, OnSale: p.OnSale}
-		if p.SalePriceCents.Valid && p.OnSale {
-			r.Was, r.Price = r.Price, money(p.SalePriceCents.Int32)
-		}
-		out = append(out, r)
-	}
-	return out
+type ProductRow struct {
+	ID       int64      `json:"id"`
+	Name     string     `json:"name"`
+	Category string     `json:"category"`
+	Thumb    string     `json:"thumb"`
+	Price    string     `json:"price"`
+	Was      string     `json:"was"` // precio normal tachado cuando está en oferta
+	Active   bool       `json:"active"`
+	SoldOut  bool       `json:"soldOut"`
+	IsNew    bool       `json:"isNew"`
+	Unit     string     `json:"unit"`
+	Stock    string     `json:"stock"`  // vacío = no lleva inventario
+	Low      bool       `json:"low"`    // 3 pasos o menos
+	Combos   []StockRow `json:"combos"` // existencia por talla/color, para ajustarla desde la lista
 }
 
-func Products(store string, ps []db.Product) templ.Component {
+func Products(store string, rows []ProductRow, cats []db.Category) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -102,7 +102,7 @@ func Products(store string, ps []db.Product) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = reactPage("Productos · "+store, "", "panel", "products", panelData(ctx, store, map[string]any{"products": productRows(ps)})).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = reactPage("Productos · "+store, "", "panel", "products", panelData(ctx, store, map[string]any{"products": rows, "categories": categoryOptions(cats)})).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -151,6 +151,7 @@ func Categories(store string, cats []db.Category, errMsg string) templ.Component
 type VariantRow struct {
 	Key, Label string
 	SoldOut    bool
+	Stock      string
 }
 
 type ProductForm struct {
@@ -159,7 +160,10 @@ type ProductForm struct {
 	CategoryID                          int64
 	Sizes, Colors                       string
 	Variants                            []VariantRow
+	Unit, Step, Stock                   string
+	Track, OnSale, IsNew, SoldOut       bool
 	Error                               string
+	Field                               string // campo con error, para abrir su pestaña
 	Saved                               bool
 	Photos                              []Photo
 	PhotoOK                             bool
@@ -282,6 +286,129 @@ func Messages(store, shopURL, payment string) templ.Component {
 		}
 		return nil
 	})
+}
+
+type Choice struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+type OrderItem struct {
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	Qty     string `json:"qty"`
+	Step    string `json:"step"`
+	Unit    string `json:"unit"`
+	Price   string `json:"price"`
+	Line    string `json:"line"`
+	Stock   string `json:"stock"` // vacío = no lleva inventario
+	Short   bool   `json:"short"` // no alcanza la existencia actual
+}
+
+type OrderView struct {
+	ID      int64       `json:"id"`
+	Code    string      `json:"code"`
+	Created string      `json:"created"`
+	Total   string      `json:"total"`
+	Reason  string      `json:"reason"`
+	Items   []OrderItem `json:"items"`
+}
+
+func Sales(store, tab string, orders []OrderView, errMsg string, focus int64) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Ventas · "+store, "", "panel", "sales", panelData(ctx, store, map[string]any{"tab": tab, "orders": orders, "error": errMsg, "focus": focus})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type ReasonRow struct {
+	Label  string `json:"label"`
+	Orders int32  `json:"orders"`
+	Cents  int64  `json:"cents"`
+}
+
+type SeriesPoint struct {
+	Label string `json:"label"`
+	Sold  int64  `json:"sold"`
+	Lost  int64  `json:"lost"`
+}
+
+type ItemRow struct {
+	ID      int64  `json:"id,omitempty"`
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	Qty     string `json:"qty"`
+	Unit    string `json:"unit"`
+	Cents   int64  `json:"cents"`
+}
+
+type SalesSummary struct {
+	Period     string        `json:"period"`
+	Periods    []Choice      `json:"periods"`
+	Revenue    int64         `json:"revenue"`
+	LostCents  int64         `json:"lostCents"`
+	Ticket     int64         `json:"ticket"`
+	Sold       int32         `json:"sold"`
+	Lost       int32         `json:"lost"`
+	Pending    int32         `json:"pending"`
+	Conversion int32         `json:"conversion"` // % de pedidos decididos que se vendieron
+	Series     []SeriesPoint `json:"series"`
+	Top        []ItemRow     `json:"top"`
+	TopLost    []ItemRow     `json:"topLost"`
+	Categories []ItemRow     `json:"categories"`
+	Reasons    []ReasonRow   `json:"reasons"`
+	LowStock   []ItemRow     `json:"lowStock"`
+}
+
+func SalesSummaryPage(store string, v SalesSummary) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Resumen de ventas · "+store, "", "panel", "salesSummary", panelData(ctx, store, map[string]any{"summary": v})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type pendingKey struct{}
+
+// WithPending guarda cuántos pedidos esperan respuesta, para el número junto a "Ventas".
+func WithPending(ctx context.Context, n int64) context.Context {
+	return context.WithValue(ctx, pendingKey{}, n)
 }
 
 var _ = templruntime.GeneratedTemplate

@@ -70,7 +70,7 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// Run pausa cada hora las tiendas con más de GraceDays de atraso. Es idempotente: correrlo de más no daña.
+// Run pausa cada hora las tiendas con más de GraceDays de atraso y vence los pedidos pendientes de más de 7 días. Es idempotente: correrlo de más no daña.
 // shortcut: goroutine en el mismo proceso en vez de un job de River; con una sola instancia basta.
 // Pasar a River si se corre más de una instancia o se agregan avisos por WhatsApp/email.
 func Run(ctx context.Context, q db.Querier, onSuspend func(slug string)) {
@@ -78,6 +78,11 @@ func Run(ctx context.Context, q db.Querier, onSuspend func(slug string)) {
 	defer tick.Stop()
 	for {
 		suspendOverdue(ctx, q, onSuspend)
+		if n, err := q.ExpireOrders(ctx); err != nil {
+			slog.Error("vencer pedidos", "err", err)
+		} else if n > 0 {
+			slog.Info("pedidos sin respuesta en 7 días", "n", n)
+		}
 		select {
 		case <-ctx.Done():
 			return

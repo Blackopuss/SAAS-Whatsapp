@@ -99,12 +99,13 @@ type adminStoreRow struct {
 	Streak    int32  `json:"streak"`
 	Founder   bool   `json:"founder"`
 	Products  int64  `json:"products"`
+	Orders    int64  `json:"orders"` // pedidos de los últimos 30 días: solo el número, para ver qué tiendas usan la plataforma
 }
 
 func adminStoresData(stores []db.ListStoresAdminRow) map[string]any {
 	rows := make([]adminStoreRow, 0, len(stores))
 	for _, s := range stores {
-		rows = append(rows, adminStoreRow{s.ID, s.Name, s.Slug, s.Status == "active", statusLabel(s.Status), fecha(s.PaidUntil), overdue(s.PaidUntil), s.StreakMonths, s.IsFounder, s.Products})
+		rows = append(rows, adminStoreRow{s.ID, s.Name, s.Slug, s.Status == "active", statusLabel(s.Status), fecha(s.PaidUntil), overdue(s.PaidUntil), s.StreakMonths, s.IsFounder, s.Products, s.Orders30d})
 	}
 	return map[string]any{"stores": rows}
 }

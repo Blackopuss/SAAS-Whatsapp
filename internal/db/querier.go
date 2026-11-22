@@ -12,11 +12,16 @@ import (
 
 type Querier interface {
 	AddAudit(ctx context.Context, arg AddAuditParams) error
+	AddOrderItem(ctx context.Context, arg AddOrderItemParams) error
 	ApplyPayment(ctx context.Context, arg ApplyPaymentParams) error
 	CheckPasswordReset(ctx context.Context, arg CheckPasswordResetParams) (int64, error)
+	CountPendingOrders(ctx context.Context, storeID int64) (int64, error)
 	CountProductImages(ctx context.Context, arg CountProductImagesParams) (int64, error)
 	CreateAdmin(ctx context.Context, arg CreateAdminParams) (int64, error)
 	CreateCategory(ctx context.Context, arg CreateCategoryParams) (Category, error)
+	// Pedidos. Toda query lleva store_id del Host. Cantidades en milésimas (1 pieza = 1000).
+	// Si el celular reintenta con el mismo código no se duplica: no devuelve filas.
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (int64, error)
 	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) error
 	CreateProduct(ctx context.Context, arg CreateProductParams) (int64, error)
@@ -26,11 +31,15 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (int64, error)
 	CreateVariant(ctx context.Context, arg CreateVariantParams) error
 	DeleteCategory(ctx context.Context, arg DeleteCategoryParams) (int64, error)
+	DeleteOrderItem(ctx context.Context, arg DeleteOrderItemParams) (int64, error)
 	DeleteProduct(ctx context.Context, arg DeleteProductParams) (int64, error)
 	DeleteProductImage(ctx context.Context, arg DeleteProductImageParams) (DeleteProductImageRow, error)
 	DeleteVariants(ctx context.Context, arg DeleteVariantsParams) error
+	// Pendientes de más de 7 días: no venta "sin respuesta". No apartan inventario, así que no hay nada que regresar.
+	ExpireOrders(ctx context.Context) (int64, error)
 	GetAdmin(ctx context.Context, id int64) (Admin, error)
 	GetAdminByEmail(ctx context.Context, email string) (Admin, error)
+	GetOrderForUpdate(ctx context.Context, arg GetOrderForUpdateParams) (Order, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	GetStoreAdmin(ctx context.Context, id int64) (GetStoreAdminRow, error)
 	// Base del middleware de tenant (sprint 1): Host -> slug -> tienda.
@@ -41,27 +50,58 @@ type Querier interface {
 	// store_id sale del tenant (Host), nunca del formulario: las credenciales de luz no sirven en ana.
 	GetUserForLogin(ctx context.Context, arg GetUserForLoginParams) (GetUserForLoginRow, error)
 	GetUserPasswordChangedAt(ctx context.Context, arg GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error)
+	// Para ajustar existencias desde la lista del panel (incluye productos ocultos).
+	ListAllVariants(ctx context.Context, storeID int64) ([]ListAllVariantsRow, error)
 	ListAudit(ctx context.Context) ([]ListAuditRow, error)
 	// Toda query lleva store_id, que sale del tenant (Host) y nunca del formulario.
 	ListCategories(ctx context.Context, storeID int64) ([]Category, error)
+	// stock actual del renglón (de la variante si tiene talla/color); -1 = sin inventario o producto borrado.
+	ListOrderItems(ctx context.Context, arg ListOrderItemsParams) ([]ListOrderItemsRow, error)
+	// shortcut: los últimos 200 de cada estado; paginar si alguna tienda los rebasa seguido.
+	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
+	// Lista del panel: foto, categoría y existencia total (-1 si no lleva inventario).
+	ListPanelProducts(ctx context.Context, storeID int64) ([]ListPanelProductsRow, error)
 	ListPayments(ctx context.Context, storeID int64) ([]Payment, error)
 	ListProductImages(ctx context.Context, arg ListProductImagesParams) ([]ProductImage, error)
 	ListProducts(ctx context.Context, storeID int64) ([]Product, error)
 	// Tienda pública: solo productos activos, siempre filtrados por store_id del Host.
+	// sold_out: marcado a mano, sin existencia (stock < step) o, con variantes, ninguna disponible.
 	ListStoreProducts(ctx context.Context, storeID int64) ([]ListStoreProductsRow, error)
 	ListStoreVariants(ctx context.Context, storeID int64) ([]ListStoreVariantsRow, error)
 	ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, error)
 	ListVariants(ctx context.Context, arg ListVariantsParams) ([]ProductVariant, error)
 	LockSubscription(ctx context.Context, storeID int64) (Subscription, error)
+	// Lo que lleva inventario y tiene 3 pasos o menos (0.75 kg si se vende de 0.25 en 0.25).
+	LowStock(ctx context.Context, storeID int64) ([]LowStockRow, error)
+	// ---- Para validar un pedido nuevo contra la base ----
+	OrderProducts(ctx context.Context, arg OrderProductsParams) ([]OrderProductsRow, error)
+	OrderVariants(ctx context.Context, arg OrderVariantsParams) ([]OrderVariantsRow, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)
 	// @ids es la lista completa en el nuevo orden.
 	ReorderCategories(ctx context.Context, arg ReorderCategoriesParams) error
+	ReturnProductStock(ctx context.Context, arg ReturnProductStockParams) error
+	ReturnVariantStock(ctx context.Context, arg ReturnVariantStockParams) error
+	SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVRow, error)
+	// Por producto + talla + color y estado; el handler arma lo más vendido, lo perdido y las categorías.
+	SalesItems(ctx context.Context, arg SalesItemsParams) ([]SalesItemsRow, error)
+	// @bucket: 'day' o 'month', en hora de la Ciudad de México.
+	SalesSeries(ctx context.Context, arg SalesSeriesParams) ([]SalesSeriesRow, error)
+	// ---- Resumen de ventas (periodo [@since, @until)) ----
+	SalesTotals(ctx context.Context, arg SalesTotalsParams) ([]SalesTotalsRow, error)
+	SetOrderItemQty(ctx context.Context, arg SetOrderItemQtyParams) (int64, error)
+	SetOrderStatus(ctx context.Context, arg SetOrderStatusParams) error
+	SetOrderTotal(ctx context.Context, arg SetOrderTotalParams) error
+	SetProductStock(ctx context.Context, arg SetProductStockParams) (int64, error)
 	// Devuelve el logo anterior para borrar sus archivos.
 	SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (SetStoreLogoRow, error)
 	SetStoreStatus(ctx context.Context, arg SetStoreStatusParams) (int64, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
+	SetVariantStock(ctx context.Context, arg SetVariantStockParams) error
 	// Día 5 de atraso: se pausa. Solo tiendas activas con fecha de pago; las recién dadas de alta (NULL) no.
 	SuspendOverdue(ctx context.Context) ([]SuspendOverdueRow, error)
+	// Descuenta si alcanza; sin inventario (NULL) pasa sin cambios. 0 filas = no alcanza.
+	TakeProductStock(ctx context.Context, arg TakeProductStockParams) (int64, error)
+	TakeVariantStock(ctx context.Context, arg TakeVariantStockParams) (int64, error)
 	// Fechas en hora de México: "hoy" de la vendedora, no de UTC.
 	Today(ctx context.Context) (pgtype.Date, error)
 	// @flag ya viene validado por el handler (active, sold_out, is_new, on_sale).

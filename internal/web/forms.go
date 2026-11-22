@@ -88,3 +88,40 @@ func formatPrice(cents int32) string {
 	}
 	return s
 }
+
+// Unidades de venta. Las cantidades se guardan en milésimas: 1 pieza = 1000, 0.25 kg = 250.
+var units = map[string]string{"pieza": "pza", "kg": "kg", "g": "g", "litro": "L", "metro": "m"}
+
+const maxQty = 1_000_000_000 // un millón de unidades, cabe en int32 con margen
+
+// parseQty convierte "2", "0.25", "1,5" a milésimas. Vacío = sin valor (ok=false, sin error).
+func parseQty(s string) (milli int32, ok bool, err error) {
+	s = strings.ReplaceAll(strings.TrimSpace(s), ",", ".")
+	if s == "" {
+		return 0, false, nil
+	}
+	whole, frac, hasDot := strings.Cut(s, ".")
+	if whole == "" {
+		whole = "0"
+	}
+	if len(frac) > 3 || (hasDot && frac == "") || !digits(whole) || !digits(frac) || len(whole) > 7 {
+		return 0, false, errors.New("debe ser un número como 10 o 2.5")
+	}
+	for len(frac) < 3 {
+		frac += "0"
+	}
+	n, err := strconv.ParseInt(whole+frac, 10, 64)
+	if err != nil || n > maxQty {
+		return 0, false, errors.New("es demasiado grande")
+	}
+	return int32(n), true, nil // #nosec G115 -- acotado por maxQty
+}
+
+// formatQty: 2500 -> "2.5", 1000 -> "1".
+func formatQty(milli int32) string {
+	s := strconv.FormatInt(int64(milli)/1000, 10)
+	if f := milli % 1000; f != 0 {
+		s += "." + strings.TrimRight(strconv.FormatInt(int64(f)+1000, 10)[1:], "0")
+	}
+	return s
+}

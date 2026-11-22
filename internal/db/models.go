@@ -34,6 +34,31 @@ type Category struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type Order struct {
+	ID         int64
+	StoreID    int64
+	Code       string
+	Status     int16
+	Reason     int16
+	TotalCents int32
+	CreatedAt  pgtype.Timestamptz
+	DecidedAt  pgtype.Timestamptz
+}
+
+type OrderItem struct {
+	ID         int64
+	StoreID    int64
+	OrderID    int64
+	ProductID  pgtype.Int8
+	Name       string
+	Category   string
+	Size       string
+	Color      string
+	Unit       string
+	Qty        int32
+	PriceCents int32
+}
+
 type PasswordReset struct {
 	TokenHash []byte
 	StoreID   int64
@@ -70,6 +95,9 @@ type Product struct {
 	OnSale         bool
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+	Unit           string
+	Step           int32
+	Stock          pgtype.Int4
 }
 
 type ProductImage struct {
@@ -90,6 +118,7 @@ type ProductVariant struct {
 	Size      string
 	Color     string
 	SoldOut   bool
+	Stock     pgtype.Int4
 }
 
 type Session struct {

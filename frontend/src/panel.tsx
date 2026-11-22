@@ -1,6 +1,6 @@
 // Panel de la vendedora (/panel): productos, categorías, mi tienda y acceso. Datos desde views/panel.templ.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Package, Tags, Store, MessageSquareText, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon } from "lucide-react";
+import { Package, Tags, Store, MessageSquareText, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon, Receipt, RotateCcw, Check as Check2, BarChart3 } from "lucide-react";
 import { mount } from "./boot";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
@@ -16,15 +16,21 @@ import { Card } from "@astryxdesign/core/Card";
 import { Grid } from "@astryxdesign/core/Grid";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { List, ListItem } from "@astryxdesign/core/List";
-import { ToggleButton } from "@astryxdesign/core/ToggleButton";
 import { Token } from "@astryxdesign/core/Token";
 import { Dialog } from "@astryxdesign/core/Dialog";
 import { FileInput } from "@astryxdesign/core/FileInput";
 import { RadioList, RadioListItem } from "@astryxdesign/core/RadioList";
 import { AspectRatio } from "@astryxdesign/core/AspectRatio";
 import { TextInput } from "@astryxdesign/core/TextInput";
+import { Selector } from "@astryxdesign/core/Selector";
+import { Switch } from "@astryxdesign/core/Switch";
+import { Table } from "@astryxdesign/core/Table";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { Badge } from "@astryxdesign/core/Badge";
+import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
 
 const NAV: NavLink[] = [
+  { href: "/panel/ventas", label: "Ventas", icon: BarChart3 },
   { href: "/panel/", label: "Productos", icon: Package },
   { href: "/panel/categorias", label: "Categorías", icon: Tags },
   { href: "/panel/tienda", label: "Mi tienda", icon: Store },
@@ -32,11 +38,13 @@ const NAV: NavLink[] = [
   { href: "/", label: "Ver mi tienda", icon: ExternalLink },
 ];
 
-type Base = { store: string; notice: string };
+// pending: pedidos que esperan respuesta; sale como número junto a "Ventas".
+type Base = { store: string; notice: string; pending: number };
 
-function PanelShell({ store, notice, ...p }: Base & { title: string; current: string; back?: { href: string; label: string }; actions?: ReactNode; width?: number; children: ReactNode }) {
+function PanelShell({ store, notice, pending, ...p }: Base & { title: string; current: string; back?: { href: string; label: string }; actions?: ReactNode; width?: number; children: ReactNode }) {
   const banner = notice ? <Banner status="warning" title={notice} container="section" /> : undefined;
-  return <Shell app={store} sub="Tu panel" nav={NAV} logout="/panel/logout" banner={banner} {...p} />;
+  const nav = NAV.map((n) => (n.href === "/panel/ventas" && pending > 0 ? { ...n, badge: pending } : n));
+  return <Shell app={store} sub="Tu panel" nav={nav} logout="/panel/logout" banner={banner} {...p} />;
 }
 
 // ——— Acceso ———
@@ -111,54 +119,154 @@ function ResetExpired({ store }: { store: string }) {
 
 // ——— Productos ———
 
-type ProductRow = { id: number; name: string; price: string; was: string; active: boolean; soldOut: boolean; isNew: boolean; onSale: boolean };
+type StockRow = { key: string; label: string; stock: string };
+type ProductRow = {
+  id: number; name: string; category: string; thumb: string; price: string; was: string; active: boolean; soldOut: boolean; isNew: boolean;
+  unit: string; stock: string; low: boolean; combos: StockRow[] | null;
+};
 
-// Flag: botón que alterna una marca del producto con POST (el servidor la invierte y regresa al listado).
-function Flag({ id, flag, label, on }: { id: number; flag: string; label: string; on: boolean }) {
+const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+// Visible: el interruptor envía el formulario y el servidor invierte la marca.
+function VisibleSwitch({ id, name, on }: { id: number; name: string; on: boolean }) {
   return (
-    <form method="post" action={`/panel/productos/${id}/marcar/${flag}`} className="inline-form">
-      <ToggleButton size="sm" label={label} isPressed={on}
-        onPressedChange={(_, e) => (e.currentTarget as HTMLElement).closest("form")?.requestSubmit()}>{on ? `✓ ${label}` : label}</ToggleButton>
+    <form method="post" action={`/panel/productos/${id}/marcar/active`} className="inline-form">
+      <Switch label={`Visible en la tienda: ${name}`} isLabelHidden value={on} size="sm"
+        onChange={(_, e) => e.currentTarget.form?.requestSubmit()} />
     </form>
   );
 }
 
-function Products({ products, ...b }: Base & { products: ProductRow[] }) {
-  const add = <Button href="/panel/productos/nuevo" variant="primary" label="Agregar producto" icon={<Plus aria-hidden size={16} />} />;
+function StockToken({ p }: { p: ProductRow }) {
+  if (p.stock === "") return p.soldOut ? <Token size="sm" label="Agotado" color="red" /> : <Text color="secondary" type="supporting">Sin control</Text>;
+  const label = `${p.stock} ${p.unit}`;
+  if (p.soldOut) return <Token size="sm" label={`Agotado · ${label}`} color="red" />;
+  return <Token size="sm" label={label} color={p.low ? "orange" : "green"} />;
+}
+
+// Ajuste rápido: corregir existencias sin abrir el producto completo.
+function StockDialog({ p, onClose }: { p: ProductRow | null; onClose: () => void }) {
   return (
-    <PanelShell {...b} title="Productos" current="/panel/" actions={products.length > 0 ? add : undefined}>
+    <Dialog isOpen={!!p} onOpenChange={(o) => { if (!o) onClose(); }} width={440} padding={5}>
+      {p && (
+        <Form action={`/panel/productos/${p.id}/existencias`}>
+          <Heading level={2}>{`Existencias de ${p.name}`}</Heading>
+          <Text color="secondary">{`En ${p.unit}. Escribe lo que tienes ahora; se descuenta solo cuando marcas un pedido como vendido.`}</Text>
+          {p.combos && p.combos.length > 0 ? (
+            <Grid columns={{ minWidth: 120 }} gap={3}>
+              {p.combos.map((c) => <Txt key={c.key} name={`stock-${c.key}`} label={c.label || "Única"} initial={c.stock} inputMode="decimal" />)}
+            </Grid>
+          ) : (
+            <Txt name="stock" label={`Existencia (${p.unit})`} initial={p.stock} inputMode="decimal" />
+          )}
+          <HStack gap={2} hAlign="end">
+            <Button variant="ghost" label="Cancelar" onClick={onClose} />
+            <Button type="submit" variant="primary" label="Guardar existencias" />
+          </HStack>
+        </Form>
+      )}
+    </Dialog>
+  );
+}
+
+// useWide: true en pantallas de tableta para arriba; en el celular la tabla se vuelve una lista de una columna.
+function useWide() {
+  const mq = typeof matchMedia === "function" ? matchMedia("(min-width: 720px)") : null;
+  const [wide, setWide] = useState(mq?.matches ?? true);
+  useEffect(() => {
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
+function Products({ products, categories, ...b }: Base & { products: ProductRow[]; categories: Opt[] }) {
+  const wide = useWide();
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("");
+  const [show, setShow] = useState("todos");
+  const [adjust, setAdjust] = useState<ProductRow | null>(null);
+  const saved = new URLSearchParams(location.search).get("existencia");
+  const add = <Button href="/panel/productos/nuevo" variant="primary" label="Agregar producto" icon={<Plus aria-hidden size={16} />} />;
+  const catName = categories.find((c) => c.value === cat)?.label;
+  const rows = products.filter((p) =>
+    (!q.trim() || fold(p.name).includes(fold(q.trim()))) &&
+    (!cat || p.category === catName) &&
+    (show === "todos" || (show === "poca" && p.low && !p.soldOut) || (show === "agotados" && p.soldOut) || (show === "ocultos" && !p.active)));
+  const count = (f: (p: ProductRow) => boolean) => products.filter(f).length;
+
+  return (
+    <PanelShell {...b} title="Productos" current="/panel/" width={1040} actions={products.length > 0 ? add : undefined}>
+      {saved && <Msg ok="Existencias guardadas." />}
       {products.length === 0 ? (
         <Card className="rise">
           <EmptyState title="Aún no tienes productos" description="Agrega el primero; luego puedes ordenarlos por categoría." icon={<Package aria-hidden size={32} />} actions={add} />
         </Card>
       ) : (
-        <VStack gap={3}>
-          {products.map((p, i) => (
-            <Card key={p.id} padding={4} className="rise" style={{ "--i": i } as React.CSSProperties}>
-              <VStack gap={3}>
-                <HStack gap={3} hAlign="between" vAlign="start">
-                  <VStack gap={1}>
-                    <Link href={`/panel/productos/${p.id}`} weight="semibold" color="primary" type="large">{p.name}</Link>
-                    <HStack gap={2} vAlign="center" wrap="wrap">
-                      <Text hasTabularNumbers weight="medium">{p.price}</Text>
-                      {p.was && <Text hasTabularNumbers hasStrikethrough color="secondary">{p.was}</Text>}
-                      {!p.active && <Token size="sm" label="Oculto" color="gray" />}
-                      {p.soldOut && <Token size="sm" label="Agotado" color="red" />}
-                    </HStack>
-                  </VStack>
-                  <Button href={`/panel/productos/${p.id}`} variant="ghost" size="sm" label="Editar" />
-                </HStack>
-                <HStack gap={2} wrap="wrap">
-                  <Flag id={p.id} flag="active" label="Visible" on={p.active} />
-                  <Flag id={p.id} flag="sold_out" label="Agotado" on={p.soldOut} />
-                  <Flag id={p.id} flag="is_new" label="Nuevo" on={p.isNew} />
-                  <Flag id={p.id} flag="on_sale" label="Oferta" on={p.onSale} />
-                </HStack>
-              </VStack>
-            </Card>
-          ))}
+        <VStack gap={4}>
+          <Grid columns={{ minWidth: 220, repeat: "fit" }} gap={3}>
+            <TextInput label="Buscar" placeholder="Nombre del producto" value={q} onChange={setQ} startIcon="search" />
+            {categories.length > 0 && (
+              <Selector label="Categoría" options={[{ value: "", label: "Todas" }, ...categories]} value={cat} onChange={(v) => setCat(v ?? "")} presentation="adaptive" width="100%" />
+            )}
+          </Grid>
+          <TabList value={show} onChange={setShow} hasDivider role="tablist">
+            <Tab value="todos" label="Todos" endContent={<Badge label={products.length} />} />
+            <Tab value="poca" label="Poca existencia" endContent={<Badge label={count((p) => p.low && !p.soldOut)} />} />
+            <Tab value="agotados" label="Agotados" endContent={<Badge label={count((p) => p.soldOut)} />} />
+            <Tab value="ocultos" label="Ocultos" endContent={<Badge label={count((p) => !p.active)} />} />
+          </TabList>
+          <Card padding={0} className="rise">
+            <Table data={rows} idKey="id" hasHover
+              emptyState={<EmptyState title="Nada por aquí" description="Prueba con otra búsqueda o filtro." isCompact />}
+              columns={!wide ? [
+                { key: "name", header: "Producto", renderCell: (p) => (
+                  <HStack gap={3} vAlign="start">
+                    {p.thumb ? <img src={p.thumb} alt="" width={44} height={55} className="thumb" loading="lazy" /> : <Package aria-hidden size={24} className="thumb-empty" />}
+                    <VStack gap={1}>
+                      <Link href={`/panel/productos/${p.id}`} weight="semibold">{p.name}</Link>
+                      <HStack gap={2} vAlign="center" wrap="wrap">
+                        <Text hasTabularNumbers type="supporting">{p.price}{p.unit !== "pza" ? ` / ${p.unit}` : ""}</Text>
+                        <StockToken p={p} />
+                      </HStack>
+                      <HStack gap={2} vAlign="center" wrap="wrap">
+                        <VisibleSwitch id={p.id} name={p.name} on={p.active} />
+                        {p.stock !== "" && <Button variant="ghost" size="sm" label="Ajustar existencias" onClick={() => setAdjust(p)} />}
+                      </HStack>
+                    </VStack>
+                  </HStack>
+                ) },
+              ] : [
+                { key: "name", header: "Producto", renderCell: (p) => (
+                  <HStack gap={3} vAlign="center">
+                    {p.thumb ? <img src={p.thumb} alt="" width={44} height={55} className="thumb" loading="lazy" /> : <Package aria-hidden size={24} className="thumb-empty" />}
+                    <VStack gap={0.5}>
+                      <Link href={`/panel/productos/${p.id}`} weight="semibold">{p.name}</Link>
+                      <HStack gap={2} vAlign="center" wrap="wrap">
+                        <Text hasTabularNumbers type="supporting">{p.price}{p.unit !== "pza" ? ` / ${p.unit}` : ""}</Text>
+                        {p.was && <Text hasTabularNumbers hasStrikethrough type="supporting" color="secondary">{p.was}</Text>}
+                        {p.category && <Text type="supporting" color="secondary">{p.category}</Text>}
+                        {p.isNew && <Token size="sm" label="Nuevo" color="blue" />}
+                      </HStack>
+                    </VStack>
+                  </HStack>
+                ) },
+                { key: "stock", header: "Existencia", renderCell: (p) => <StockToken p={p} /> },
+                { key: "active", header: "Visible", renderCell: (p) => <VisibleSwitch id={p.id} name={p.name} on={p.active} /> },
+                { key: "actions", header: "Acciones", align: "end", renderCell: (p) => (
+                  <HStack gap={1} hAlign="end">
+                    {p.stock !== "" && <Button variant="ghost" size="sm" label="Ajustar" onClick={() => setAdjust(p)} />}
+                    <Button href={`/panel/productos/${p.id}`} variant="ghost" size="sm" label="Editar" />
+                  </HStack>
+                ) },
+              ]}
+            />
+          </Card>
         </VStack>
       )}
+      <StockDialog p={adjust} onClose={() => setAdjust(null)} />
     </PanelShell>
   );
 }
@@ -167,49 +275,144 @@ type Opt = { value: string; label: string };
 type Photo = { ID: number; Src: string; SrcSet: string };
 type ProductForm = {
   ID: number; Name: string; Description: string; Price: string; SalePrice: string; Sizes: string; Colors: string;
-  Variants: { Key: string; Label: string; SoldOut: boolean }[] | null; Error: string; Saved: boolean;
+  Variants: { Key: string; Label: string; SoldOut: boolean; Stock: string }[] | null; Error: string; Field: string; Saved: boolean;
+  Unit: string; Step: string; Stock: string; Track: boolean; OnSale: boolean; IsNew: boolean; SoldOut: boolean;
   Photos: Photo[] | null; PhotoOK: boolean; PhotoError: string;
 };
 
+const UNITS = [
+  { value: "pieza", label: "Por pieza", short: "pza" },
+  { value: "kg", label: "Por kilo (kg)", short: "kg" },
+  { value: "g", label: "Por gramo (g)", short: "g" },
+  { value: "litro", label: "Por litro", short: "L" },
+  { value: "metro", label: "Por metro", short: "m" },
+];
+
+// Igual que splitList en Go: separa por comas, sin repetidos ni "|".
+const splitList = (s: string) => {
+  const seen = new Set<string>();
+  return s.split(",").map((x) => x.replaceAll("|", "").trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()));
+};
+// Igual que variantMatrix en Go: todas las combinaciones talla × color.
+function matrix(sizes: string[], colors: string[]) {
+  if (!sizes.length && !colors.length) return [];
+  const ss = sizes.length ? sizes : [""], cs = colors.length ? colors : [""];
+  return cs.flatMap((c) => ss.map((s) => ({ key: `${s}|${c}`, label: `${s} ${c}`.trim() })));
+}
+
+const TAB_OF: Record<string, string> = { name: "datos", category_id: "datos", description: "datos" };
+
 function ProductEdit({ form: f, category, categories, ...b }: Base & { form: ProductForm; category: string; categories: Opt[] }) {
   const isNew = f.ID === 0;
+  const params = new URLSearchParams(location.search);
+  const [tab, setTab] = useState(f.Error ? TAB_OF[f.Field] ?? "precio" : params.has("foto") ? "fotos" : "datos");
   const [deleting, setDeleting] = useState(false);
+  const [unit, setUnit] = useState(f.Unit || "pieza");
+  const [sizes, setSizes] = useState(f.Sizes);
+  const [colors, setColors] = useState(f.Colors);
+  const [track, setTrack] = useState(f.Track);
+  const then = useRef<HTMLInputElement>(null);
+  const short = UNITS.find((u) => u.value === unit)?.short ?? "pza";
+  const combos = matrix(splitList(sizes), splitList(colors));
+  const prev = new Map((f.Variants ?? []).map((v) => [v.Key, v]));
+  const ok = f.Saved ? (isNew ? "Producto guardado. Ya puedes agregar el siguiente." : "Producto guardado.") : undefined;
+
   return (
-    <PanelShell {...b} title={isNew ? "Nuevo producto" : "Editar producto"} current="/panel/" back={{ href: "/panel/", label: "Productos" }}>
-      <Card padding={5} className="rise">
-        <Form action={isNew ? "/panel/productos" : `/panel/productos/${f.ID}`} gap={5}>
-          <Msg error={f.Error} ok={f.Saved ? "Producto guardado." : undefined} />
-          <Txt name="name" label="Nombre" initial={f.Name} />
-          <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
-            <Txt name="price" label="Precio" initial={f.Price} inputMode="decimal" placeholder="289" />
-            <Txt name="sale_price" label="Oferta" isOptional initial={f.SalePrice} inputMode="decimal" placeholder="249" />
-          </Grid>
-          <Pick name="category_id" label="Categoría" initial={category} placeholder="Sin categoría" options={[{ value: "", label: "Sin categoría" }, ...categories]} />
-          <Txt name="sizes" label="Tallas" initial={f.Sizes} placeholder="S, M, L" description="Sepáralas con comas. Déjalo vacío si es talla única." />
-          <Txt name="colors" label="Colores" initial={f.Colors} placeholder="Negro, Blanco" description="Sepáralos con comas. Déjalo vacío si hay un solo color." />
-          {f.Variants && f.Variants.length > 0 && (
-            <Card variant="muted" padding={4}>
-              <VStack gap={3}>
-                <Text weight="semibold">¿Qué combinaciones están agotadas?</Text>
-                <Grid columns={{ minWidth: 140 }} gap={2}>
-                  {f.Variants.map((v) => <Check key={v.Key} name="soldout" value={v.Key} label={v.Label} initial={v.SoldOut} />)}
-                </Grid>
-              </VStack>
-            </Card>
-          )}
-          <Area name="description" label="Descripción" initial={f.Description} rows={5} maxLength={4000} />
-          <HStack><Button type="submit" variant="primary" size="lg" label="Guardar producto" /></HStack>
-        </Form>
-      </Card>
+    <PanelShell {...b} title={isNew ? "Nuevo producto" : f.Name || "Editar producto"} current="/panel/" back={{ href: "/panel/", label: "Productos" }}>
+      <Msg error={f.Error} ok={ok} />
+      <TabList value={tab} onChange={setTab} hasDivider role="tablist">
+        <Tab value="datos" label="Datos" panelId="p-datos" />
+        <Tab value="precio" label="Precio y existencias" panelId="p-precio" />
+        <Tab value="fotos" label="Fotos" panelId="p-fotos" endContent={f.Photos?.length ? <Badge label={f.Photos.length} /> : undefined} />
+      </TabList>
 
-      {!isNew && <Photos f={f} />}
+      <form method="post" action={isNew ? "/panel/productos" : `/panel/productos/${f.ID}`} noValidate hidden={tab === "fotos"}>
+        <input ref={then} type="hidden" name="then" value="" />
+        <VStack gap={5}>
+          {/* Los dos paneles siguen en el formulario aunque estén ocultos: todo se guarda junto. */}
+          <section hidden={tab !== "datos"} id="p-datos" role="tabpanel" aria-label="Datos">
+          <Card padding={5} className="rise">
+            <VStack gap={5}>
+              <Txt name="name" label="Nombre" initial={f.Name} placeholder="Blusa bordada" />
+              <Pick name="category_id" label="Categoría" initial={category} placeholder="Sin categoría" options={[{ value: "", label: "Sin categoría" }, ...categories]} />
+              <Area name="description" label="Descripción" isOptional initial={f.Description} rows={5} maxLength={4000} description="Material, medidas, cuidados… lo que te suelen preguntar." />
+              <Check name="is_new" label="Marcar como nuevo" description="Sale con la etiqueta Nuevo en tu tienda." initial={isNew || f.IsNew} />
+            </VStack>
+          </Card>
+          </section>
 
-      {!isNew && (
+          <section hidden={tab !== "precio"} id="p-precio" role="tabpanel" aria-label="Precio y existencias">
+          <Card padding={5} className="rise">
+            <VStack gap={5}>
+              <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
+                <VStack gap={1}>
+                  <Selector label="Cómo se vende" options={UNITS} value={unit} onChange={(v) => setUnit(v ?? "pieza")} presentation="adaptive" width="100%" />
+                  <input type="hidden" name="unit" value={unit} />
+                </VStack>
+                <Txt name="step" label={`De cuánto en cuánto (${short})`} initial={f.Step || "1"} inputMode="decimal"
+                  description={unit === "pieza" ? "Normalmente 1." : "Ej. 0.25 para vender de cuarto en cuarto."} />
+              </Grid>
+              <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
+                <Txt name="price" label={`Precio por ${unit === "pieza" ? "pieza" : short}`} initial={f.Price} inputMode="decimal" placeholder="289" />
+                <Txt name="sale_price" label="Precio de oferta" isOptional initial={f.SalePrice} inputMode="decimal" placeholder="249"
+                  description="Si lo llenas, sale tachado el precio normal." />
+              </Grid>
+              <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
+                <TextInput label="Tallas" isOptional htmlName="sizes" value={sizes} onChange={setSizes} placeholder="CH, M, G" description="Sepáralas con comas." />
+                <TextInput label="Colores" isOptional htmlName="colors" value={colors} onChange={setColors} placeholder="Negro, Blanco" description="Sepáralos con comas." />
+              </Grid>
+              <Switch label="Llevar inventario" htmlName="track" value={track} onChange={setTrack}
+                description="Tu tienda muestra solo lo que hay y se descuenta solo al marcar un pedido como vendido." />
+              {track ? (
+                combos.length > 0 ? (
+                  <Card variant="muted" padding={4}>
+                    <VStack gap={3}>
+                      <Text weight="semibold">{`¿Cuántas tienes de cada una? (${short})`}</Text>
+                      <Grid columns={{ minWidth: 120 }} gap={3}>
+                        {combos.map((c) => <Txt key={c.key} name={`stock-${c.key}`} label={c.label} initial={prev.get(c.key)?.Stock ?? ""} inputMode="decimal" placeholder="0" />)}
+                      </Grid>
+                    </VStack>
+                  </Card>
+                ) : (
+                  <Txt name="stock" label={`Existencia (${short})`} initial={f.Stock} inputMode="decimal" placeholder="0" />
+                )
+              ) : combos.length > 0 ? (
+                <Card variant="muted" padding={4}>
+                  <VStack gap={3}>
+                    <Text weight="semibold">¿Qué combinaciones están agotadas?</Text>
+                    <Grid columns={{ minWidth: 140 }} gap={2}>
+                      {combos.map((c) => <Check key={c.key} name="soldout" value={c.key} label={c.label} initial={prev.get(c.key)?.SoldOut ?? false} />)}
+                    </Grid>
+                  </VStack>
+                </Card>
+              ) : (
+                <Check name="sold_out" label="Agotado" description="No se puede pedir hasta que lo desmarques." initial={f.SoldOut} />
+              )}
+            </VStack>
+          </Card>
+          </section>
+
+          <Card padding={4} className="save-bar">
+            <HStack gap={2} wrap="wrap" hAlign="end">
+              <Button type="submit" label="Guardar y agregar otro" onClick={() => { if (then.current) then.current.value = "nuevo"; }} />
+              <Button type="submit" variant="primary" label="Guardar producto" onClick={() => { if (then.current) then.current.value = ""; }} />
+            </HStack>
+          </Card>
+        </VStack>
+      </form>
+
+      <section hidden={tab !== "fotos"} id="p-fotos" role="tabpanel" aria-label="Fotos">
+        {isNew ? (
+          <Card padding={5}><EmptyState title="Primero guarda el producto" description="Después de guardarlo puedes subir hasta 10 fotos." icon={<Package aria-hidden size={32} />} isCompact /></Card>
+        ) : <Photos f={f} />}
+      </section>
+
+      {!isNew && tab === "datos" && (
         <Card padding={5} className="rise">
           <HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
             <VStack gap={1}>
               <Heading level={2}>Borrar producto</Heading>
-              <Text color="secondary">Se borra para siempre, con sus fotos.</Text>
+              <Text color="secondary">Se borra para siempre, con sus fotos. Sus ventas pasadas se conservan.</Text>
             </VStack>
             <Button variant="destructive" label="Borrar producto" icon={<Trash2 aria-hidden size={16} />} onClick={() => setDeleting(true)} />
           </HStack>
@@ -473,4 +676,309 @@ function Messages({ shopURL, payment, ...b }: Base & { shopURL: string; payment:
   );
 }
 
-mount({ messages: Messages, login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);
+// ——— Ventas ———
+
+type OrderItem = { id: number; name: string; variant: string; qty: string; step: string; unit: string; price: string; line: string; stock: string; short: boolean };
+type OrderView = { id: number; code: string; created: string; total: string; reason: string; items: OrderItem[] | null };
+
+const REASONS = [
+  { value: "1", label: "Sin existencia", description: "No tenía lo que pidió." },
+  { value: "2", label: "La clienta no respondió", description: "No contestó o no confirmó." },
+  { value: "3", label: "Precio", description: "Le pareció caro o buscaba otro precio." },
+  { value: "4", label: "Otro", description: "Cualquier otra razón." },
+];
+
+function SalesTabs({ current, pending }: { current: string; pending: number }) {
+  return (
+    <TabList value={current} onChange={() => {}} hasDivider>
+      <Tab value="resumen" label="Resumen" href="/panel/ventas/resumen" />
+      <Tab value="pendientes" label="Pendientes" href="/panel/ventas?estado=pendientes" endContent={pending > 0 ? <Badge label={pending} variant="warning" /> : undefined} />
+      <Tab value="vendidos" label="Vendidos" href="/panel/ventas?estado=vendidos" />
+      <Tab value="no-vendidos" label="No vendidos" href="/panel/ventas?estado=no-vendidos" />
+    </TabList>
+  );
+}
+
+function LoseDialog({ order, onClose }: { order: OrderView | null; onClose: () => void }) {
+  const [reason, setReason] = useState("2");
+  return (
+    <Dialog isOpen={!!order} onOpenChange={(o) => { if (!o) onClose(); }} width={440} padding={5}>
+      {order && (
+        <Form action={`/panel/ventas/${order.id}/no-vender`}>
+          <Heading level={2}>{`¿Por qué no se vendió el pedido ${order.code}?`}</Heading>
+          <Text color="secondary">Queda en "No vendidos" para que veas qué oportunidades se fueron. No cambia tus existencias.</Text>
+          <RadioList label="Motivo" htmlName="reason" value={reason} onChange={setReason}>
+            {REASONS.map((r) => <RadioListItem key={r.value} value={r.value} label={r.label} description={r.description} />)}
+          </RadioList>
+          <HStack gap={2} hAlign="end">
+            <Button variant="ghost" label="Cancelar" onClick={onClose} />
+            <Button type="submit" variant="primary" label="Guardar como no vendido" />
+          </HStack>
+        </Form>
+      )}
+    </Dialog>
+  );
+}
+
+function OrderCard({ o, tab, focus, onLose }: { o: OrderView; tab: string; focus: boolean; onLose: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const items = o.items ?? [];
+  const short = items.some((i) => i.short);
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => { if (focus) ref.current?.scrollIntoView({ block: "center" }); }, [focus]);
+  return (
+    <Card padding={4} className={"rise" + (focus ? " order-focus" : "")}>
+      <article ref={ref} aria-labelledby={`o-${o.id}`}>
+      <VStack gap={3}>
+        <HStack gap={3} hAlign="between" vAlign="start" wrap="wrap">
+          <VStack gap={0.5}>
+            <Heading level={2} id={`o-${o.id}`}>{`Pedido ${o.code}`}</Heading>
+            <Text type="supporting" color="secondary">{o.created}</Text>
+          </VStack>
+          <VStack gap={0.5} hAlign="end">
+            <Text type="large" weight="semibold" hasTabularNumbers>{o.total}</Text>
+            {o.reason && <Token size="sm" label={o.reason} color="gray" />}
+          </VStack>
+        </HStack>
+
+        {editing ? (
+          <Form action={`/panel/ventas/${o.id}/ajustar`} gap={3}>
+            <Text color="secondary">Cambia las cantidades como quedaron en la plática. Pon 0 para quitar un producto.</Text>
+            {items.map((i) => (
+              <Txt key={i.id} name={`qty-${i.id}`} label={`${i.name}${i.variant ? ` · ${i.variant}` : ""} (${i.unit})`} initial={i.qty} inputMode="decimal"
+                description={`De ${i.step} en ${i.step}. ${i.price} c/u.${i.stock ? ` Hay ${i.stock} ${i.unit}.` : ""}`} />
+            ))}
+            <HStack gap={2} hAlign="end">
+              <Button variant="ghost" label="Cancelar" onClick={() => setEditing(false)} />
+              <Button type="submit" variant="primary" label="Guardar cambios" />
+            </HStack>
+          </Form>
+        ) : (
+          <List>
+            {items.map((i) => (
+              <ListItem key={i.id} label={`${i.name}${i.variant ? ` · ${i.variant}` : ""}`}
+                description={`${i.qty} ${i.unit} × ${i.price}${tab === "pendientes" && i.stock ? ` · hay ${i.stock} ${i.unit}` : ""}`}
+                endContent={<HStack gap={2} vAlign="center">{i.short && tab === "pendientes" && <Token size="sm" label="No alcanza" color="red" />}<Text hasTabularNumbers>{i.line}</Text></HStack>} />
+            ))}
+          </List>
+        )}
+
+        {!editing && (
+          <HStack gap={2} wrap="wrap">
+            {tab === "pendientes" ? (
+              <>
+                <PostButton action={`/panel/ventas/${o.id}/vender`} variant="primary" label="Marcar como vendido" icon={<Check2 aria-hidden size={16} />} isDisabled={short || items.length === 0} />
+                <Button label="No se vendió" onClick={onLose} />
+                <Button variant="ghost" label="Ajustar cantidades" onClick={() => setEditing(true)} />
+              </>
+            ) : (
+              <PostButton action={`/panel/ventas/${o.id}/deshacer`} variant="ghost" label="Regresar a pendiente"
+                icon={<RotateCcw aria-hidden size={16} />} />
+            )}
+          </HStack>
+        )}
+        {!editing && tab === "pendientes" && short && <Text type="supporting" color="secondary">Para venderlo, ajusta el pedido o sube la existencia del producto.</Text>}
+      </VStack>
+      </article>
+    </Card>
+  );
+}
+
+function Sales({ tab, orders, error, focus, pending, ...b }: Base & { tab: string; orders: OrderView[]; error: string; focus: number }) {
+  const [losing, setLosing] = useState<OrderView | null>(null);
+  const empty = {
+    pendientes: ["No tienes pedidos pendientes", "Cuando una clienta envíe su pedido por WhatsApp, aparece aquí para que lo marques como vendido o no vendido."],
+    vendidos: ["Aún no hay ventas registradas", "Los pedidos que marques como vendidos aparecen aquí y descuentan tus existencias."],
+    "no-vendidos": ["Sin oportunidades perdidas", "Aquí quedan los pedidos que no se cerraron, con su motivo."],
+  }[tab] ?? ["", ""];
+  return (
+    <PanelShell {...b} pending={pending} title="Ventas" current="/panel/ventas" width={880}>
+      <SalesTabs current={tab} pending={pending} />
+      <Msg error={error} />
+      {orders.length === 0 ? (
+        <Card className="rise"><EmptyState title={empty[0]} description={empty[1]} icon={<Receipt aria-hidden size={32} />} /></Card>
+      ) : (
+        <VStack gap={3}>
+          {orders.map((o) => <OrderCard key={o.id} o={o} tab={tab} focus={o.id === focus} onLose={() => setLosing(o)} />)}
+        </VStack>
+      )}
+      <LoseDialog order={losing} onClose={() => setLosing(null)} />
+    </PanelShell>
+  );
+}
+
+type ItemRow = { id?: number; name: string; variant: string; qty: string; unit: string; cents: number };
+type Summary = {
+  period: string; periods: Opt[]; revenue: number; lostCents: number; ticket: number; sold: number; lost: number; pending: number; conversion: number;
+  series: { label: string; sold: number; lost: number }[] | null; top: ItemRow[] | null; topLost: ItemRow[] | null; categories: ItemRow[] | null;
+  reasons: { label: string; orders: number; cents: number }[] | null; lowStock: ItemRow[] | null;
+};
+
+const mxn = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+const pesos = (cents: number) => mxn.format(Math.round(cents / 100));
+
+function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <Card className="rise">
+      <VStack gap={1}>
+        <Text type="supporting" color="secondary">{label}</Text>
+        <Text type="display-3" hasTabularNumbers>{value}</Text>
+        {hint && <Text type="supporting" color="secondary">{hint}</Text>}
+      </VStack>
+    </Card>
+  );
+}
+
+// Barras verticales de una sola serie; el valor sale al pasar el dedo o el foco, y hay tabla equivalente.
+function BarChart({ title, points }: { title: string; points: { label: string; value: number }[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  // El SVG mide lo mismo que su caja: así las letras no se encogen en el celular ni crecen en escritorio.
+  const box = useRef<HTMLElement>(null);
+  const [W, setW] = useState(640);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.max(200, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const max = Math.max(1, ...points.map((p) => p.value));
+  const H = 200, pad = 24, gap = 2;
+  // Barras delgadas aunque haya pocas (3 meses); el grupo queda centrado.
+  const bw = Math.min(48, (W - gap * (points.length - 1)) / points.length);
+  const x0 = (W - (bw * points.length + gap * (points.length - 1))) / 2;
+  const every = Math.ceil(points.length / Math.max(1, Math.floor(W / 48))); // etiquetas del eje sin encimarse
+  const cur = hover !== null ? points[hover] : null;
+  return (
+    <VStack gap={2}>
+      <HStack gap={2} hAlign="between" vAlign="center">
+        <Heading level={2}>{title}</Heading>
+        <Text type="supporting" color="secondary" aria-live="polite">{cur ? `${cur.label}: ${pesos(cur.value)}` : `Máximo ${pesos(max)}`}</Text>
+      </HStack>
+      <figure ref={box} className="chart-box">
+      <svg viewBox={`0 0 ${W} ${H + pad}`} className="chart" role="img" aria-label={`${title}. Detalle en la tabla de abajo.`} onMouseLeave={() => setHover(null)}>
+        <line x1={0} x2={W} y1={H} y2={H} className="chart-axis" />
+        {points.map((p, i) => {
+          const h = (p.value / max) * (H - 8);
+          const x = x0 + i * (bw + gap);
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)}>
+              <rect x={x} y={0} width={bw} height={H} className="chart-hit" />
+              {p.value > 0 && <path className={"chart-bar" + (hover === i ? " on" : "")} d={roundTop(x, H - h, bw, h, Math.min(4, bw / 2))} />}
+              {i % every === 0 && <text x={x + bw / 2} y={H + 16} textAnchor="middle" className="chart-label">{p.label}</text>}
+            </g>
+          );
+        })}
+      </svg>
+      </figure>
+      <details>
+        <summary>Ver como tabla</summary>
+        <Table data={points.map((p, i) => ({ ...p, i }))} idKey="i" density="compact"
+          columns={[{ key: "label", header: "Periodo" }, { key: "value", header: "Ventas", align: "end", renderCell: (p) => <Text hasTabularNumbers>{pesos(p.value)}</Text> }]} />
+      </details>
+    </VStack>
+  );
+}
+
+// Rectángulo con las esquinas de arriba redondeadas (el extremo del dato), pegado a la base.
+function roundTop(x: number, y: number, w: number, h: number, r: number) {
+  r = Math.min(r, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+
+// Barras horizontales: lista ordenada con la barra detrás del texto (se lee igual sin colores).
+function Ranking({ title, rows, empty, money = true }: { title: string; rows: ItemRow[]; empty: string; money?: boolean }) {
+  const max = Math.max(1, ...rows.map((r) => r.cents));
+  return (
+    <Card padding={5} className="rise">
+      <VStack gap={3}>
+        <Heading level={2}>{title}</Heading>
+        {rows.length === 0 ? <Text color="secondary">{empty}</Text> : (
+          <ol className="ranking">
+            {rows.map((r, i) => (
+              <li key={i} style={{ "--w": `${(r.cents / max) * 100}%` } as React.CSSProperties}>
+                <span className="ranking-name">{r.name}{r.variant && <span className="ranking-sub"> · {r.variant}</span>}</span>
+                <span className="ranking-val">{r.qty && `${r.qty} ${r.unit} · `}{money ? pesos(r.cents) : r.cents}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </VStack>
+    </Card>
+  );
+}
+
+function LowList({ rows }: { rows: ItemRow[] }) {
+  return (
+    <List>
+      {rows.map((l, i) => (
+        <ListItem key={i} label={`${l.name}${l.variant ? ` · ${l.variant}` : ""}`} href={`/panel/productos/${l.id}`}
+          endContent={<Token size="sm" label={`${l.qty} ${l.unit}`} color={l.qty === "0" ? "red" : "orange"} />} />
+      ))}
+    </List>
+  );
+}
+
+function SalesSummary({ summary: s, pending, ...b }: Base & { summary: Summary }) {
+  const wide = useWide();
+  const go = (v: string) => location.assign(`/panel/ventas/resumen?periodo=${v}`);
+  const series = (s.series ?? []).map((p) => ({ label: p.label, value: p.sold }));
+  const reasons = (s.reasons ?? []).map((r) => ({ name: r.label, variant: "", qty: "", unit: "", cents: r.cents, orders: r.orders }));
+  return (
+    <PanelShell {...b} pending={pending} title="Ventas" current="/panel/ventas" width={1040}
+      actions={<Button href={`/panel/ventas/ventas.csv?periodo=${s.period}`} label="Descargar Excel (CSV)" icon={<Download aria-hidden size={16} />} />}>
+      <SalesTabs current="resumen" pending={pending} />
+      {wide ? (
+        <SegmentedControl label="Periodo" value={s.period} onChange={go}>
+          {s.periods.map((p) => <SegmentedControlItem key={p.value} value={p.value} label={p.label} />)}
+        </SegmentedControl>
+      ) : (
+        <Selector label="Periodo" options={s.periods} value={s.period} onChange={(v) => v && go(v)} width="100%" />
+      )}
+      <Grid columns={{ minWidth: 136, repeat: "fit" }} gap={3}>
+        <Kpi label="Vendido" value={pesos(s.revenue)} hint={`${s.sold} ${s.sold === 1 ? "pedido" : "pedidos"}`} />
+        <Kpi label="Ticket promedio" value={pesos(s.ticket)} />
+        <Kpi label="Pedidos que se cerraron" value={`${s.conversion} %`} hint={`${s.sold} de ${s.sold + s.lost}`} />
+        <Kpi label="No vendido" value={pesos(s.lostCents)} hint={`${s.lost} ${s.lost === 1 ? "oportunidad" : "oportunidades"}`} />
+        {s.pending > 0 && <Kpi label="Pendientes" value={String(s.pending)} hint="Sin marcar todavía" />}
+      </Grid>
+      <Card padding={5} className="rise">
+        <BarChart title={s.period === "mes" || s.period === "mes-pasado" ? "Ventas por día" : "Ventas por mes"} points={series} />
+      </Card>
+      <Grid columns={{ minWidth: 300, repeat: "fit" }} gap={4}>
+        <Ranking title="Lo más vendido" rows={s.top ?? []} empty="Aún no hay ventas en este periodo." />
+        <Ranking title="Por categoría" rows={s.categories ?? []} empty="Aún no hay ventas en este periodo." />
+        <Ranking title="Lo que no se vendió" rows={s.topLost ?? []} empty="Ninguna oportunidad perdida en este periodo." />
+        <Card padding={5} className="rise">
+          <VStack gap={3}>
+            <Heading level={2}>Por qué no se vendió</Heading>
+            {reasons.length === 0 ? <Text color="secondary">Nada que reportar.</Text> : (
+              <List>
+                {reasons.map((r) => <ListItem key={r.name} label={r.name} description={`${r.orders} ${r.orders === 1 ? "pedido" : "pedidos"}`} endContent={<Text hasTabularNumbers>{pesos(r.cents)}</Text>} />)}
+              </List>
+            )}
+          </VStack>
+        </Card>
+      </Grid>
+      <Card padding={5} className="rise">
+        <VStack gap={3}>
+          <Heading level={2}>Por surtir</Heading>
+          <Text color="secondary">Lo que lleva inventario y está por acabarse.</Text>
+          {(s.lowStock ?? []).length === 0 ? <Text color="secondary">Todo tiene existencia suficiente.</Text> : (
+            <>
+              <LowList rows={(s.lowStock ?? []).slice(0, 8)} />
+              {(s.lowStock ?? []).length > 8 && (
+                <details>
+                  <summary>{`Ver ${(s.lowStock ?? []).length - 8} más`}</summary>
+                  <LowList rows={(s.lowStock ?? []).slice(8)} />
+                </details>
+              )}
+            </>
+          )}
+        </VStack>
+      </Card>
+    </PanelShell>
+  );
+}
+
+mount({ sales: Sales, salesSummary: SalesSummary, messages: Messages, login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);

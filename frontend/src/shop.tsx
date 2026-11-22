@@ -11,7 +11,10 @@ type ShopInfo = {
   faq: { q: string; a: string }[]; payment: string; url: string; preview: boolean; style: string;
 };
 type Photo = { src: string; srcSet: string };
-type CardData = { id: number; name: string; price: number; was: number; soldOut: boolean; new: boolean; photo: Photo; color: string; sizes: string[]; cat: number };
+type CardData = {
+  id: number; name: string; price: number; was: number; soldOut: boolean; new: boolean; photo: Photo; color: string; sizes: string[]; cat: number;
+  unit: string; step: number; // unidad (pza, kg, g, L, m) y de cuánto en cuánto, en milésimas
+};
 type Opt = { name: string; soldOut: boolean; swatch: string };
 type Product = {
   card: CardData; description: string; photos: Photo[]; categoryID: number; categoryName: string;
@@ -27,16 +30,44 @@ const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCas
 
 // ——— Carrito ———
 // Vive en localStorage. Precios y existencias siempre salen de /carrito.json; lo guardado solo dice qué y cuánto.
+// Cantidades en milésimas de la unidad: 1 pieza = 1000, 0.25 kg = 250 (igual que en la base).
 type Item = { id: number; size: string; color: string; qty: number; price: number };
-type Catalog = Record<string, { n: string; p: number; x: boolean; u: string; i: string; v: Record<string, boolean> }>;
-const KEY = "carrito";
-const LAST = "ultimo-pedido";
-const MAX = 20;
+// s y v: disponible en milésimas; -1 = la tienda no lleva inventario de eso.
+type CatProduct = { n: string; p: number; x: boolean; u: string; i: string; un: string; t: number; s: number; v: Record<string, number> };
+type Catalog = Record<string, CatProduct>;
+const KEY = "carrito-2"; // -2: antes las cantidades eran piezas, no milésimas
+const LAST = "ultimo-pedido-2";
+const MAX_UNITS = 99; // tope cuando la tienda no lleva inventario
 
 const valid = (i: Item) =>
   i && Number.isSafeInteger(i.id) && i.id > 0 && typeof i.size === "string" && i.size.length <= 20 &&
-  typeof i.color === "string" && i.color.length <= 30 && Number.isInteger(i.qty) && i.qty >= 1 && i.qty <= MAX &&
+  typeof i.color === "string" && i.color.length <= 30 && Number.isInteger(i.qty) && i.qty >= 1 && i.qty <= 1e9 &&
   Number.isInteger(i.price) && i.price >= 0;
+
+const qtyNum = (milli: number) => String(+(milli / 1000).toFixed(3));
+// "2" para piezas, "0.5 kg" para lo demás.
+const qtyLabel = (milli: number, unit: string) => (unit === "pza" || !unit ? qtyNum(milli) : `${qtyNum(milli)} ${unit}`);
+const lineTotal = (price: number, milli: number) => Math.round((price * milli) / 1000);
+
+// Cuánto se puede pedir de un producto o combinación (milésimas); -1 = sin límite de inventario.
+function availableOf(p: CatProduct, size: string, color: string) {
+  if (p.x) return 0;
+  const hasCombos = Object.keys(p.v).length > 0;
+  if (!hasCombos) return p.s;
+  return p.v[size + "|" + color] ?? 0;
+}
+const maxOf = (avail: number, step: number) => (avail < 0 ? step * MAX_UNITS : Math.floor(avail / step) * step);
+
+// Código del pedido: lo ve la vendedora en el mensaje y en su panel. Sin I, O, 0 ni 1 para no confundirlos.
+function newCode() {
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => abc[b % abc.length]).join("");
+}
+
+// Avisa al panel de la vendedora. keepalive: sigue aunque el celular ya se haya ido a WhatsApp.
+function sendOrder(code: string, items: { id: number; size: string; color: string; qty: number }[]) {
+  fetch("/pedido", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, items }) }).catch(() => {});
+}
 
 function read(key: string): Item[] {
   try {
@@ -58,7 +89,7 @@ function write(key: string, items: Item[]) {
 function merge(into: Item[], add: Item[]) {
   for (const it of add) {
     const same = into.find((i) => i.id === it.id && i.size === it.size && i.color === it.color);
-    if (same) same.qty = Math.min(MAX, same.qty + it.qty);
+    if (same) same.qty += it.qty; // el tope por existencia lo aplica el carrito con /carrito.json
     else into.push({ ...it });
   }
   return into;
@@ -78,12 +109,12 @@ const getCatalog = () =>
 
 const detail = (it: { size: string; color: string }) => [it.size && `Talla ${it.size}`, it.color].filter(Boolean).join(" · ");
 
-// El mensaje termina con una pregunta concreta para que la vendedora sepa qué responder.
-function orderText(shop: string, lines: string[], total: number) {
-  return `Hola, quiero hacer este pedido en ${shop}:\n\n${lines.join("\n")}\n\nTotal: ${fmt2.format(total / 100)}\n\n¿Me confirmas si está disponible y cómo quedan el pago y la entrega? Gracias.`;
+// El mensaje lleva el código del pedido (la vendedora lo ubica en su panel) y termina con una pregunta concreta.
+function orderText(shop: string, code: string, lines: string[], total: number) {
+  return `Hola, quiero hacer este pedido en ${shop} (pedido ${code}):\n\n${lines.join("\n")}\n\nTotal: ${fmt2.format(total / 100)}\n\n¿Cómo quedan el pago y la entrega? Gracias.`;
 }
-const orderLine = (qty: number, name: string, d: string, sub: number, url: string) =>
-  `• ${qty} × ${name}${d ? ` (${d})` : ""}: ${fmt2.format(sub / 100)}\n  ${location.origin}${url}`;
+const orderLine = (qty: number, unit: string, name: string, d: string, sub: number, url: string) =>
+  `• ${unit === "pza" || !unit ? `${qtyNum(qty)} ×` : `${qtyLabel(qty, unit)} de`} ${name}${d ? ` (${d})` : ""}: ${fmt2.format(sub / 100)}\n  ${location.origin}${url}`;
 
 type CartAPI = { items: Item[]; add: (i: Item[]) => void; open: () => void };
 const CartCtx = createContext<CartAPI>({ items: [], add: () => {}, open: () => {} });
@@ -93,6 +124,7 @@ function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Ite
   const [cat, setCat] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState(false);
   const [sent, setSent] = useState(false);
+  const [code, setCode] = useState(newCode);
 
   useEffect(() => {
     const d = ref.current;
@@ -121,34 +153,41 @@ function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Ite
     if (changed) write(KEY, next);
   }, [cat]);
 
-  const update = (i: number, delta: number) => {
+  // dir: +1 / -1 paso; -Infinity quita el renglón.
+  const update = (i: number, dir: number, step: number, max: number) => {
     const next = read(KEY);
     if (!next[i]) return;
-    next[i].qty = Math.min(MAX, next[i].qty + delta);
-    if (!(next[i].qty >= 1)) next.splice(i, 1);
+    next[i].qty = Math.min(max, next[i].qty + dir * step);
+    if (!(next[i].qty >= step)) next.splice(i, 1);
     save(next);
   };
 
   let total = 0;
   const lines: string[] = [];
+  const order: { id: number; size: string; color: string; qty: number }[] = [];
   const rows = cat
     ? items.map((it, i) => {
         const p = cat[it.id];
-        const hasCombos = p && Object.keys(p.v).length > 0;
-        const available = !!p && !(p.x || (hasCombos && p.v[it.size + "|" + it.color] !== false));
+        const step = p?.t || 1000;
+        const max = p ? maxOf(availableOf(p, it.size, it.color), step) : 0;
+        // Se ajusta a lo que hay y al paso de venta (si cambió desde que lo agregó).
+        const qty = Math.min(max, Math.floor(it.qty / step) * step);
+        const available = !!p && qty > 0;
         let warn = "";
         if (!p) warn = "Este producto ya no está disponible.";
         else if (!available) warn = "Se agotó.";
+        else if (qty < it.qty) warn = `Solo hay ${qtyLabel(max, p.un)}; ajustamos la cantidad.`;
         else if (p.p !== it.price) warn = `Cambió de precio: antes ${money(it.price)}, ahora ${money(p.p)}.`;
-        const sub = available ? p.p * it.qty : 0;
+        const sub = available ? lineTotal(p.p, qty) : 0;
         if (available) {
           total += sub;
-          lines.push(orderLine(it.qty, p.n, detail(it), sub, p.u));
+          lines.push(orderLine(qty, p.un, p.n, detail(it), sub, p.u));
+          order.push({ id: it.id, size: it.size, color: it.color, qty });
         }
-        return { i, it, p, name: p ? p.n : "Producto", sub, available, warn };
+        return { i, it, p, qty, step, max, name: p ? p.n : "Producto", sub, available, warn };
       })
     : [];
-  const count = items.reduce((s, i) => s + i.qty, 0);
+  const count = items.length;
 
   function done() {
     write(KEY, []);
@@ -171,7 +210,7 @@ function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Ite
           <div className="cart-sent">
             <CheckCircle2 aria-hidden size={44} className="ok-icon" />
             <h3>Se abrió WhatsApp con tu pedido</h3>
-            <p>Si ya lo enviaste, {shop.name} te responde por ahí para confirmar existencias, pago y entrega.</p>
+            <p>Si ya lo enviaste, {shop.name} te responde por ahí para acordar el pago y la entrega.</p>
             <button type="button" className="btn primary block" onClick={done}>Ya lo envié, vaciar carrito</button>
             <button type="button" className="btn ghost block" onClick={() => setSent(false)}>Todavía no, volver al carrito</button>
           </div>
@@ -203,12 +242,12 @@ function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Ite
                     <div className="cart-actions">
                       {r.available && (
                         <span className="stepper">
-                          <button type="button" aria-label={`Quitar uno de ${r.name}`} onClick={() => update(r.i, -1)}><Minus aria-hidden size={14} /></button>
-                          <span aria-label={`Cantidad: ${r.it.qty}`}>{r.it.qty}</span>
-                          <button type="button" aria-label={`Agregar uno de ${r.name}`} disabled={r.it.qty >= MAX} onClick={() => update(r.i, 1)}><Plus aria-hidden size={14} /></button>
+                          <button type="button" aria-label={`Quitar ${qtyLabel(r.step, r.p?.un ?? "")} de ${r.name}`} onClick={() => update(r.i, -1, r.step, r.max)}><Minus aria-hidden size={14} /></button>
+                          <span aria-label={`Cantidad: ${qtyLabel(r.qty, r.p?.un ?? "")}`}>{qtyLabel(r.qty, r.p?.un ?? "")}</span>
+                          <button type="button" aria-label={`Agregar ${qtyLabel(r.step, r.p?.un ?? "")} de ${r.name}`} disabled={r.qty >= r.max} onClick={() => update(r.i, 1, r.step, r.max)}><Plus aria-hidden size={14} /></button>
                         </span>
                       )}
-                      <button type="button" className="link-btn" aria-label={`Quitar ${r.name} del carrito`} onClick={() => update(r.i, -Infinity)}>Quitar</button>
+                      <button type="button" className="link-btn" aria-label={`Quitar ${r.name} del carrito`} onClick={() => update(r.i, -Infinity, r.step, r.max)}>Quitar</button>
                     </div>
                   </div>
                   <span className="cart-price">{r.available ? money(r.sub) : ""}</span>
@@ -218,10 +257,10 @@ function Cart({ shop, items, save, open, setOpen }: { shop: ShopInfo; items: Ite
             {lines.length > 0 && (
               <footer className="cart-foot">
                 <div className="total"><span>Total</span><strong>{money(total)}</strong></div>
-                <p className="muted small">Lo confirmas con {shop.name} por WhatsApp: existencias, pago y entrega. No pagas nada aquí.</p>
+                <p className="muted small">Todo lo de tu carrito está en existencia. El pago y la entrega los acuerdas con {shop.name} por WhatsApp; aquí no pagas nada.</p>
                 {shop.whatsapp ? (
-                  <a className="btn wa block" href={wa(shop.whatsapp, orderText(shop.name, lines, total))} rel="noopener" target="_blank"
-                    onClick={() => { write(LAST, read(KEY)); setSent(true); }}>
+                  <a className="btn wa block" href={wa(shop.whatsapp, orderText(shop.name, code, lines, total))} rel="noopener" target="_blank"
+                    onClick={() => { sendOrder(code, order); setCode(newCode()); write(LAST, read(KEY)); setSent(true); }}>
                     <MessageCircle aria-hidden size={20} /> Enviar pedido por WhatsApp
                   </a>
                 ) : (
@@ -288,7 +327,7 @@ function Shell({ shop, children }: { shop: ShopInfo; children: ReactNode }) {
       <footer className="foot">
         <div className="wrap foot-in">
           <strong>{shop.name}</strong>
-          <p className="muted">Pedidos por WhatsApp: armas tu carrito, lo envías y {shop.name} te confirma existencias, pago y entrega.</p>
+          <p className="muted">Pedidos por WhatsApp: armas tu carrito con lo que hay en existencia, lo envías y acuerdas el pago y la entrega con {shop.name}.</p>
           <ul className="foot-links">
             <li><a href="/">Todos los productos</a></li>
             <li><a href="/preguntas">Preguntas frecuentes</a></li>
@@ -308,10 +347,13 @@ function Shell({ shop, children }: { shop: ShopInfo; children: ReactNode }) {
 
 // ——— Catálogo ———
 
+// "/ kg" junto al precio de lo que se vende a granel.
+const perUnit = (c: { unit: string }) => (c.unit && c.unit !== "pza" ? ` / ${c.unit}` : "");
+
 function Price({ c, big }: { c: CardData; big?: boolean }) {
   return (
     <p className={"price" + (big ? " big" : "")}>
-      <span className={c.was ? "now sale" : "now"}>{money(c.price)}</span>
+      <span className={c.was ? "now sale" : "now"}>{money(c.price)}{perUnit(c)}</span>
       {c.was > 0 && <s className="was"><span className="sr-only">antes </span>{money(c.was)}</s>}
     </p>
   );
@@ -341,7 +383,8 @@ function QuickAdd({ c, onClose }: { c: CardData | null; onClose: () => void }) {
   }, [c]);
 
   const p = c && cat ? cat[c.id] : undefined;
-  const combos = p ? Object.entries(p.v).map(([k, sold]) => ({ size: k.split("|")[0], color: k.split("|")[1] ?? "", sold })) : [];
+  const step = p?.t || c?.step || 1000;
+  const combos = p ? Object.entries(p.v).map(([k, avail]) => ({ size: k.split("|")[0], color: k.split("|")[1] ?? "", sold: avail >= 0 && avail < step })) : [];
   // En el orden en que la vendedora las capturó (S, M, L…), no en el de las llaves del JSON.
   const rank = (s: string) => ((c?.sizes.indexOf(s) ?? -1) + 1 || 99);
   const sizes = [...new Set(combos.map((x) => x.size).filter(Boolean))].sort((a, b) => rank(a) - rank(b));
@@ -353,7 +396,7 @@ function QuickAdd({ c, onClose }: { c: CardData | null; onClose: () => void }) {
     if ((sizes.length && !size) || (colors.length && !color)) return setMsg(`Elige ${sizes.length && !size ? "una talla" : "un color"}.`);
     if (combos.length && combos.find((x) => x.size === size && x.color === color)?.sold !== false) return setMsg("Esa combinación está agotada. Elige otra.");
     onClose();
-    cart.add([{ id: c.id, size, color, qty: 1, price: p?.p ?? c.price }]);
+    cart.add([{ id: c.id, size, color, qty: step, price: p?.p ?? c.price }]);
   }
 
   return (
@@ -408,7 +451,7 @@ function Tag({ c, big }: { c: CardData; big?: boolean }) {
   return (
     <span className={"ptag" + (c.was ? " sale" : "") + (big ? " big" : "")}>
       {c.was > 0 && <span className="ptag-off">−{off(c)} %</span>}
-      <strong>{money(c.price)}</strong>
+      <strong>{money(c.price)}{perUnit(c)}</strong>
       {c.was > 0 && <s><span className="sr-only">antes </span>{money(c.was)}</s>}
     </span>
   );
@@ -597,7 +640,7 @@ function Closing({ shop }: { shop: ShopInfo }) {
   return (
     <section className="closing" aria-labelledby="pedir">
       <h2 id="pedir">¿Lista para pedir?</h2>
-      <p>Arma tu carrito y envíalo por WhatsApp. {shop.name} te confirma existencias, pago y entrega antes de que pagues.</p>
+      <p>Arma tu carrito con lo que hay en existencia y envíalo por WhatsApp. Ahí acuerdas el pago y la entrega con {shop.name}.</p>
       <div className="cover-cta">
         {shop.whatsapp && (
           <a href={wa(shop.whatsapp, `Hola, tengo una pregunta sobre tu tienda (${shop.url}).`)} className="btn wa lg" rel="noopener" target="_blank">
@@ -740,9 +783,17 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
   const c = p.card;
   const [size, setSize] = useState("");
   const [color, setColor] = useState("");
-  const [qty, setQty] = useState(1);
+  const step = c.step || 1000;
+  const [text, setText] = useState(() => qtyNum(step)); // lo que escribe; n es la cantidad válida
+  const setQty = (milli: number) => setText(qtyNum(milli));
   const [status, setStatus] = useState("");
+  const [cat, setCat] = useState<Catalog | null>(null);
+  useEffect(() => { getCatalog().then(setCat, () => {}); }, []);
   const blocked = p.soldOutCombos.includes(size + "|" + color);
+  // Existencia de lo elegido; sin elegir talla/color aún, no se limita.
+  const chosen = (!p.sizes.length || size) && (!p.colors.length || color);
+  const avail = cat?.[c.id] && chosen ? availableOf(cat[c.id], size, color) : -1;
+  const max = maxOf(avail, step);
   const url = `/p/${c.id}`;
   const ask = (t: string) => wa(shop.whatsapp, `Hola, ${t} ${c.name}: ${location.origin}${url}`);
 
@@ -757,7 +808,9 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
     }
     return true;
   }
-  const n = Math.min(MAX, Math.max(1, qty || 1));
+  const typed = Math.round(parseFloat(text.replace(",", ".")) * 1000) || step;
+  const n = Math.min(max, Math.max(step, Math.round(typed / step) * step));
+  const few = avail > 0 && avail <= step * 5; // dato real: solo se muestra cuando queda poco
 
   return (
     <>
@@ -789,20 +842,24 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
               {p.colors.length > 0 && <Choice legend="Color" name="color" opts={p.colors} value={color} onChange={(v) => { setColor(v); setStatus(""); }} />}
               {blocked && <p className="warn">Esa combinación está agotada. Elige otra talla o color.</p>}
               <div className="qty">
-                <label htmlFor="qty">Cantidad</label>
+                <label htmlFor="qty">Cantidad{c.unit && c.unit !== "pza" ? ` (${c.unit})` : ""}</label>
                 <span className="stepper big">
-                  <button type="button" aria-label="Quitar uno" disabled={n <= 1} onClick={() => setQty(n - 1)}><Minus aria-hidden size={16} /></button>
-                  <input id="qty" type="number" inputMode="numeric" min={1} max={MAX} value={qty || ""} onChange={(e) => setQty(parseInt(e.target.value, 10) || 0)} />
-                  <button type="button" aria-label="Agregar uno" disabled={n >= MAX} onClick={() => setQty(n + 1)}><Plus aria-hidden size={16} /></button>
+                  <button type="button" aria-label={`Quitar ${qtyLabel(step, c.unit)}`} disabled={n <= step} onClick={() => setQty(n - step)}><Minus aria-hidden size={16} /></button>
+                  <input id="qty" type="text" inputMode="decimal" value={text} aria-describedby={few ? "quedan" : undefined}
+                    onChange={(e) => setText(e.target.value)} onBlur={() => setQty(n)} />
+                  <button type="button" aria-label={`Agregar ${qtyLabel(step, c.unit)}`} disabled={n >= max} onClick={() => setQty(n + step)}><Plus aria-hidden size={16} /></button>
                 </span>
+                {few && <span id="quedan" className="muted small">Quedan {qtyLabel(avail, c.unit)}</span>}
               </div>
               <button type="submit" className="btn primary block lg"><ShoppingBag aria-hidden size={20} /> Agregar al carrito</button>
               {shop.whatsapp && (
                 <a className="btn secondary block" href={wa(shop.whatsapp, "")} rel="noopener" target="_blank"
                   onClick={(e) => {
                     if (!ready()) return e.preventDefault();
-                    const line = orderLine(n, c.name, detail({ size, color }), c.price * n, url);
-                    e.currentTarget.href = wa(shop.whatsapp, orderText(shop.name, [line], c.price * n));
+                    const sub = lineTotal(c.price, n);
+                    const code = newCode();
+                    sendOrder(code, [{ id: c.id, size, color, qty: n }]);
+                    e.currentTarget.href = wa(shop.whatsapp, orderText(shop.name, code, [orderLine(n, c.unit, c.name, detail({ size, color }), sub, url)], sub));
                   }}>
                   <MessageCircle aria-hidden size={18} /> Pedir solo este por WhatsApp
                 </a>
@@ -812,7 +869,7 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
           )}
 
           <ul className="how" aria-label="Así compras aquí">
-            <li><MessageCircle aria-hidden size={20} /><span><strong>Confirmas por WhatsApp.</strong> {shop.name} te dice si hay y el total final antes de que pagues.</span></li>
+            <li><MessageCircle aria-hidden size={20} /><span><strong>Hay existencia.</strong> Solo puedes pedir lo que {shop.name} tiene disponible; tu pedido llega por WhatsApp.</span></li>
             <li><CreditCard aria-hidden size={20} /><span><strong>Pago.</strong> {shop.payment ? <>Puedes pagar por transferencia; los datos están en <a href="/preguntas">Preguntas</a>.</> : "La forma de pago se acuerda por WhatsApp."}</span></li>
             <li><Truck aria-hidden size={20} /><span><strong>Entrega.</strong> Envío o entrega se acuerdan por WhatsApp.</span></li>
           </ul>
@@ -840,7 +897,7 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
 function FAQ({ shop }: { shop: ShopInfo }) {
   const base = [
     { q: "¿Cómo hago mi pedido?", a: `Elige tus productos, talla y color, agrégalos al carrito y toca "Enviar pedido por WhatsApp". Se abre WhatsApp con tu pedido ya escrito; solo envíalo.` },
-    { q: "¿Cómo pago?", a: `${shop.name} te responde por WhatsApp para confirmar existencias y acordar el pago.${shop.payment ? "\n\n" + shop.payment : ""}` },
+    { q: "¿Cómo pago?", a: `${shop.name} te responde por WhatsApp para acordar el pago.${shop.payment ? "\n\n" + shop.payment : ""}` },
     { q: "¿Cómo me llega?", a: `La entrega o el envío se acuerdan por WhatsApp con ${shop.name}.` },
     { q: "¿Mi carrito se guarda?", a: "Sí, en este celular. Si cambias de celular o borras los datos del navegador, se vacía." },
   ];

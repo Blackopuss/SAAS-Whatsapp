@@ -14,6 +14,7 @@ Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la comprad
 | 5 Fundadoras y cobro | Hecho | Alta de tiendas, pagos manuales, racha, pausa automática, aviso en panel, bitácora |
 | 6 Producción | Listo en el repo | `deploy/` y `docs/PRODUCCION.md`; falta rentar el VPS y seguir la guía. Auditoría en `SECURITY.md` |
 | Rediseño React | Hecho | Admin, panel y tienda en React; tienda con portada, mosaico de categorías, destacado, "agregar rápido"; página Mensajes (plantillas de WhatsApp) en el panel |
+| Inventario y Ventas | Hecho | Existencias por producto o talla × color, venta a granel por pasos, pedidos desde el carrito, Ventas con gráficas y no ventas; productos en tabla con filtros y formulario en pestañas; superadmin con búsqueda y filtros |
 
 Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es público (CI gratis). Sin `Co-Authored-By` ni atribución a Claude en commits o PRs.
 
@@ -49,7 +50,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - **CSRF**: stdlib (Origin/Sec-Fetch-Site) en vez de token en `hx-headers`.
 - **Orden de categorías**: botones Subir/Bajar en vez de arrastrar (accesible, sin JS).
 - **Fotos**: solo WebP (sin AVIF, a pedido); se procesan en la petición con 2 a la vez, no en River (`shortcut:` en `photos.go`). El celular las reduce a 1600 px antes de subir (`shrink` en `panel.tsx`).
-- **Carrito**: en `shop.tsx`, localStorage `carrito` (y `ultimo-pedido` para "Pedir de nuevo"); precios y existencias se validan contra `/carrito.json`. No hay página de carrito, solo el `<dialog>`. El botón + de cada tarjeta abre "agregar rápido" con tallas y colores sacados de `/carrito.json`.
+- **Carrito**: en `shop.tsx`, localStorage `carrito-2` (y `ultimo-pedido-2` para "Pedir de nuevo"); precios y existencias se validan contra `/carrito.json`. No hay página de carrito, solo el `<dialog>`. El botón + de cada tarjeta abre "agregar rápido" con tallas y colores sacados de `/carrito.json`.
 - **htmx**: no se usa; la vista previa es un iframe en `panel.tsx`.
 - **Recuperación sin proveedor**: en dev el enlace sale en el log; en prod lo genera el superadmin y lo manda por WhatsApp. Pendiente: Cloudflare Email cuando haya dominio.
 - **Cobro**: pagos manuales registrados por el superadmin (sin pasarela). Racha = meses pagados a tiempo; pagar tarde la reinicia y cuenta desde el día del pago. Al 6.º día de atraso la tienda se pausa (proceso cada hora en el mismo servidor, `shortcut:` en `billing.go`, no River). Pausada: 503 sin datos de la vendedora; el panel sigue abierto. Aviso en el panel desde 3 días antes de vencer. Fechas en America/Mexico_City.
@@ -62,6 +63,10 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - **Fuente**: Bricolage Grotesque recortada a latín + español y peso 400–800 (24 KB). No tiene eje de ancho.
 - **WAVE** no corre local; se usa axe-core (mismo motor de Lighthouse).
 - **Diseño de la tienda**: inspirado en catálogos impresos sin copiarlos: portada con collage, etiquetas de precio en bloque (oferta con % y precio tachado), mosaico de categorías, producto destacado (la mayor oferta real o la novedad). Solo datos reales: nada de descuentos, reseñas, existencias ni urgencia inventados.
+- **Inventario**: cantidades y existencias en enteros de milésimas (1 pza = 1000, 0.25 kg = 250); `products.unit` (pieza, kg, g, litro, metro) y `step` (de cuánto en cuánto). `stock` NULL = no lleva inventario (se usa el `sold_out` manual); en queries sale como -1. Agotado = manual o `stock < step`. Con tallas/colores la existencia va en `product_variants.stock`.
+- **Pedidos**: al tocar "Enviar pedido por WhatsApp" el carrito manda `POST /pedido` (fetch keepalive, código de 6 letras hecho en el celular, va en el mensaje). Precios salen de la base; 10 pedidos/hora por tienda+IP; idempotente por código. Pendiente no aparta nada; **Vendido** descuenta existencia (UPDATE condicionado, nunca negativa; si no alcanza, 409 y no cambia nada), **Deshacer** la regresa. **No vendido** guarda motivo (1 sin existencia, 2 no respondió, 3 precio, 4 otro); pendientes de más de 7 días pasan solos a motivo 5 en el proceso de cada hora (`billing.go`). Los renglones copian nombre, categoría, talla y color para que el historial no cambie. No se guardan datos de la clienta.
+- **Ventas** (`/panel/ventas`): pestañas Resumen / Pendientes / Vendidos / No vendidos; resumen por periodo (este mes, mes pasado, 3 meses, año) calculado con GROUP BY al vuelo, sin tablas de resumen; CSV con BOM para Excel. Gráficas SVG a mano (Astryx no trae), una serie, con tabla equivalente.
+- **CSP y Astryx**: las capas flotantes meten un `<style>` sin nonce; `shell.tsx` da esas reglas como hoja construida (`adoptedStyleSheets`) y pone el marcador con su id para que no lo intenten.
 - **Mensajes**: `/panel/mensajes` trae 9 plantillas de WhatsApp (bienvenida a clientas inactivas) para copiar; no se envían solas.
 
 ## Pendientes conocidos
@@ -69,7 +74,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
 - Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
-- Fotos de la demo anteriores al JPG de Open Graph: correr `seeddemo` de nuevo.
+- Superadmin nuevo (búsqueda, filtros, pestañas en el detalle) revisado solo con typecheck: falta correr e2e con `ADMIN_TOTP`.
 - El presupuesto de peso de la tienda (130 KB gzip: JS + `shop.css` + tema + la fuente más pesada; ~123 KB hoy) lo revisa `npm run budget` en CI. React solo ya son ~58 KB.
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
 

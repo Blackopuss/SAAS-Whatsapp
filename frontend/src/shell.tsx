@@ -11,8 +11,22 @@ import { Text } from "@astryxdesign/core/Text";
 import { Button } from "@astryxdesign/core/Button";
 import { Center } from "@astryxdesign/core/Center";
 import { Card } from "@astryxdesign/core/Card";
+import { Badge } from "@astryxdesign/core/Badge";
+// No está en los exports del paquete; se importa por ruta.
+import { slideRulesCss } from "../node_modules/@astryxdesign/core/dist/Layer/layerSlideRules.js";
 
-export type NavLink = { href: string; label: string; icon: LucideIcon };
+// Las capas flotantes de Astryx meten estas reglas en un <style> sin nonce, que nuestra CSP bloquea.
+// Las damos como hoja construida (la CSP no aplica) y el marcador con su id evita ese <style>.
+if (!document.getElementById("astryx-layer-slide-rules")) {
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(slideRulesCss());
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+  const mark = document.createElement("meta");
+  mark.id = "astryx-layer-slide-rules";
+  document.head.append(mark);
+}
+
+export type NavLink = { href: string; label: string; icon: LucideIcon; badge?: number };
 
 export function Shell({ app, sub, nav, current, logout, banner, title, back, actions, width = 760, children }: {
   app: string;
@@ -38,7 +52,8 @@ export function Shell({ app, sub, nav, current, logout, banner, title, back, act
     >
       <SideNavSection title="Menú" isHeaderHidden>
         {nav.map((n) => (
-          <SideNavItem key={n.href} label={n.label} href={n.href} icon={n.icon} isSelected={n.href === current} />
+          <SideNavItem key={n.href} label={n.label} href={n.href} icon={n.icon} isSelected={n.href === current}
+            endContent={n.badge ? <Badge label={n.badge} variant="warning" /> : undefined} />
         ))}
       </SideNavSection>
     </SideNav>

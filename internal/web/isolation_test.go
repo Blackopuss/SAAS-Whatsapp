@@ -59,7 +59,7 @@ func TestStoreIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bProd, err := q.CreateProduct(ctx, db.CreateProductParams{StoreID: b.ID, CategoryID: pgtype.Int8{Int64: bCat.ID, Valid: true}, Name: "Producto de B", PriceCents: 10000})
+	bProd, err := q.CreateProduct(ctx, db.CreateProductParams{StoreID: b.ID, CategoryID: pgtype.Int8{Int64: bCat.ID, Valid: true}, Name: "Producto de B", PriceCents: 10000, Unit: "pieza", Step: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}

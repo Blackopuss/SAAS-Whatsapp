@@ -21,6 +21,9 @@ import { MetadataList, MetadataListItem } from "@astryxdesign/core/MetadataList"
 import { Dialog } from "@astryxdesign/core/Dialog";
 import { Section } from "@astryxdesign/core/Section";
 import { DateInput } from "@astryxdesign/core/DateInput";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { TabList, Tab } from "@astryxdesign/core/TabList";
+import { Badge } from "@astryxdesign/core/Badge";
 type ISODateString = Parameters<typeof DateInput>[0]["max"] & string;
 
 const NAV: NavLink[] = [
@@ -47,7 +50,7 @@ function Login({ email, error }: { email: string; error: string }) {
   );
 }
 
-type StoreRow = { id: number; name: string; slug: string; active: boolean; status: string; paidUntil: string; overdue: boolean; streak: number; founder: boolean; products: number };
+type StoreRow = { id: number; name: string; slug: string; active: boolean; status: string; paidUntil: string; overdue: boolean; streak: number; founder: boolean; products: number; orders: number };
 
 function status(s: { active: boolean; overdue: boolean; status: string }) {
   if (!s.active) return <StatusDot variant="error" label={s.status} tooltip={s.status} />;
@@ -55,9 +58,16 @@ function status(s: { active: boolean; overdue: boolean; status: string }) {
   return <StatusDot variant="success" label={s.status} tooltip={s.status} />;
 }
 
+const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
 function Stores({ stores }: { stores: StoreRow[] }) {
+  const [q, setQ] = useState("");
+  const [show, setShow] = useState("todas");
   const active = stores.filter((s) => s.active).length;
   const late = stores.filter((s) => s.active && s.overdue).length;
+  const rows = stores.filter((s) =>
+    (!q.trim() || fold(s.name + " " + s.slug).includes(fold(q.trim()))) &&
+    (show === "todas" || (show === "abiertas" && s.active) || (show === "pausadas" && !s.active) || (show === "vencidas" && s.active && s.overdue)));
   return (
     <AdminShell title="Tiendas" current="/" width={1040} actions={<Button href="/tiendas/nueva" variant="primary" label="Nueva tienda" icon={<Plus aria-hidden size={16} />} />}>
       <Grid columns={{ minWidth: 160, repeat: "fit" }} gap={3}>
@@ -65,9 +75,16 @@ function Stores({ stores }: { stores: StoreRow[] }) {
         <Stat label="Abiertas" value={active} />
         <Stat label="Con pago vencido" value={late} />
       </Grid>
+      <TextInput label="Buscar tienda" placeholder="Nombre o subdominio" value={q} onChange={setQ} startIcon="search" />
+      <TabList value={show} onChange={setShow} hasDivider role="tablist">
+        <Tab value="todas" label="Todas" endContent={<Badge label={stores.length} />} />
+        <Tab value="abiertas" label="Abiertas" endContent={<Badge label={active} />} />
+        <Tab value="pausadas" label="Pausadas" endContent={<Badge label={stores.length - active} />} />
+        <Tab value="vencidas" label="Pago vencido" endContent={<Badge label={late} />} />
+      </TabList>
       <Card padding={0} className="rise">
         <Table
-          data={stores}
+          data={rows}
           idKey="id"
           hasHover
           emptyState={<EmptyState title="Aún no hay tiendas" description="Da de alta la primera para empezar." actions={<Button href="/tiendas/nueva" variant="primary" label="Dar de alta" />} />}
@@ -82,6 +99,7 @@ function Stores({ stores }: { stores: StoreRow[] }) {
             { key: "paidUntil", header: "Pagado hasta", renderCell: (s) => <Text hasTabularNumbers color={s.overdue ? "accent" : "primary"}>{s.paidUntil}</Text> },
             { key: "streak", header: "Racha", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.streak > 0 ? `${s.streak} m` : "—"}</Text> },
             { key: "products", header: "Productos", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.products}</Text> },
+            { key: "orders", header: "Pedidos 30 días", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.orders}</Text> },
             { key: "founder", header: "", renderCell: (s) => (s.founder ? <Token label="Fundadora" color="purple" size="sm" /> : null) },
           ]}
         />
@@ -131,6 +149,7 @@ type StoreView = {
 function StoreDetail(v: StoreView) {
   const [paying, setPaying] = useState(false);
   const [pausing, setPausing] = useState(false);
+  const [tab, setTab] = useState("datos");
   const base = `/tiendas/${v.id}`;
   return (
     <AdminShell title={v.name} current="/" back={{ href: "/", label: "Tiendas" }}
@@ -148,8 +167,12 @@ function StoreDetail(v: StoreView) {
         </VStack>
       </Card>
 
-      <VStack gap={3} className="rise">
-        <Heading level={2}>Pagos</Heading>
+      <TabList value={tab} onChange={setTab} hasDivider role="tablist">
+        <Tab value="datos" label="Plan y acceso" panelId="t-datos" />
+        <Tab value="pagos" label="Pagos" panelId="t-pagos" endContent={<Badge label={v.payments.length} />} />
+      </TabList>
+
+      <section hidden={tab !== "pagos"} id="t-pagos" role="tabpanel" aria-label="Pagos">
         <Card padding={0}>
           {v.payments.length === 0 ? (
             <EmptyState title="Aún no hay pagos" isCompact headingLevel={3} actions={<Button label="Registrar pago" onClick={() => setPaying(true)} />} />
@@ -163,8 +186,9 @@ function StoreDetail(v: StoreView) {
             </List>
           )}
         </Card>
-      </VStack>
+      </section>
 
+      <section hidden={tab !== "datos"} id="t-datos" role="tabpanel" aria-label="Plan y acceso">
       <Grid columns={{ minWidth: 300 }} gap={4}>
         <Card padding={5} className="rise">
           <VStack gap={4}>
@@ -189,6 +213,7 @@ function StoreDetail(v: StoreView) {
           </VStack>
         </Card>
       </Grid>
+      </section>
 
       <Dialog isOpen={paying} onOpenChange={setPaying} purpose="form" width={440} padding={5}>
         <VStack gap={4}>

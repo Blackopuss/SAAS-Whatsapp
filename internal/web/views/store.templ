@@ -38,6 +38,8 @@ type Card struct {
 	Color      string // color dominante de la foto: fondo mientras carga
 	Sizes      []string
 	CategoryID int64
+	Unit       string // abreviatura: pza, kg, g, L, m
+	Step       int32  // milésimas
 }
 
 type Opt struct {
@@ -127,6 +129,8 @@ type shopCard struct {
 	Color   string    `json:"color"`
 	Sizes   []string  `json:"sizes"`
 	Cat     int64     `json:"cat"`
+	Unit    string    `json:"unit"`
+	Step    int32     `json:"step"`
 }
 
 func shopCardOf(c Card) shopCard {
@@ -138,7 +142,11 @@ func shopCardOf(c Card) shopCard {
 	if sizes == nil {
 		sizes = []string{}
 	}
-	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID}
+	step := c.Step
+	if step <= 0 {
+		step = 1000
+	}
+	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID, c.Unit, step}
 }
 
 func shopCards(cs []Card) []shopCard {

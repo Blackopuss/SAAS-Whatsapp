@@ -36,8 +36,8 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (store_id, category_id, name, description, price_cents, sale_price_cents)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO products (store_id, category_id, name, description, price_cents, sale_price_cents, is_new, on_sale, sold_out, unit, step, stock)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id
 `
 
@@ -48,6 +48,12 @@ type CreateProductParams struct {
 	Description    string
 	PriceCents     int32
 	SalePriceCents pgtype.Int4
+	IsNew          bool
+	OnSale         bool
+	SoldOut        bool
+	Unit           string
+	Step           int32
+	Stock          pgtype.Int4
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (int64, error) {
@@ -58,6 +64,12 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (i
 		arg.Description,
 		arg.PriceCents,
 		arg.SalePriceCents,
+		arg.IsNew,
+		arg.OnSale,
+		arg.SoldOut,
+		arg.Unit,
+		arg.Step,
+		arg.Stock,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -65,7 +77,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (i
 }
 
 const createVariant = `-- name: CreateVariant :exec
-INSERT INTO product_variants (store_id, product_id, size, color, sold_out) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO product_variants (store_id, product_id, size, color, sold_out, stock) VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type CreateVariantParams struct {
@@ -74,6 +86,7 @@ type CreateVariantParams struct {
 	Size      string
 	Color     string
 	SoldOut   bool
+	Stock     pgtype.Int4
 }
 
 func (q *Queries) CreateVariant(ctx context.Context, arg CreateVariantParams) error {
@@ -83,6 +96,7 @@ func (q *Queries) CreateVariant(ctx context.Context, arg CreateVariantParams) er
 		arg.Size,
 		arg.Color,
 		arg.SoldOut,
+		arg.Stock,
 	)
 	return err
 }
@@ -136,7 +150,7 @@ func (q *Queries) DeleteVariants(ctx context.Context, arg DeleteVariantsParams) 
 }
 
 const getProduct = `-- name: GetProduct :one
-SELECT id, store_id, category_id, name, description, price_cents, sale_price_cents, active, sold_out, is_new, on_sale, created_at, updated_at FROM products WHERE store_id = $1 AND id = $2
+SELECT id, store_id, category_id, name, description, price_cents, sale_price_cents, active, sold_out, is_new, on_sale, created_at, updated_at, unit, step, stock FROM products WHERE store_id = $1 AND id = $2
 `
 
 type GetProductParams struct {
@@ -161,8 +175,50 @@ func (q *Queries) GetProduct(ctx context.Context, arg GetProductParams) (Product
 		&i.OnSale,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Unit,
+		&i.Step,
+		&i.Stock,
 	)
 	return i, err
+}
+
+const listAllVariants = `-- name: ListAllVariants :many
+SELECT product_id, size, color, sold_out, stock FROM product_variants WHERE store_id = $1 ORDER BY id
+`
+
+type ListAllVariantsRow struct {
+	ProductID int64
+	Size      string
+	Color     string
+	SoldOut   bool
+	Stock     pgtype.Int4
+}
+
+// Para ajustar existencias desde la lista del panel (incluye productos ocultos).
+func (q *Queries) ListAllVariants(ctx context.Context, storeID int64) ([]ListAllVariantsRow, error) {
+	rows, err := q.db.Query(ctx, listAllVariants, storeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllVariantsRow
+	for rows.Next() {
+		var i ListAllVariantsRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.Size,
+			&i.Color,
+			&i.SoldOut,
+			&i.Stock,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCategories = `-- name: ListCategories :many
@@ -197,8 +253,84 @@ func (q *Queries) ListCategories(ctx context.Context, storeID int64) ([]Category
 	return items, nil
 }
 
+const listPanelProducts = `-- name: ListPanelProducts :many
+SELECT p.id, p.name, p.price_cents, p.sale_price_cents, p.active, p.sold_out, p.is_new, p.on_sale, p.unit, p.step,
+    coalesce(c.name, '')::text AS category,
+    coalesce(i.r2_key, '')::text AS image_key,
+    coalesce(i.widths, '{}')::int[] AS image_widths,
+    v.n::int AS variants,
+    coalesce(CASE WHEN v.n > 0 THEN v.stock ELSE p.stock END, -1)::int AS stock
+FROM products p
+LEFT JOIN categories c ON c.store_id = p.store_id AND c.id = p.category_id
+LEFT JOIN LATERAL (
+    SELECT r2_key, widths FROM product_images
+    WHERE store_id = p.store_id AND product_id = p.id ORDER BY position, id LIMIT 1
+) i ON true
+CROSS JOIN LATERAL (
+    SELECT count(*) AS n, sum(stock) AS stock FROM product_variants
+    WHERE store_id = p.store_id AND product_id = p.id
+) v
+WHERE p.store_id = $1
+ORDER BY p.created_at DESC, p.id DESC
+`
+
+type ListPanelProductsRow struct {
+	ID             int64
+	Name           string
+	PriceCents     int32
+	SalePriceCents pgtype.Int4
+	Active         bool
+	SoldOut        bool
+	IsNew          bool
+	OnSale         bool
+	Unit           string
+	Step           int32
+	Category       string
+	ImageKey       string
+	ImageWidths    []int32
+	Variants       int32
+	Stock          int32
+}
+
+// Lista del panel: foto, categoría y existencia total (-1 si no lleva inventario).
+func (q *Queries) ListPanelProducts(ctx context.Context, storeID int64) ([]ListPanelProductsRow, error) {
+	rows, err := q.db.Query(ctx, listPanelProducts, storeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPanelProductsRow
+	for rows.Next() {
+		var i ListPanelProductsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.PriceCents,
+			&i.SalePriceCents,
+			&i.Active,
+			&i.SoldOut,
+			&i.IsNew,
+			&i.OnSale,
+			&i.Unit,
+			&i.Step,
+			&i.Category,
+			&i.ImageKey,
+			&i.ImageWidths,
+			&i.Variants,
+			&i.Stock,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
-SELECT id, store_id, category_id, name, description, price_cents, sale_price_cents, active, sold_out, is_new, on_sale, created_at, updated_at FROM products WHERE store_id = $1 ORDER BY created_at DESC, id DESC
+SELECT id, store_id, category_id, name, description, price_cents, sale_price_cents, active, sold_out, is_new, on_sale, created_at, updated_at, unit, step, stock FROM products WHERE store_id = $1 ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListProducts(ctx context.Context, storeID int64) ([]Product, error) {
@@ -224,6 +356,9 @@ func (q *Queries) ListProducts(ctx context.Context, storeID int64) ([]Product, e
 			&i.OnSale,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Unit,
+			&i.Step,
+			&i.Stock,
 		); err != nil {
 			return nil, err
 		}
@@ -236,7 +371,7 @@ func (q *Queries) ListProducts(ctx context.Context, storeID int64) ([]Product, e
 }
 
 const listVariants = `-- name: ListVariants :many
-SELECT id, store_id, product_id, size, color, sold_out FROM product_variants WHERE store_id = $1 AND product_id = $2 ORDER BY id
+SELECT id, store_id, product_id, size, color, sold_out, stock FROM product_variants WHERE store_id = $1 AND product_id = $2 ORDER BY id
 `
 
 type ListVariantsParams struct {
@@ -260,6 +395,7 @@ func (q *Queries) ListVariants(ctx context.Context, arg ListVariantsParams) ([]P
 			&i.Size,
 			&i.Color,
 			&i.SoldOut,
+			&i.Stock,
 		); err != nil {
 			return nil, err
 		}
@@ -306,6 +442,56 @@ func (q *Queries) ReorderCategories(ctx context.Context, arg ReorderCategoriesPa
 	return err
 }
 
+const setProductStock = `-- name: SetProductStock :execrows
+UPDATE products SET stock = $3, sold_out = $4, updated_at = now() WHERE store_id = $1 AND id = $2
+`
+
+type SetProductStockParams struct {
+	StoreID int64
+	ID      int64
+	Stock   pgtype.Int4
+	SoldOut bool
+}
+
+func (q *Queries) SetProductStock(ctx context.Context, arg SetProductStockParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setProductStock,
+		arg.StoreID,
+		arg.ID,
+		arg.Stock,
+		arg.SoldOut,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setVariantStock = `-- name: SetVariantStock :exec
+UPDATE product_variants SET stock = $1, sold_out = $2
+WHERE store_id = $3 AND product_id = $4 AND size = $5 AND color = $6
+`
+
+type SetVariantStockParams struct {
+	Stock     pgtype.Int4
+	SoldOut   bool
+	StoreID   int64
+	ProductID int64
+	Size      string
+	Color     string
+}
+
+func (q *Queries) SetVariantStock(ctx context.Context, arg SetVariantStockParams) error {
+	_, err := q.db.Exec(ctx, setVariantStock,
+		arg.Stock,
+		arg.SoldOut,
+		arg.StoreID,
+		arg.ProductID,
+		arg.Size,
+		arg.Color,
+	)
+	return err
+}
+
 const toggleProductFlag = `-- name: ToggleProductFlag :execrows
 UPDATE products SET
     active   = CASE WHEN $1::text = 'active'   THEN NOT active   ELSE active   END,
@@ -333,7 +519,8 @@ func (q *Queries) ToggleProductFlag(ctx context.Context, arg ToggleProductFlagPa
 
 const updateProduct = `-- name: UpdateProduct :execrows
 UPDATE products
-SET category_id = $3, name = $4, description = $5, price_cents = $6, sale_price_cents = $7, updated_at = now()
+SET category_id = $3, name = $4, description = $5, price_cents = $6, sale_price_cents = $7,
+    is_new = $8, on_sale = $9, sold_out = $10, unit = $11, step = $12, stock = $13, updated_at = now()
 WHERE store_id = $1 AND id = $2
 `
 
@@ -345,6 +532,12 @@ type UpdateProductParams struct {
 	Description    string
 	PriceCents     int32
 	SalePriceCents pgtype.Int4
+	IsNew          bool
+	OnSale         bool
+	SoldOut        bool
+	Unit           string
+	Step           int32
+	Stock          pgtype.Int4
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error) {
@@ -356,6 +549,12 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (i
 		arg.Description,
 		arg.PriceCents,
 		arg.SalePriceCents,
+		arg.IsNew,
+		arg.OnSale,
+		arg.SoldOut,
+		arg.Unit,
+		arg.Step,
+		arg.Stock,
 	)
 	if err != nil {
 		return 0, err

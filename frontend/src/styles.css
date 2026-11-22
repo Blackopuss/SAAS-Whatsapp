@@ -105,3 +105,54 @@ form.grow-form {
   padding-inline-start: var(--spacing-5);
   list-style: decimal;
 }
+
+/* ——— Productos ——— */
+.thumb {
+  inline-size: 2.75rem;
+  block-size: 3.4375rem;
+  object-fit: cover;
+  border-radius: var(--radius-element);
+  flex: none;
+}
+.thumb-empty { inline-size: 2.75rem; color: var(--color-text-secondary); flex: none; }
+/* Guardar siempre a la mano en formularios largos. */
+.save-bar {
+  position: sticky;
+  inset-block-end: var(--spacing-3);
+  z-index: 2;
+  box-shadow: var(--shadow-high);
+}
+
+/* ——— Ventas ——— */
+.order-focus { outline: 2px solid var(--color-border-error, var(--color-text-error)); outline-offset: 2px; }
+.chart { inline-size: 100%; block-size: auto; overflow: visible; }
+.chart-axis { stroke: var(--color-border); stroke-width: 1; }
+.chart-hit { fill: transparent; }
+.chart-bar { fill: var(--color-accent); transition: opacity 150ms; }
+.chart:hover .chart-bar:not(.on) { opacity: 0.55; }
+.chart-label { fill: var(--color-text-secondary); font-size: 0.75rem; }
+.ranking { display: grid; gap: var(--spacing-2); list-style: none; padding: 0; margin: 0; }
+.ranking li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-element);
+  isolation: isolate;
+}
+/* La barra va detrás del texto; el texto conserva su color normal (legible sin depender del color). */
+.ranking li::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  inline-size: var(--w);
+  z-index: -1;
+  border-radius: var(--radius-element);
+  background: color-mix(in oklch, var(--color-accent) 22%, transparent);
+}
+.ranking-name { min-inline-size: 0; overflow-wrap: anywhere; }
+.ranking-sub { color: var(--color-text-secondary); }
+.ranking-val { flex: none; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+@media (prefers-reduced-motion: reduce) { .chart-bar { transition: none; } }
+.chart-box { margin: 0; }

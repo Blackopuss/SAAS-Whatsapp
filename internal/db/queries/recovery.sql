@@ -35,7 +35,8 @@ INSERT INTO admins (email, password_hash, totp_secret) VALUES ($1, $2, $3) RETUR
 
 -- name: ListStoresAdmin :many
 SELECT s.id, s.slug, s.name, s.status, s.created_at, sub.paid_until, sub.streak_months, sub.is_founder,
-    (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products
+    (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products,
+    (SELECT count(*) FROM orders o WHERE o.store_id = s.id AND o.created_at > now() - interval '30 days') AS orders_30d
 FROM stores s JOIN subscriptions sub ON sub.store_id = s.id
 ORDER BY sub.paid_until NULLS FIRST, s.created_at DESC;
 

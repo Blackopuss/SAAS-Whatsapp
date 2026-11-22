@@ -165,6 +165,16 @@ func TestCSRFCrossOriginRejected(t *testing.T) {
 
 func (f *fakeQ) ListProducts(context.Context, int64) ([]db.Product, error) { return nil, nil }
 
+func (f *fakeQ) ListPanelProducts(context.Context, int64) ([]db.ListPanelProductsRow, error) {
+	return nil, nil
+}
+
+func (f *fakeQ) ListAllVariants(context.Context, int64) ([]db.ListAllVariantsRow, error) {
+	return nil, nil
+}
+
+func (f *fakeQ) CountPendingOrders(context.Context, int64) (int64, error) { return 0, nil }
+
 func (f *fakeQ) GetUserPasswordChangedAt(context.Context, db.GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Valid: true}, nil
 }

@@ -38,8 +38,10 @@ type app struct {
 	tx       func(context.Context, func(db.Querier) error) error
 	sessions *scs.SessionManager
 	limit    *limiter
-	store    storage.Storage
-	mediaURL string
+	// orderLimit: pedidos por tienda e IP; frena a quien llene de pedidos falsos el panel de una vendedora.
+	orderLimit *limiter
+	store      storage.Storage
+	mediaURL   string
 
 	base      string
 	secure    bool
@@ -69,7 +71,7 @@ func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 
 // Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
 func Routes(d Deps) http.Handler {
-	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), store: d.Storage, mediaURL: d.MediaURL,
+	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), orderLimit: newLimiter(10, time.Hour), store: d.Storage, mediaURL: d.MediaURL,
 		base: d.BaseDomain, secure: d.Secure, totpKey: d.TOTPKey, sendReset: d.SendReset}
 	if a.tx == nil {
 		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
@@ -115,6 +117,14 @@ func Routes(d Deps) http.Handler {
 		"POST /panel/tienda/logo":                  a.logoUpload,
 		"POST /panel/tienda/logo/borrar":           a.logoDelete,
 		"GET /panel/mensajes":                      a.messages,
+		"GET /panel/ventas":                        a.sales,
+		"GET /panel/ventas/resumen":                a.salesSummary,
+		"GET /panel/ventas/ventas.csv":             a.salesCSV,
+		"POST /panel/ventas/{id}/vender":           a.orderSell,
+		"POST /panel/ventas/{id}/no-vender":        a.orderLose,
+		"POST /panel/ventas/{id}/deshacer":         a.orderUndo,
+		"POST /panel/ventas/{id}/ajustar":          a.orderAdjust,
+		"POST /panel/productos/{id}/existencias":   a.productStock,
 		"GET /panel/categorias":                    a.categories,
 		"POST /panel/categorias":                   a.categoryCreate,
 		"POST /panel/categorias/{id}/renombrar":    a.categoryRename,
@@ -134,6 +144,8 @@ func Routes(d Deps) http.Handler {
 	} {
 		store.Handle(pattern, a.requireOpen(h))
 	}
+	// Único POST de la tienda pública: mismo filtro de origen que el panel.
+	store.Handle("POST /pedido", a.requireOpen(http.NewCrossOriginProtection().Handler(http.HandlerFunc(a.shopOrder))))
 	store.Handle("/panel/", chain(panel, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
 
 	top := http.NewServeMux()

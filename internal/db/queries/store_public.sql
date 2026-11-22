@@ -1,13 +1,20 @@
 -- Tienda pública: solo productos activos, siempre filtrados por store_id del Host.
 
 -- name: ListStoreProducts :many
-SELECT p.id, p.category_id, p.name, p.price_cents, p.sale_price_cents, p.sold_out, p.is_new, p.on_sale,
+-- sold_out: marcado a mano, sin existencia (stock < step) o, con variantes, ninguna disponible.
+SELECT p.id, p.category_id, p.name, p.price_cents, p.sale_price_cents, p.is_new, p.on_sale, p.unit, p.step, p.stock,
+    (p.sold_out OR CASE
+        WHEN EXISTS (SELECT 1 FROM product_variants v WHERE v.store_id = p.store_id AND v.product_id = p.id)
+        THEN NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.store_id = p.store_id AND v.product_id = p.id
+            AND NOT v.sold_out AND (v.stock IS NULL OR v.stock >= p.step))
+        ELSE coalesce(p.stock < p.step, false) END)::bool AS sold_out,
     coalesce(i.r2_key, '')::text AS image_key,
     coalesce(i.widths, '{}')::int[] AS image_widths,
     coalesce(i.dominant_color, '')::text AS image_color,
     coalesce((SELECT array_agg(s.size ORDER BY s.first_id) FROM (
         SELECT v.size, min(v.id) AS first_id FROM product_variants v
         WHERE v.store_id = p.store_id AND v.product_id = p.id AND v.size <> '' AND NOT v.sold_out
+            AND (v.stock IS NULL OR v.stock >= p.step)
         GROUP BY v.size) s), '{}')::text[] AS sizes
 FROM products p
 LEFT JOIN LATERAL (
@@ -18,7 +25,7 @@ WHERE p.store_id = $1 AND p.active
 ORDER BY p.created_at DESC, p.id DESC;
 
 -- name: ListStoreVariants :many
-SELECT v.product_id, v.size, v.color, v.sold_out FROM product_variants v
+SELECT v.product_id, v.size, v.color, v.sold_out, v.stock FROM product_variants v
 JOIN products p ON p.store_id = v.store_id AND p.id = v.product_id
 WHERE v.store_id = $1 AND p.active ORDER BY v.id;
 

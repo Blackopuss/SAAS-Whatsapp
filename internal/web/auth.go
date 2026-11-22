@@ -127,7 +127,11 @@ func (a *app) requireUser(next http.Handler) http.Handler {
 			http.Redirect(w, r, "/panel/login", http.StatusSeeOther)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(views.WithNotice(ctx, a.billingNotice(ctx, sid))))
+		pending, err := a.q.CountPendingOrders(ctx, sid)
+		if err != nil { // solo es el número del menú: no bloquea el panel
+			Log(ctx).Error("pedidos pendientes", "err", err)
+		}
+		next.ServeHTTP(w, r.WithContext(views.WithPending(views.WithNotice(ctx, a.billingNotice(ctx, sid)), pending)))
 	})
 }
 

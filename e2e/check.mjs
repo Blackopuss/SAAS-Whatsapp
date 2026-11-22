@@ -85,12 +85,14 @@ await page.goto(`${BASE}/panel/`);
 if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
   await page.getByRole("link", { name: "Agregar producto" }).click();
   await page.getByLabel("Nombre").fill("Blusa lino");
-  await page.getByLabel("Precio", { exact: true }).fill("289");
   await page.getByRole("combobox", { name: "Categoría" }).click();
   await page.getByRole("option", { name: "Blusas" }).click();
+  await page.getByLabel("Descripción").fill("Blusa de lino fresco.\nIdeal para calor.");
+  await page.getByRole("tab", { name: "Precio y existencias" }).click();
+  await page.getByLabel("Precio por pieza").fill("289");
   await page.getByLabel("Tallas").fill("S, M, L");
   await page.getByLabel("Colores").fill("Blanco, Negro");
-  await page.getByLabel("Descripción").fill("Blusa de lino fresco.\nIdeal para calor.");
+  for (const input of await page.locator('input[name^="stock-"]').all()) await input.fill("5");
   await page.getByRole("button", { name: "Guardar producto" }).click();
   await page.getByRole("status").filter({ hasText: "Producto guardado" }).waitFor();
 }
@@ -110,7 +112,8 @@ if (!(await page.getByRole("img", { name: /Foto 1 de/ }).count())) {
     g.fillRect(0, 0, 1200, 1500);
     return [...new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer())];
   });
-  await page.getByLabel("Agregar foto").setInputFiles({ name: "blusa.png", mimeType: "image/png", buffer: Buffer.from(bytes) });
+  await page.getByRole("tab", { name: "Fotos" }).click();
+  await page.locator("input[type=file]").setInputFiles({ name: "blusa.png", mimeType: "image/png", buffer: Buffer.from(bytes) });
   await page.getByRole("button", { name: "Subir foto" }).click();
   await page.getByRole("status").filter({ hasText: "Foto agregada" }).waitFor({ timeout: 60_000 });
 }
@@ -195,6 +198,28 @@ for (const v of axeCart.violations) {
   console.log(`  axe [carrito] ${v.id}: ${v.help} ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3)}`);
 }
 results.push({ página: "carrito (abierto)", axe: axeCart.violations.length });
+
+// Pedido: al tocar WhatsApp se crea pendiente en el panel; la vendedora lo marca vendido.
+const code = msg.match(/\(pedido ([A-Z0-9]{6})\)/)?.[1];
+const sent = page.waitForResponse((r) => r.url().endsWith("/pedido") && r.request().method() === "POST");
+await page.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: true })); // no abrir wa.me
+await wa.click();
+const orderStatus = (await sent).status();
+await page.goto(`${BASE}/panel/ventas`);
+const card = page.locator("article").filter({ has: page.getByRole("heading", { name: `Pedido ${code}` }) });
+if (!code || orderStatus !== 204 || !(await card.count())) {
+  failed = true;
+  console.log(`  pedido: no llegó al panel (código ${code}, respuesta ${orderStatus})`);
+} else {
+  await audit("ventas", `${BASE}/panel/ventas`);
+  await card.getByRole("button", { name: "Marcar como vendido" }).click();
+  await page.waitForURL(/estado=vendidos/);
+  if (!(await page.getByRole("heading", { name: `Pedido ${code}` }).count())) {
+    failed = true;
+    console.log("  pedido: no quedó en Vendidos");
+  }
+}
+await audit("ventas-resumen", `${BASE}/panel/ventas/resumen`);
 
 // Estilos por giro: cada uno con su inicio y producto (contraste, foco y textos cambian con el CSS).
 const styles = { boutique: "Boutique", barberia: "Barbería", carniceria: "Carnicería", abarrotes: "Abarrotes", papeleria: "Papelería", vitrina: "Vitrina" };

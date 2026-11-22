@@ -79,6 +79,7 @@ func (a *app) cards(ps []db.ListStoreProductsRow, category int64) []views.Card {
 		out = append(out, views.Card{
 			ID: p.ID, Name: p.Name, Price: now, Was: was, SoldOut: p.SoldOut, New: p.IsNew,
 			Photo: a.photo(p.ImageKey, p.ImageWidths), Color: p.ImageColor, Sizes: p.Sizes, CategoryID: p.CategoryID.Int64,
+			Unit: units[p.Unit], Step: p.Step,
 		})
 	}
 	return out
@@ -149,8 +150,16 @@ func (a *app) shopProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	now, was := salePrice(p.PriceCents, p.OnSale, p.SalePriceCents.Int32, p.SalePriceCents.Valid)
 	pp := views.ProductPage{
-		Card:        views.Card{ID: p.ID, Name: p.Name, Price: now, Was: was, SoldOut: p.SoldOut, New: p.IsNew},
+		Card:        views.Card{ID: p.ID, Name: p.Name, Price: now, Was: was, SoldOut: p.SoldOut, New: p.IsNew, Unit: units[p.Unit], Step: p.Step},
 		Description: p.Description,
+	}
+	for _, x := range ps { // agotado ya calculado con existencias (ListStoreProducts)
+		if x.ID == p.ID {
+			pp.SoldOut = x.SoldOut
+		}
+	}
+	for i, v := range vs { // una combinación sin existencia suficiente cuenta como agotada
+		vs[i].SoldOut = v.SoldOut || (v.Stock.Valid && v.Stock.Int32 < p.Step)
 	}
 	for _, im := range imgs {
 		pp.Photos = append(pp.Photos, a.photo(im.R2Key, im.Widths))
@@ -241,12 +250,15 @@ func (a *app) shopFAQ(w http.ResponseWriter, r *http.Request) {
 }
 
 type cartProduct struct {
-	Name    string          `json:"n"`
-	Price   int32           `json:"p"`
-	URL     string          `json:"u"`
-	SoldOut bool            `json:"x"`
-	Image   string          `json:"i"`
-	Combos  map[string]bool `json:"v"` // "talla|color" -> agotada
+	Name    string           `json:"n"`
+	Price   int32            `json:"p"`
+	URL     string           `json:"u"`
+	SoldOut bool             `json:"x"`
+	Image   string           `json:"i"`
+	Unit    string           `json:"un"`
+	Step    int32            `json:"t"` // milésimas
+	Stock   int32            `json:"s"` // disponible en milésimas; -1 = no lleva inventario
+	Combos  map[string]int32 `json:"v"` // "talla|color" -> disponible (milésimas, -1 sin inventario, 0 agotada)
 }
 
 // shopCartJSON: el carrito valida precios y disponibilidad contra esto, nunca contra lo guardado en el celular.
@@ -267,11 +279,12 @@ func (a *app) shopCartJSON(w http.ResponseWriter, r *http.Request) {
 	for _, p := range ps {
 		now, _ := salePrice(p.PriceCents, p.OnSale, p.SalePriceCents.Int32, p.SalePriceCents.Valid)
 		id := strconv.FormatInt(p.ID, 10)
-		out[id] = &cartProduct{Name: p.Name, Price: now, URL: "/p/" + id, SoldOut: p.SoldOut, Image: a.photo(p.ImageKey, p.ImageWidths).Src, Combos: map[string]bool{}}
+		out[id] = &cartProduct{Name: p.Name, Price: now, URL: "/p/" + id, SoldOut: p.SoldOut, Image: a.photo(p.ImageKey, p.ImageWidths).Src,
+			Unit: units[p.Unit], Step: p.Step, Stock: available(p.SoldOut, p.Stock), Combos: map[string]int32{}}
 	}
 	for _, v := range vs {
 		if p := out[strconv.FormatInt(v.ProductID, 10)]; p != nil {
-			p.Combos[variantKey{v.Size, v.Color}.String()] = v.SoldOut
+			p.Combos[variantKey{v.Size, v.Color}.String()] = available(v.SoldOut, v.Stock)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
