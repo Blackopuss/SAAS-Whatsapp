@@ -1,0 +1,306 @@
+/* Tienda: piezas propias de un catálogo (rejilla, galería, opciones) sobre los tokens del tema del estilo.
+   Todo color, radio y fuente sale del tema; el color de la marca lo pone Go en --color-accent. */
+
+@font-face { font-family: Bricolage; src: url("/static/fonts/bricolage.woff2") format("woff2"); font-weight: 400 800; font-display: swap; }
+@font-face { font-family: Cormorant; src: url("/static/fonts/cormorant.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+@font-face { font-family: "Big Shoulders"; src: url("/static/fonts/bigshoulders.woff2") format("woff2"); font-weight: 600 900; font-display: swap; }
+@font-face { font-family: "Alfa Slab"; src: url("/static/fonts/alfaslab.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Lilita; src: url("/static/fonts/lilita.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Fredoka; src: url("/static/fonts/fredoka.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+
+/* El fondo sale del tema (barbería es oscura); sin esto solo lo pinta color-scheme y axe lo ve blanco. */
+body {
+  background: var(--color-background-body);
+  color: var(--color-text-primary);
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  inset-inline-start: var(--spacing-2);
+  inset-block-start: -10rem;
+  z-index: 20;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-element);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.skip:focus {
+  inset-block-start: var(--spacing-2);
+}
+
+/* Encabezado: nombre grande y categorías como píldoras que se deslizan. */
+.shop-top {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  background: color-mix(in oklch, var(--color-background-body) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-block-end: 1px solid var(--color-border);
+}
+.shop-bar {
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+.shop-bar h1,
+.shop-name {
+  font-family: var(--font-family-heading);
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: var(--text-heading-1-weight);
+  line-height: 1.05;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.shop-logo {
+  inline-size: var(--spacing-10);
+  block-size: var(--spacing-10);
+  border-radius: var(--radius-element);
+  object-fit: contain;
+  background: white;
+}
+.cats {
+  max-inline-size: 72rem;
+  margin-inline: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cats ul {
+  list-style: none;
+  margin: 0;
+}
+.cat {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding-inline: var(--spacing-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: background-color 160ms, color 160ms, border-color 160ms;
+}
+.cat:hover {
+  border-color: var(--color-text-secondary);
+}
+.cat[aria-current="page"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.cat:focus-visible,
+.card:focus-visible,
+.gallery:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.shop-main {
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+/* Rejilla de productos: 2 columnas en celular, más en pantallas anchas. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(10rem, 45%), 1fr));
+  gap: var(--spacing-6) var(--spacing-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--spacing-8) var(--spacing-5); }
+}
+.card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-container);
+}
+.ph {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.ph img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform 500ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.card:hover .ph img {
+  transform: scale(1.04);
+}
+.card.sold .ph img {
+  filter: grayscale(0.8);
+  opacity: 0.7;
+}
+.tag {
+  position: absolute;
+  inset-block-start: var(--spacing-2);
+  inset-inline-start: var(--spacing-2);
+}
+.tag:empty {
+  display: none;
+}
+
+/* Producto: galería deslizable + información; lado a lado en pantallas anchas. */
+.product {
+  display: grid;
+  gap: var(--spacing-6);
+}
+@media (min-width: 900px) {
+  .product { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+  .info { position: sticky; inset-block-start: 9rem; }
+}
+.gallery {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border-radius: var(--radius-container);
+  aspect-ratio: 4 / 5;
+  background: var(--color-background-muted);
+  margin-inline: calc(var(--spacing-4) * -1);
+}
+@media (min-width: 640px) {
+  .gallery { margin-inline: 0; }
+}
+.gallery img {
+  flex: 0 0 100%;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  scroll-snap-align: start;
+}
+.gallery.sold img {
+  filter: grayscale(0.8);
+}
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-1);
+}
+.dots a {
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+.dots a::before {
+  content: "";
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: inline-size 200ms, background-color 200ms;
+}
+.dots a[aria-current]::before {
+  inline-size: 1.25rem;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+/* Opciones de talla y color: radios nativos con aspecto de píldora. */
+.opts {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--spacing-2);
+}
+.opts legend {
+  margin-block-end: var(--spacing-2);
+}
+.opt {
+  position: relative;
+}
+.opt input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.opt > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  justify-content: center;
+  padding-inline: var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-element);
+  font-weight: 500;
+  transition: border-color 150ms, background-color 150ms, transform 120ms;
+}
+.opt input:checked + span {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.opt input:focus-visible + span {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.opt input:active:not(:disabled) + span {
+  transform: scale(0.96);
+}
+.opt input:disabled + span {
+  opacity: 0.45;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+.sw {
+  inline-size: 1rem;
+  block-size: 1rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+}
+
+/* Botón flotante del carrito; rebota al agregar algo. */
+.cart-fab {
+  display: block;
+  position: fixed;
+  inset-block-end: max(var(--spacing-4), env(safe-area-inset-bottom));
+  inset-inline-end: var(--spacing-4);
+  z-index: 6;
+  animation: rise 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.cart-fab.bump {
+  animation: bump 380ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+@keyframes bump {
+  40% { transform: scale(1.12); }
+}
+.cart-row + .cart-row {
+  border-block-start: 1px solid var(--color-border);
+}
+
+.faq-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  padding: var(--spacing-1) var(--spacing-4);
+}
+.pre {
+  white-space: pre-line;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph img, .cat, .opt > span, .dots a::before { transition: none; }
+  .card:hover .ph img { transform: none; }
+  .cart-fab, .cart-fab.bump { animation: none; }
+}

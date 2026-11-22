@@ -1,0 +1,31 @@
+{
+  "name": "abarrotes",
+  "like": "neutral",
+  "mode": "light-only",
+  "settings": [
+    {
+      "thing": "font",
+      "value": "Lilita, system-ui, sans-serif",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "corners",
+      "value": "medium",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#285b35",
+      "source": "dial"
+    },
+    {
+      "thing": "headings",
+      "value": "regular",
+      "source": "dial",
+      "axis": "weight"
+    }
+  ],
+  "lifted": [],
+  "palette": "8a3b572135c21921203a2bdee66b5712ee294a639d3bcca542beb8ba04155216"
+}

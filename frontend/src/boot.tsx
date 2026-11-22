@@ -1,26 +1,29 @@
 import { StrictMode, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
-import { Theme } from "@astryxdesign/core/theme";
-import { neutralTheme } from "@astryxdesign/theme-neutral/built";
+import { Theme, type DefinedTheme } from "@astryxdesign/core/theme";
 import { InternationalizationProvider } from "@astryxdesign/core/i18n";
 import esES from "@astryxdesign/core/locales/es-ES.generated.js";
 
 // Lo que Go escribe en <script id="page-data">: qué página pintar y sus datos ya formateados.
 export type PageData<T = unknown> = { page: string; data: T };
 
-// mount pinta la página que pide el servidor. Go ya validó y formateó todo; aquí solo se presenta.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mount(pages: Record<string, ComponentType<any>>, mode: "system" | "light" = "system") {
+export function pageData(): PageData<any> {
   const el = document.getElementById("page-data");
+  return JSON.parse(el?.textContent || "{}");
+}
+
+// mount pinta la página que pide el servidor. Go ya validó y formateó todo; aquí solo se presenta.
+// Cada entrada trae su tema (el panel el neutral, la tienda el de su estilo) para no cargar los demás.
+export function mount(pages: Record<string, ComponentType<any>>, theme: DefinedTheme, mode: "system" | "light" | "dark" = "system") {
   const root = document.getElementById("root");
-  if (!el || !root) return;
-  const { page, data } = JSON.parse(el.textContent || "{}") as PageData;
+  if (!root) return;
+  const { page, data } = pageData();
   const Page = pages[page];
   if (!Page) throw new Error(`página desconocida: ${page}`);
   createRoot(root).render(
     <StrictMode>
       <InternationalizationProvider locale="es-MX" messages={{ "es-MX": esES }}>
-        <Theme theme={neutralTheme} mode={mode}>
+        <Theme theme={theme} mode={mode}>
           <Page {...(data as object)} />
         </Theme>
       </InternationalizationProvider>

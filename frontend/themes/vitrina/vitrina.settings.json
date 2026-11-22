@@ -1,0 +1,37 @@
+{
+  "name": "vitrina",
+  "like": "neutral",
+  "mode": "light-only",
+  "settings": [
+    {
+      "thing": "font",
+      "value": "Bricolage, system-ui, sans-serif",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "corners",
+      "value": "round",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#c2185b",
+      "source": "dial"
+    },
+    {
+      "thing": "headings",
+      "value": "heavy",
+      "source": "dial",
+      "axis": "weight"
+    },
+    {
+      "thing": "headings",
+      "value": "tight",
+      "source": "dial",
+      "axis": "tracking"
+    }
+  ],
+  "lifted": [],
+  "palette": "f0021e4a7b1b24dc79a1ac57e4dd9667bd1a1689f23dbb2522fb67c0e1c044ad"
+}

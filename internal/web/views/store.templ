@@ -2,11 +2,13 @@ package views
 
 import (
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 )
+
+// La tienda pública la pinta frontend/src/shop.tsx. Aquí quedan el <head> (SEO, Open Graph, color de la marca)
+// y los datos de cada página. Solo viajan los campos que la compradora ve.
 
 type Shop struct {
 	Name       string
@@ -53,28 +55,6 @@ type ProductPage struct {
 	SoldOutCombos []string
 }
 
-// placeholders: fondos del color de cada foto mientras carga. Va en <style nonce> porque la CSP prohíbe style="".
-// Los valores vienen de images.DominantColor (#rrggbb) o del mapa de swatches; se validan igual.
-func placeholders(cs []Card) string {
-	var b strings.Builder
-	for _, c := range cs {
-		if isHex(c.Color) {
-			b.WriteString(".ph-" + idStr(c.ID) + "{background:" + c.Color + "}")
-		}
-	}
-	return b.String()
-}
-
-func swatchCSS(opts []Opt) string {
-	var b strings.Builder
-	for i, o := range opts {
-		if isHex(o.Swatch) {
-			b.WriteString(".sw-" + strconv.Itoa(i) + "{background:" + o.Swatch + "}")
-		}
-	}
-	return b.String()
-}
-
 func isHex(s string) bool {
 	if len(s) != 7 || s[0] != '#' {
 		return false
@@ -87,318 +67,182 @@ func isHex(s string) bool {
 	return true
 }
 
-func jsonList(xs []string) string {
-	if len(xs) == 0 {
-		return "[]"
-	}
-	q := make([]string, len(xs))
-	for i, x := range xs {
-		q[i] = strconv.Quote(x)
-	}
-	return "[" + strings.Join(q, ",") + "]"
-}
-
 templ nonceStyle(css string) {
 	if css != "" {
 		@templ.Raw(`<style nonce="` + templ.GetNonce(ctx) + `">` + css + `</style>`)
 	}
 }
 
-templ shopPage(sh Shop, title, description string, home bool) {
-	<!DOCTYPE html>
-	<html lang="es-MX">
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="description" content={ description }/>
-			<title>{ title }</title>
-			<meta property="og:type" content="website"/>
-			<meta property="og:title" content={ title }/>
-			<meta property="og:description" content={ description }/>
-			if sh.URL != "" {
-				<meta property="og:url" content={ sh.URL }/>
-			}
-			if sh.OGImage != "" {
-				<meta property="og:image" content={ sh.OGImage }/>
-			}
-			if sh.Preview {
-				<base target="_blank"/>
-			}
-			<link rel="preload" href={ "/static/fonts/" + StyleByID(sh.Style).Font } as="font" type="font/woff2" crossorigin/>
-			<link rel="stylesheet" href="/static/css/vitrina.css"/>
-			if isHex(sh.Brand) && isHex(sh.BrandInk) {
-				@nonceStyle(":root{--brand:" + sh.Brand + ";--brand-ink:" + sh.BrandInk + "}")
-			}
-			<script type="speculationrules" nonce={ templ.GetNonce(ctx) }>
-				{"prerender":[{"where":{"href_matches":"/p/*"},"eagerness":"moderate"}]}
-			</script>
-		</head>
-		<body data-estilo={ StyleByID(sh.Style).ID }>
-			<a class="skip" href="#contenido">Ir al contenido</a>
-			<header class="top">
-				if sh.Logo.Src != "" {
-					<img class="logo" src={ sh.Logo.Src } alt="" width="56" height="56"/>
-				}
-				if home {
-					<h1 class="shop-name">{ sh.Name }</h1>
-				} else {
-					<a class="shop-name" href="/">{ sh.Name }</a>
-				}
-			</header>
-			<nav class="cats" aria-label="Categorías">
-				<ul>
-					@catLink("/", "Todo", sh.Current == 0 && home)
-					for _, c := range sh.Categories {
-						@catLink("/c/"+idStr(c.ID), c.Name, sh.Current == c.ID)
-					}
-					@catLink("/preguntas", "Preguntas", false)
-				</ul>
-			</nav>
-			<main
-				id="contenido"
-				if sh.Preview {
-					aria-label="Vista previa de la tienda"
-				}
-			>
-				{ children... }
-			</main>
-			<button type="button" class="cart-btn" data-cart-open hidden>Carrito <span class="cart-n" data-cart-count>0</span></button>
-			<dialog id="carrito" class="cart" closedby="any" aria-labelledby="carrito-h" data-tienda={ sh.Name } data-wa={ sh.Whatsapp }>
-				<div class="cart-head">
-					<h2 id="carrito-h">Tu carrito</h2>
-					<form method="dialog"><button class="link">Cerrar</button></form>
-				</div>
-				<div aria-live="polite" data-cart-status></div>
-				<ul class="cart-list" data-cart-list></ul>
-				<p class="cart-empty" data-cart-empty>Tu carrito está vacío. <a href="/">Ve las novedades</a></p>
-				<div class="cart-foot" data-cart-foot hidden>
-					<p class="cart-total">Total <strong data-cart-total></strong></p>
-					<a class="wa" data-cart-wa href="#" rel="noopener">Enviar pedido por WhatsApp</a>
-					<p class="muted" data-cart-nowa hidden>Esta tienda aún no tiene WhatsApp. Vuelve pronto.</p>
-				</div>
-			</dialog>
-			<script src="/static/js/carrito.js" defer></script>
-		</body>
-	</html>
+type shopCat struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
-templ catLink(href, name string, current bool) {
-	<li>
-		if current {
-			<a href={ templ.SafeURL(href) } aria-current="page">{ name }</a>
-		} else {
-			<a href={ templ.SafeURL(href) }>{ name }</a>
-		}
-	</li>
+type shopQA struct {
+	Q string `json:"q"`
+	A string `json:"a"`
 }
 
-templ grid(cards []Card) {
-	@nonceStyle(placeholders(cards))
-	if len(cards) == 0 {
-		<p class="empty">Esta tienda aún no tiene productos. Vuelve pronto.</p>
-	} else {
-		<ul class="grid">
-			for i, c := range cards {
-				<li>
-					@card(c, i < 2)
-				</li>
-			}
-		</ul>
+type shopInfo struct {
+	Name       string    `json:"name"`
+	Categories []shopCat `json:"categories"`
+	Current    int64     `json:"current"`
+	Home       bool      `json:"home"`
+	Whatsapp   string    `json:"whatsapp"`
+	Logo       string    `json:"logo"`
+	FAQ        []shopQA  `json:"faq"`
+	Payment    string    `json:"payment"`
+	URL        string    `json:"url"`
+	Preview    bool      `json:"preview"`
+	Style      string    `json:"style"`
+}
+
+func shopInfoOf(sh Shop, home bool) shopInfo {
+	cats := make([]shopCat, 0, len(sh.Categories))
+	for _, c := range sh.Categories {
+		cats = append(cats, shopCat{c.ID, c.Name})
 	}
-}
-
-templ card(c Card, eager bool) {
-	<a class={ "card", templ.KV("sold", c.SoldOut) } href={ templ.SafeURL("/p/" + idStr(c.ID)) }>
-		<span class={ "ph", "ph-" + idStr(c.ID) }>
-			if c.Photo.Src != "" {
-				if eager {
-					<img src={ c.Photo.Src } srcset={ c.Photo.SrcSet } sizes="(min-width: 640px) 33vw, 50vw" alt="" width="400" height="500" fetchpriority="high"/>
-				} else {
-					<img src={ c.Photo.Src } srcset={ c.Photo.SrcSet } sizes="(min-width: 640px) 33vw, 50vw" alt="" width="400" height="500" loading="lazy" decoding="async"/>
-				}
-			}
-			@tag(c)
-		</span>
-		<span class="name">{ c.Name }</span>
-		<span class="price">
-			@price(c)
-		</span>
-		if len(c.Sizes) > 0 && !c.SoldOut {
-			<span class="sizes"><span class="sr-only">Tallas: </span>{ strings.Join(c.Sizes, " ") }</span>
-		}
-	</a>
-}
-
-templ tag(c Card) {
-	if c.SoldOut {
-		<span class="tag tag-out">Agotado</span>
-	} else if c.Was > 0 {
-		<span class="tag tag-sale">Oferta</span>
-	} else if c.New {
-		<span class="tag">Nuevo</span>
+	faq := make([]shopQA, 0, len(sh.FAQ))
+	for _, qa := range sh.FAQ {
+		faq = append(faq, shopQA{qa.Q, qa.A})
 	}
+	return shopInfo{sh.Name, cats, sh.Current, home, sh.Whatsapp, sh.Logo.Src, faq, sh.Payment, sh.URL, sh.Preview, StyleByID(sh.Style).ID}
 }
 
-templ price(c Card) {
-	if c.Was > 0 {
-		<span class="now">{ money(c.Price) }</span> <s><span class="sr-only">antes </span>{ money(c.Was) }</s>
-	} else {
-		{ money(c.Price) }
+type shopPhoto struct {
+	Src    string `json:"src"`
+	SrcSet string `json:"srcSet"`
+}
+
+type shopCard struct {
+	ID      int64     `json:"id"`
+	Name    string    `json:"name"`
+	Price   int32     `json:"price"`
+	Was     int32     `json:"was"`
+	SoldOut bool      `json:"soldOut"`
+	New     bool      `json:"new"`
+	Photo   shopPhoto `json:"photo"`
+	Color   string    `json:"color"`
+	Sizes   []string  `json:"sizes"`
+}
+
+func shopCardOf(c Card) shopCard {
+	color := ""
+	if isHex(c.Color) {
+		color = c.Color
+	}
+	sizes := c.Sizes
+	if sizes == nil {
+		sizes = []string{}
+	}
+	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes}
+}
+
+func shopCards(cs []Card) []shopCard {
+	out := make([]shopCard, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, shopCardOf(c))
+	}
+	return out
+}
+
+// brandCSS: el color de la marca de la vendedora sobre el tema del estilo. Va en <style nonce> porque es dato
+// de cada tienda (un tema compilado no puede saberlo) y la CSP prohíbe style="".
+func brandCSS(sh Shop) string {
+	if !isHex(sh.Brand) || !isHex(sh.BrandInk) {
+		return ""
+	}
+	return `[data-astryx-theme]{--color-accent:` + sh.Brand + `;--color-on-accent:` + sh.BrandInk + `;--brand:` + sh.Brand + `;--brand-ink:` + sh.BrandInk + `}`
+}
+
+// shopPage: reactPage + el <head> propio de la tienda (Open Graph, tema del estilo, fuente, color, precarga).
+templ shopPage(sh Shop, title, description, page string, data any) {
+	@reactPage(title, description, "shop", page, data) {
+		<meta property="og:type" content="website"/>
+		<meta property="og:title" content={ title }/>
+		<meta property="og:description" content={ description }/>
+		if sh.URL != "" {
+			<meta property="og:url" content={ sh.URL }/>
+		}
+		if sh.OGImage != "" {
+			<meta property="og:image" content={ sh.OGImage }/>
+		}
+		if sh.Preview {
+			<base target="_blank"/>
+			// La vista previa recarga el iframe a cada cambio; la transición entre páginas ahí cierra Chromium.
+			@nonceStyle("@view-transition{navigation:none}")
+		}
+		<link rel="stylesheet" href={ "/static/app/theme-" + StyleByID(sh.Style).ID + ".css" }/>
+		// shop.js importa el tema antes de pintar; sin esto se descarga en serie.
+		<link rel="modulepreload" href={ "/static/app/" + StyleByID(sh.Style).ID + ".js" }/>
+		<link rel="preload" href={ "/static/fonts/" + StyleByID(sh.Style).Font } as="font" type="font/woff2" crossorigin/>
+		@nonceStyle(brandCSS(sh))
+		<script type="speculationrules" nonce={ templ.GetNonce(ctx) }>
+			{"prerender":[{"where":{"href_matches":"/p/*"},"eagerness":"moderate"}]}
+		</script>
 	}
 }
 
 templ ShopHome(sh Shop, cards []Card) {
-	@shopPage(sh, sh.Name, "Catálogo de "+sh.Name+". Elige tus productos y haz tu pedido por WhatsApp.", true) {
-		@grid(cards)
-	}
+	@shopPage(sh, sh.Name, "Catálogo de "+sh.Name+". Elige tus productos y haz tu pedido por WhatsApp.", "home",
+		map[string]any{"shop": shopInfoOf(sh, true), "cards": shopCards(cards)})
 }
 
 templ ShopCategory(sh Shop, name string, cards []Card) {
-	@shopPage(sh, name+" · "+sh.Name, name+" de "+sh.Name+". Haz tu pedido por WhatsApp.", false) {
-		<h1 class="page-h">{ name }</h1>
-		@grid(cards)
+	@shopPage(sh, name+" · "+sh.Name, name+" de "+sh.Name+". Haz tu pedido por WhatsApp.", "category",
+		map[string]any{"shop": shopInfoOf(sh, false), "title": name, "cards": shopCards(cards)})
+}
+
+type shopOpt struct {
+	Name    string `json:"name"`
+	SoldOut bool   `json:"soldOut"`
+	Swatch  string `json:"swatch"`
+}
+
+func shopOpts(os []Opt) []shopOpt {
+	out := make([]shopOpt, 0, len(os))
+	for _, o := range os {
+		sw := ""
+		if isHex(o.Swatch) {
+			sw = o.Swatch
+		}
+		out = append(out, shopOpt{o.Name, o.SoldOut, sw})
+	}
+	return out
+}
+
+func productData(sh Shop, p ProductPage) map[string]any {
+	photos := make([]shopPhoto, 0, len(p.Photos))
+	for _, ph := range p.Photos {
+		photos = append(photos, shopPhoto{ph.Src, ph.SrcSet})
+	}
+	combos := p.SoldOutCombos
+	if combos == nil {
+		combos = []string{}
+	}
+	return map[string]any{
+		"shop": shopInfoOf(sh, false),
+		"product": map[string]any{
+			"card": shopCardOf(p.Card), "description": p.Description, "photos": photos,
+			"categoryID": p.CategoryID, "categoryName": p.CategoryName,
+			"sizes": shopOpts(p.Sizes), "colors": shopOpts(p.Colors), "soldOutCombos": combos,
+			"share": "https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL),
+		},
 	}
 }
 
 templ ShopProduct(sh Shop, p ProductPage) {
-	@shopPage(sh, p.Name+" · "+sh.Name, p.Name+" en "+sh.Name+": "+money(p.Price)+". Pídelo por WhatsApp.", false) {
-		@nonceStyle(placeholders([]Card{p.Card}) + swatchCSS(p.Colors))
-		<article class="product">
-			if len(p.Photos) > 0 {
-				<div class={ "gallery", "ph-" + idStr(p.ID), templ.KV("sold", p.SoldOut) } tabindex="0" aria-label={ "Fotos de " + p.Name }>
-					for i, ph := range p.Photos {
-						if i == 0 {
-							<img id={ "foto-" + strconv.Itoa(i+1) } src={ ph.Src } srcset={ ph.SrcSet } sizes="(min-width: 640px) 560px, 100vw" alt={ p.Name } width="800" height="1000" fetchpriority="high"/>
-						} else {
-							<img id={ "foto-" + strconv.Itoa(i+1) } src={ ph.Src } srcset={ ph.SrcSet } sizes="(min-width: 640px) 560px, 100vw" alt={ p.Name + ", foto " + strconv.Itoa(i+1) } width="800" height="1000" loading="lazy" fetchpriority="low" decoding="async"/>
-						}
-					}
-				</div>
-				if len(p.Photos) > 1 {
-					<nav class="dots" aria-label="Fotos">
-						for i := range p.Photos {
-							<a href={ templ.SafeURL("#foto-" + strconv.Itoa(i+1)) }><span class="sr-only">Ver foto { strconv.Itoa(i+1) }</span></a>
-						}
-					</nav>
-				}
-			}
-			<div class="info">
-				if p.CategoryName != "" {
-					<p class="crumb"><a href={ templ.SafeURL("/c/" + idStr(p.CategoryID)) }>{ p.CategoryName }</a></p>
-				}
-				<h1 class="page-h">{ p.Name }</h1>
-				<p class="price big">
-					@price(p.Card)
-				</p>
-				if p.SoldOut {
-					<p class="out">Agotado por ahora.</p>
-				} else {
-					<form class="add" data-add data-id={ idStr(p.ID) } data-price={ strconv.Itoa(int(p.Price)) } data-agotadas={ jsonList(p.SoldOutCombos) }>
-						if len(p.Sizes) > 0 {
-							<fieldset class="opts">
-								<legend>Talla</legend>
-								for _, o := range p.Sizes {
-									<label class="opt">
-										<input type="radio" name="talla" value={ o.Name } required disabled?={ o.SoldOut }/>
-										<span>{ o.Name }</span>
-										if o.SoldOut {
-											<span class="sr-only">(agotada)</span>
-										}
-									</label>
-								}
-							</fieldset>
-						}
-						if len(p.Colors) > 0 {
-							<fieldset class="opts">
-								<legend>Color</legend>
-								for i, o := range p.Colors {
-									<label class="opt color">
-										<input type="radio" name="color" value={ o.Name } required disabled?={ o.SoldOut }/>
-										if o.Swatch != "" {
-											<span class={ "sw", "sw-" + strconv.Itoa(i) } aria-hidden="true"></span>
-										}
-										<span>{ o.Name }</span>
-										if o.SoldOut {
-											<span class="sr-only">(agotado)</span>
-										}
-									</label>
-								}
-							</fieldset>
-						}
-						<label class="qty">
-							<span>Cantidad</span>
-							<input type="number" name="cantidad" value="1" min="1" max="20" inputmode="numeric"/>
-						</label>
-						<button type="submit" class="primary">Agregar al carrito</button>
-						<p role="status" class="add-status" data-add-status></p>
-						<noscript><p class="muted">Activa JavaScript para usar el carrito.</p></noscript>
-					</form>
-				}
-				<a class="share" href={ templ.SafeURL("https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL)) } rel="noopener">Compartir por WhatsApp</a>
-				if p.Description != "" {
-					<div class="desc">
-						for _, line := range strings.Split(p.Description, "\n") {
-							if strings.TrimSpace(line) != "" {
-								<p>{ line }</p>
-							}
-						}
-					</div>
-				}
-			</div>
-		</article>
-	}
+	@shopPage(sh, p.Name+" · "+sh.Name, p.Name+" en "+sh.Name+": "+money(p.Price)+". Pídelo por WhatsApp.", "product", productData(sh, p))
 }
 
 templ ShopFAQ(sh Shop) {
-	@shopPage(sh, "Preguntas frecuentes · "+sh.Name, "Cómo comprar en "+sh.Name+": pedidos, pagos y entregas por WhatsApp.", false) {
-		<h1 class="page-h">Preguntas frecuentes</h1>
-		<div class="faq">
-			<details>
-				<summary>¿Cómo hago mi pedido?</summary>
-				<p>Elige tus productos, talla y color, agrégalos al carrito y toca "Enviar pedido por WhatsApp". Se abre WhatsApp con tu pedido ya escrito; solo envíalo.</p>
-			</details>
-			<details>
-				<summary>¿Cómo pago?</summary>
-				<p>{ sh.Name } te responde por WhatsApp para confirmar existencias y acordar el pago.</p>
-				if sh.Payment != "" {
-					<p class="pay">{ sh.Payment }</p>
-				}
-			</details>
-			<details>
-				<summary>¿Cómo me llega?</summary>
-				<p>La entrega o el envío se acuerdan por WhatsApp con { sh.Name }.</p>
-			</details>
-			<details>
-				<summary>¿Mi carrito se guarda?</summary>
-				<p>Sí, en este celular. Si cambias de celular o borras los datos del navegador, se vacía.</p>
-			</details>
-			for _, qa := range sh.FAQ {
-				<details>
-					<summary>{ qa.Q }</summary>
-					if qa.A != "" {
-						<p class="pay">{ qa.A }</p>
-					}
-				</details>
-			}
-		</div>
-	}
+	@shopPage(sh, "Preguntas frecuentes · "+sh.Name, "Cómo comprar en "+sh.Name+": pedidos, pagos y entregas por WhatsApp.", "faq",
+		map[string]any{"shop": shopInfoOf(sh, false)})
 }
 
+// Paused: 503 sin ningún dato de la vendedora.
 templ Paused() {
-	<!DOCTYPE html>
-	<html lang="es-MX">
-		<head>
-			<meta charset="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="robots" content="noindex"/>
-			<title>Tienda en pausa</title>
-			<link rel="stylesheet" href="/static/css/vitrina.css"/>
-		</head>
-		<body>
-			<main class="paused">
-				<h1 class="page-h">Tienda en pausa</h1>
-				<p>Esta tienda no está recibiendo pedidos por ahora. Vuelve a intentarlo más tarde.</p>
-			</main>
-		</body>
-	</html>
+	@reactPage("Tienda en pausa", "", "shop", "paused", map[string]any{}) {
+		<link rel="stylesheet" href="/static/app/theme-vitrina.css"/>
+	}
 }

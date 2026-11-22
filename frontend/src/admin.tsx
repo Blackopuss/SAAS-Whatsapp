@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Store, Plus, ScrollText, Copy } from "lucide-react";
 import { mount } from "./boot";
+import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
 import { Txt, Check, Pick, Msg, PostButton, Form } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
@@ -273,4 +274,4 @@ function Audit({ rows }: { rows: AuditRow[] }) {
   );
 }
 
-mount({ login: Login, stores: Stores, storeNew: StoreNew, store: StoreDetail, resetLink: ResetLink, audit: Audit });
+mount({ login: Login, stores: Stores, storeNew: StoreNew, store: StoreDetail, resetLink: ResetLink, audit: Audit }, neutralTheme);

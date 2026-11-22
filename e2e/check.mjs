@@ -21,6 +21,8 @@ let failed = false;
 
 async function audit(name, url, { auth = true, lighthouseRun = true } = {}) {
   await page.goto(url);
+  // React pinta después de cargar; sin esto no hay animaciones que esperar todavía.
+  await page.waitForFunction(() => document.getElementById("root")?.childElementCount > 0, null, { timeout: 10_000 }).catch(() => {});
   // axe mide la opacidad real: espera a que termine la entrada animada de las tarjetas.
   await page.evaluate(() => {
     const finite = document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity);
@@ -32,7 +34,7 @@ async function audit(name, url, { auth = true, lighthouseRun = true } = {}) {
   for (const v of axe.violations) {
     failed = true;
     console.log(`  axe [${name}] ${v.id} (${v.impact}): ${v.help}`);
-    for (const n of v.nodes.slice(0, 3)) console.log(`      ${n.target.join(" ")}`);
+    for (const n of v.nodes.slice(0, 3)) console.log(`      ${n.target.join(" ")}\n        ${n.failureSummary?.split("\n").slice(1).join(" ")}`);
   }
   if (!lighthouseRun) { // Lighthouse no audita respuestas que no son 2xx (la pausa es 503 a propósito)
     results.push({ página: name, axe: axe.violations.length });

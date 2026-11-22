@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 // Tres entradas (tienda, panel, superadmin) + una hoja de estilos común. Go sirve web/static/app.
 // shortcut: nombres fijos sin hash (Go no lee manifiesto); pasar a manifest + cache immutable si el tráfico lo pide.
 export default defineConfig({
-  root: "frontend",
+  root: ".",
   base: "/static/app/",
   publicDir: false,
   oxc: { jsx: { runtime: "automatic" } },
@@ -18,10 +18,13 @@ export default defineConfig({
         if (log.code !== "MODULE_LEVEL_DIRECTIVE") handler(level, log);
       },
       input: {
-        styles: "frontend/src/styles.css",
-        shop: "frontend/src/shop.tsx",
-        panel: "frontend/src/panel.tsx",
-        admin: "frontend/src/admin.tsx",
+        styles: "src/styles.css",
+        shop: "src/shop.tsx",
+        panel: "src/panel.tsx",
+        admin: "src/admin.tsx",
+        ...Object.fromEntries(
+          ["vitrina", "boutique", "barberia", "carniceria", "abarrotes", "papeleria"].map((s) => [`theme-${s}`, `src/themes/${s}/${s}.css`]),
+        ),
       },
       output: {
         entryFileNames: "[name].js",

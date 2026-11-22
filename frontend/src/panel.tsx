@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Package, Tags, Store, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon } from "lucide-react";
 import { mount } from "./boot";
+import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
 import { Txt, Area, Check, Pick, Msg, PostButton, Form } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
@@ -462,4 +463,4 @@ function Swatch({ color, label }: { color: string; label?: string }) {
   return label ? <HStack gap={2} vAlign="center">{dot}<Text>{label}</Text></HStack> : dot;
 }
 
-mount({ login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore });
+mount({ login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);

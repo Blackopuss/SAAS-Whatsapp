@@ -1,0 +1,37 @@
+{
+  "name": "barberia",
+  "like": "neutral",
+  "mode": "dark-only",
+  "settings": [
+    {
+      "thing": "font",
+      "value": "\"Big Shoulders\", Impact, sans-serif",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "corners",
+      "value": "4px",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#b3202a",
+      "source": "dial"
+    },
+    {
+      "thing": "headings",
+      "value": "heavy",
+      "source": "dial",
+      "axis": "weight"
+    },
+    {
+      "thing": "headings",
+      "value": "wide",
+      "source": "dial",
+      "axis": "tracking"
+    }
+  ],
+  "lifted": [],
+  "palette": "5ade14b334bf2e76ba1dca19565c728d1a8c607c2740aeb225125eec27fea8c4"
+}
