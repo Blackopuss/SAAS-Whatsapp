@@ -75,7 +75,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
 - La e2e escribe el WhatsApp de prueba en "Mi tienda" de ana en cada corrida (pisa el número que tenga).
-- El presupuesto de peso de la tienda (130 KB gzip: JS + `shop.css` + tema + la fuente más pesada; ~123 KB hoy) lo revisa `npm run budget` en CI. React solo ya son ~58 KB.
+- El presupuesto de peso de la tienda (200 KB gzip desde 2026-11-22, antes 130: JS + `shop.css` + el tema/giro más pesado + la fuente más pesada) lo revisa `npm run budget` en CI. React solo ya son ~58 KB. Cada giro tiene su CSS de estructura en `frontend/src/giros/<giro>.css` (importa su tema; solo carga el de la tienda).
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
 
 <!-- ASTRYX:START -->

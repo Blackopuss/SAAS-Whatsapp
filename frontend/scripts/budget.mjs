@@ -5,7 +5,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { join, dirname } from "node:path";
 
-const LIMIT = 130 * 1024;
+const LIMIT = 200 * 1024; // subido de 130 a 200 KB (2026-11-22) para que cada giro tenga su diseño
 const app = new URL("../../web/static/app/", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const fonts = join(app, "../fonts");
 const gz = (f) => gzipSync(readFileSync(f), { level: 9 }).length;

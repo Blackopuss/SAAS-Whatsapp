@@ -1,0 +1,55 @@
+@import "../themes/carniceria/carniceria.css";
+
+/* ——— Carnicería: letrero de mostrador, pizarrón de precios y etiqueta de báscula ———
+   Va después de shop.css en importancia por :root (los temas cargan antes que shop.css). */
+
+/* Toldo a rayas sobre la portada. */
+:root .cover::before {
+  inset: 0 0 auto; inline-size: auto; aspect-ratio: auto; block-size: 0.875rem; border: 0; border-radius: 0; z-index: 0;
+  background: repeating-linear-gradient(90deg, var(--color-accent) 0 1.5rem, var(--color-background-body) 1.5rem 3rem);
+}
+:root .cover { padding-block-start: 2.25rem; }
+:root .cover h1 { text-transform: uppercase; letter-spacing: 0.01em; }
+:root .cover .kicker { padding: 0.125rem 0.5rem; background: var(--color-text-primary); color: var(--color-background-body); }
+
+/* Pasos como ticket de turno. */
+:root .steps-band { border: 2px dashed var(--color-border-emphasized); border-radius: var(--radius-element); background: none; }
+
+/* El pizarrón: cada categoría es una pizarra oscura con renglones gis. */
+:root .board-sec {
+  padding: 1.25rem 1rem 0.5rem; border-radius: var(--radius-element);
+  background: var(--color-text-primary); color: var(--color-background-body);
+  border: 0.5rem solid color-mix(in oklch, var(--color-accent) 70%, var(--color-text-primary));
+}
+:root .board-title {
+  color: inherit; text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.5rem;
+  padding-block-end: 0.5rem; border-block-end: 4px double color-mix(in oklch, var(--color-background-body) 55%, transparent);
+}
+:root .board .brow { border-block-end: 1px dashed color-mix(in oklch, var(--color-background-body) 35%, transparent); }
+:root .board .brow:last-child { border-block-end: 0; }
+:root .board .brow-name small { color: color-mix(in oklch, var(--color-background-body) 80%, var(--color-text-primary)); }
+:root .board .brow-dots { border-color: color-mix(in oklch, var(--color-background-body) 45%, transparent); }
+:root .board .quick { background: var(--color-background-body); color: var(--color-text-primary); box-shadow: none; }
+
+/* Etiqueta de báscula: blanca, recta, cifras tabulares y la unidad separada. */
+:root .brow .ptag, :root .ptag.big {
+  border-radius: 2px; padding: 0.25rem 0.5rem; background: var(--color-background-body); color: var(--color-text-primary);
+  border: 2px solid var(--color-text-primary); font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+}
+:root .brow .ptag.sale, :root .ptag.big.sale { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+:root .brow .ptag strong { font-size: 1.0625rem; }
+
+/* Fuera del pizarrón (búsqueda y página de categoría) los renglones van sobre papel de envoltura. */
+:root .rows { padding: 0.25rem 1rem; border-radius: var(--radius-element); background: var(--color-background-muted); }
+:root .board .rows { padding: 0; background: none; }
+
+/* Tarjetas de los carriles con el mismo sello de báscula. */
+:root .ph .ptag { border-radius: 2px; font-family: ui-monospace, "Cascadia Mono", Menlo, monospace; }
+:root .card .ph { border-radius: var(--radius-element); }
+
+/* Producto: precio como etiqueta de báscula grande. */
+:root .ptag.big strong { font-family: inherit; }
+
+@media (min-width: 900px) {
+  :root .board { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}

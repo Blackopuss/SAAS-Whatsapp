@@ -510,6 +510,77 @@ function Rail({ title, kicker, cards, id }: { title: string; kicker?: string; ca
   );
 }
 
+// Renglón de lista de precios (carnicería): nombre a la izquierda, precio por unidad a la derecha.
+function Row({ c, i }: { c: CardData; i: number }) {
+  const quick = useContext(QuickCtx);
+  return (
+    <li className="brow rise" style={{ "--i": i } as React.CSSProperties}>
+      <a className={"brow-link" + (c.soldOut ? " sold" : "")} href={`/p/${c.id}`}>
+        {c.photo.src && <span className="brow-ph" style={c.color ? { backgroundColor: c.color } : undefined}><Img c={c} sizes="72px" /></span>}
+        <span className="brow-name">
+          {c.name}
+          {c.new && !c.soldOut && <em className="brow-new">Nuevo</em>}
+          {c.unit !== "pza" && !c.soldOut && <small>{`De ${qtyLabel(c.step, c.unit)} en ${qtyLabel(c.step, c.unit)}`}</small>}
+        </span>
+        <span className="brow-dots" aria-hidden />
+        <Tag c={c} />
+      </a>
+      {!c.soldOut && (
+        <button type="button" className="quick" aria-label={`Agregar ${c.name} al carrito`} onClick={() => quick(c)}>
+          <Plus aria-hidden size={20} />
+        </button>
+      )}
+    </li>
+  );
+}
+
+function Rows({ cards }: { cards: CardData[] }) {
+  return <ul className="rows">{cards.map((c, i) => <Row key={c.id} c={c} i={i} />)}</ul>;
+}
+
+// Productos agrupados por categoría (en el orden de la tienda); lo que no tiene categoría va al final.
+function groups(shop: ShopInfo, cards: CardData[]) {
+  const known = new Set(shop.categories.map((k) => k.id));
+  return [
+    ...shop.categories.map((k) => ({ id: k.id, name: k.name, items: cards.filter((c) => c.cat === k.id) })),
+    { id: 0, name: shop.categories.length ? "Otros" : "Productos", items: cards.filter((c) => !known.has(c.cat)) },
+  ].filter((g) => g.items.length);
+}
+
+// Pizarrón: una lista de precios por categoría, como el letrero del mostrador.
+function Board({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
+  return (
+    <div className="board">
+      {groups(shop, cards).map((g) => (
+        <section key={g.id} className="board-sec" aria-labelledby={`g${g.id}`}>
+          <h3 id={`g${g.id}`} className="board-title">{g.name}</h3>
+          <Rows cards={g.items} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+// Pasillos (abarrotes) o estaciones (barbería): una repisa deslizable por categoría.
+function Aisles({ shop, cards, label }: { shop: ShopInfo; cards: CardData[]; label: string }) {
+  return (
+    <div className="aisles">
+      {groups(shop, cards).map((g, n) => (
+        <section key={g.id} className="aisle" aria-labelledby={`g${g.id}`}>
+          <div className="sec-head row">
+            <div>
+              <span className="kicker">{`${label} ${String(n + 1).padStart(2, "0")}`}</span>
+              <h3 id={`g${g.id}`} className="aisle-title">{g.name}</h3>
+            </div>
+            {g.id > 0 && g.items.length > 12 && <a href={`/c/${g.id}`} className="more">{`Ver los ${g.items.length}`} <ChevronRight aria-hidden size={16} /></a>}
+          </div>
+          <ul className="rail shelf">{g.items.slice(0, g.id ? 12 : undefined).map((c, i) => <Card key={c.id} c={c} i={i} />)}</ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function Empty() {
   return (
     <div className="empty">
@@ -537,6 +608,8 @@ function Reorder() {
 
 const withPhoto = (cs: CardData[]) => cs.filter((c) => c.photo.src && !c.soldOut);
 
+const KICKER: Record<string, string> = { carniceria: "Lista de precios", boutique: "Colección", abarrotes: "Surtido" };
+
 // Portada: nombre grande y un collage de tres productos con su precio.
 function Cover({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
   const pick = [...withPhoto(cards.filter((c) => c.was || c.new)), ...withPhoto(cards)].filter((c, i, a) => a.indexOf(c) === i).slice(0, 3);
@@ -544,7 +617,7 @@ function Cover({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
   return (
     <section className="cover" aria-labelledby="tienda">
       <div className="cover-text rise">
-        <span className="kicker">Catálogo · {month}</span>
+        <span className="kicker">{KICKER[shop.style] ?? "Catálogo"} · {month}</span>
         <h1 id="tienda">{shop.name}</h1>
         <p className="cover-sub">{cards.length} {cards.length === 1 ? "producto" : "productos"} para pedir directo por WhatsApp.</p>
         <div className="cover-cta">
@@ -653,47 +726,75 @@ function Closing({ shop }: { shop: ShopInfo }) {
   );
 }
 
+// Cada giro arma su inicio distinto con los mismos datos (el CSS de su tema hace el resto):
+// carnicería = pizarrón de precios por categoría; abarrotes y barbería = pasillos/estaciones;
+// boutique = novedades y destacado primero; papelería y vitrina = categorías y mosaico.
 function Home({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
   const [q, setQ] = useState("");
   const term = q.trim();
   const found = useMemo(() => (term ? cards.filter((c) => fold(c.name).includes(fold(term))) : cards), [term, cards]);
   const fresh = cards.filter((c) => c.new && !c.soldOut);
   const sale = cards.filter((c) => c.was && !c.soldOut);
+  const st = shop.style;
+  const board = st === "carniceria";
+  const aisles = st === "abarrotes" || st === "barberia";
+  const some = (cs: CardData[]) => !term && cs.length > 0 && cs.length < cards.length;
+  const news = some(fresh) && <Rail kicker="Recién llegado" title="Novedades" cards={fresh} id="nuevo" />;
+  const deals = some(sale) && <div className="band"><Rail kicker="Precios especiales" title="En oferta" cards={sale} id="oferta" /></div>;
+  const catalog = (
+    <section aria-labelledby="todo" id="catalogo" className="all">
+      <div className="sec-head row">
+        <div>
+          <span className="kicker">{board ? "Precios" : aisles ? "Recorre la tienda" : "Catálogo completo"}</span>
+          <h2 id="todo" className="sec-title" aria-live="polite">
+            {term ? (found.length ? `${found.length} ${found.length === 1 ? "resultado" : "resultados"}` : "Sin resultados") : board ? "Lista de precios" : aisles ? (st === "barberia" ? "Estaciones" : "Pasillos") : "Todo"}
+          </h2>
+        </div>
+        <label className="search">
+          <Search aria-hidden size={18} />
+          <span className="sr-only">Buscar productos</span>
+          <input type="search" placeholder={`Buscar en ${cards.length} productos`} value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
+      </div>
+      {!found.length ? (
+        <p className="muted">
+          Prueba con otra palabra
+          {shop.whatsapp ? <> o <a href={wa(shop.whatsapp, `Hola, ¿tienen ${term}?`)} rel="noopener" target="_blank">pregunta por WhatsApp si lo tienen</a></> : null}.
+        </p>
+      ) : board ? (term ? <Rows cards={found} /> : <Board shop={shop} cards={cards} />)
+        : aisles && !term ? <Aisles shop={shop} cards={cards} label={st === "barberia" ? "Estación" : "Pasillo"} />
+        : <Grid cards={found} />}
+    </section>
+  );
   return (
     <Shell shop={shop}>
       <WithQuick>
         <Cover shop={shop} cards={cards} />
         <Steps />
         <Reorder />
-        {!cards.length ? <Empty /> : (
+        {!cards.length ? <Empty /> : board ? (
+          catalog
+        ) : aisles ? (
+          <>
+            {!term && <Spotlight cards={cards} />}
+            {deals}
+            {catalog}
+          </>
+        ) : st === "boutique" ? (
+          <>
+            {news}
+            {!term && <Spotlight cards={cards} />}
+            {!term && <CategoryTiles shop={shop} cards={cards} />}
+            {deals}
+            {catalog}
+          </>
+        ) : (
           <>
             {!term && <CategoryTiles shop={shop} cards={cards} />}
             {!term && <Spotlight cards={cards} />}
-            {!term && fresh.length < cards.length && <Rail kicker="Recién llegado" title="Novedades" cards={fresh} id="nuevo" />}
-            {!term && sale.length > 0 && sale.length < cards.length && (
-              <div className="band"><Rail kicker="Precios especiales" title="En oferta" cards={sale} id="oferta" /></div>
-            )}
-            <section aria-labelledby="todo" id="catalogo" className="all">
-              <div className="sec-head row">
-                <div>
-                  <span className="kicker">Catálogo completo</span>
-                  <h2 id="todo" className="sec-title" aria-live="polite">
-                    {term ? (found.length ? `${found.length} ${found.length === 1 ? "resultado" : "resultados"}` : "Sin resultados") : "Todo"}
-                  </h2>
-                </div>
-                <label className="search">
-                  <Search aria-hidden size={18} />
-                  <span className="sr-only">Buscar productos</span>
-                  <input type="search" placeholder={`Buscar en ${cards.length} productos`} value={q} onChange={(e) => setQ(e.target.value)} />
-                </label>
-              </div>
-              {found.length ? <Grid cards={found} /> : (
-                <p className="muted">
-                  Prueba con otra palabra
-                  {shop.whatsapp ? <> o <a href={wa(shop.whatsapp, `Hola, ¿tienen ${term}?`)} rel="noopener" target="_blank">pregunta por WhatsApp si lo tienen</a></> : null}.
-                </p>
-              )}
-            </section>
+            {news}
+            {deals}
+            {catalog}
           </>
         )}
         <Closing shop={shop} />
@@ -714,7 +815,7 @@ function Category({ shop, title, cards }: { shop: ShopInfo; title: string; cards
           </div>
           <Shots cards={withPhoto(cards).slice(0, 3)} eager />
         </section>
-        {cards.length ? <Grid cards={cards} eager={2} /> : <Empty />}
+        {!cards.length ? <Empty /> : shop.style === "carniceria" ? <Rows cards={cards} /> : <Grid cards={cards} eager={2} />}
       </WithQuick>
     </Shell>
   );

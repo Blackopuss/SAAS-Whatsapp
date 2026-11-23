@@ -23,7 +23,7 @@ export default defineConfig({
         panel: "src/panel.tsx",
         admin: "src/admin.tsx",
         ...Object.fromEntries(
-          ["vitrina", "boutique", "barberia", "carniceria", "abarrotes", "papeleria"].map((s) => [`theme-${s}`, `src/themes/${s}/${s}.css`]),
+          ["vitrina", "boutique", "barberia", "carniceria", "abarrotes", "papeleria"].map((s) => [`theme-${s}`, `src/giros/${s}.css`]),
         ),
       },
       output: {

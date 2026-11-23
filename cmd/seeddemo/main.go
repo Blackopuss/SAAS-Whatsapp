@@ -1,12 +1,14 @@
 // seeddemo llena una tienda existente con 20 productos de ejemplo (fotos generadas) para medir la plantilla.
 //
 //	go run ./cmd/seeddemo -slug ana
+//	go run ./cmd/seeddemo -slug luz -giro carniceria   (catálogo de ese giro y la tienda queda con ese estilo)
 //
 // Solo para desarrollo: guarda las fotos en uploads/ y borra antes el catálogo de esa tienda.
 // Si pones fotos en demo/fotos/ (JPG, PNG o WebP) las usa en orden; si no, genera siluetas.
 package main
 
 import (
+	"cmp"
 	"context"
 	"flag"
 	"fmt"
@@ -33,45 +35,144 @@ type item struct {
 	sizes, colors   string
 	hue             float64
 	isNew           bool
+	unit            string // "" = pieza
+	step            int32  // milésimas; 0 = 1000
 }
 
-var catalog = []item{
-	{"Blusas", "Blusa de lino", "Lino fresco, ideal para calor.\nCorte recto, botones de concha.", 28900, 24900, "S,M,L", "Blanco,Negro", 30, true},
-	{"Blusas", "Blusa bordada Oaxaca", "Bordado a mano en el cuello.", 45000, 0, "S,M,L,XL", "Blanco", 350, true},
-	{"Blusas", "Blusa de satín", "Caída suave, se ve elegante.", 32000, 0, "S,M", "Rosa,Vino", 340, false},
-	{"Blusas", "Top tejido", "Tejido de punto, elástico.", 19900, 15900, "CH,M,G", "Beige,Negro", 40, false},
-	{"Blusas", "Camisa a cuadros", "Algodón, manga larga.", 34900, 0, "S,M,L", "Rojo,Azul", 0, false},
-	{"Vestidos", "Vestido midi floral", "Estampado floral, largo a media pierna.", 52000, 0, "S,M,L", "Rosa,Azul", 330, true},
-	{"Vestidos", "Vestido negro básico", "El que combina con todo.", 39900, 34900, "S,M,L,XL", "Negro", 270, false},
-	{"Vestidos", "Vestido de manta", "Manta natural con listón.", 48000, 0, "Unitalla", "Crema", 50, false},
-	{"Vestidos", "Vestido camisero", "Con cinturón del mismo tela.", 46000, 0, "M,L", "Mostaza,Verde", 60, true},
-	{"Vestidos", "Vestido de fiesta", "Brillo discreto, forro completo.", 89000, 75000, "S,M", "Morado,Negro", 290, false},
-	{"Pantalones", "Jeans tiro alto", "Mezclilla con stretch.", 49900, 0, "26,28,30,32", "Mezclilla", 220, false},
-	{"Pantalones", "Pantalón palazzo", "Pierna amplia, muy fresco.", 42000, 0, "S,M,L", "Negro,Beige", 30, true},
-	{"Pantalones", "Pantalón cargo", "Bolsas laterales, gabardina.", 45000, 39000, "28,30,32", "Olivo,Arena", 90, false},
-	{"Pantalones", "Short de mezclilla", "Deshilado en la orilla.", 25000, 0, "26,28,30", "Mezclilla", 210, false},
-	{"Pantalones", "Falda plisada", "Plisado permanente, cintura elástica.", 36000, 0, "Unitalla", "Rosa,Gris", 320, false},
-	{"Accesorios", "Bolsa de palma", "Tejida a mano en Yucatán.", 38000, 0, "", "", 45, true},
-	{"Accesorios", "Aretes de chaquira", "Hechos por artesanas huicholas.", 22000, 0, "", "Azul,Rojo", 200, false},
-	{"Accesorios", "Rebozo de algodón", "Rebozo tradicional, 2 m.", 65000, 59000, "", "Turquesa,Coral", 170, false},
-	{"Accesorios", "Sombrero de ala ancha", "Para el sol, ajustable.", 29000, 0, "", "Camel", 35, false},
-	{"Accesorios", "Collar de plata", "Plata .925 de Taxco.", 54000, 0, "", "Plateado", 250, false},
+var ropa = []item{
+	{"Blusas", "Blusa de lino", "Lino fresco, ideal para calor.\nCorte recto, botones de concha.", 28900, 24900, "S,M,L", "Blanco,Negro", 30, true, "", 0},
+	{"Blusas", "Blusa bordada Oaxaca", "Bordado a mano en el cuello.", 45000, 0, "S,M,L,XL", "Blanco", 350, true, "", 0},
+	{"Blusas", "Blusa de satín", "Caída suave, se ve elegante.", 32000, 0, "S,M", "Rosa,Vino", 340, false, "", 0},
+	{"Blusas", "Top tejido", "Tejido de punto, elástico.", 19900, 15900, "CH,M,G", "Beige,Negro", 40, false, "", 0},
+	{"Blusas", "Camisa a cuadros", "Algodón, manga larga.", 34900, 0, "S,M,L", "Rojo,Azul", 0, false, "", 0},
+	{"Vestidos", "Vestido midi floral", "Estampado floral, largo a media pierna.", 52000, 0, "S,M,L", "Rosa,Azul", 330, true, "", 0},
+	{"Vestidos", "Vestido negro básico", "El que combina con todo.", 39900, 34900, "S,M,L,XL", "Negro", 270, false, "", 0},
+	{"Vestidos", "Vestido de manta", "Manta natural con listón.", 48000, 0, "Unitalla", "Crema", 50, false, "", 0},
+	{"Vestidos", "Vestido camisero", "Con cinturón del mismo tela.", 46000, 0, "M,L", "Mostaza,Verde", 60, true, "", 0},
+	{"Vestidos", "Vestido de fiesta", "Brillo discreto, forro completo.", 89000, 75000, "S,M", "Morado,Negro", 290, false, "", 0},
+	{"Pantalones", "Jeans tiro alto", "Mezclilla con stretch.", 49900, 0, "26,28,30,32", "Mezclilla", 220, false, "", 0},
+	{"Pantalones", "Pantalón palazzo", "Pierna amplia, muy fresco.", 42000, 0, "S,M,L", "Negro,Beige", 30, true, "", 0},
+	{"Pantalones", "Pantalón cargo", "Bolsas laterales, gabardina.", 45000, 39000, "28,30,32", "Olivo,Arena", 90, false, "", 0},
+	{"Pantalones", "Short de mezclilla", "Deshilado en la orilla.", 25000, 0, "26,28,30", "Mezclilla", 210, false, "", 0},
+	{"Pantalones", "Falda plisada", "Plisado permanente, cintura elástica.", 36000, 0, "Unitalla", "Rosa,Gris", 320, false, "", 0},
+	{"Accesorios", "Bolsa de palma", "Tejida a mano en Yucatán.", 38000, 0, "", "", 45, true, "", 0},
+	{"Accesorios", "Aretes de chaquira", "Hechos por artesanas huicholas.", 22000, 0, "", "Azul,Rojo", 200, false, "", 0},
+	{"Accesorios", "Rebozo de algodón", "Rebozo tradicional, 2 m.", 65000, 59000, "", "Turquesa,Coral", 170, false, "", 0},
+	{"Accesorios", "Sombrero de ala ancha", "Para el sol, ajustable.", 29000, 0, "", "Camel", 35, false, "", 0},
+	{"Accesorios", "Collar de plata", "Plata .925 de Taxco.", 54000, 0, "", "Plateado", 250, false, "", 0},
+}
+
+// Catálogos por giro: productos y precios típicos (en centavos); kg con su paso en milésimas.
+var catalogs = map[string][]item{
+	"boutique": ropa,
+	"vitrina":  ropa,
+	"carniceria": {
+		{"Res", "Arrachera marinada", "Marinada de la casa, lista para la parrilla.", 34000, 31000, "", "", 5, true, "kg", 250},
+		{"Res", "Bistec de res", "Corte delgado de pulpa.", 21000, 0, "", "", 8, false, "kg", 250},
+		{"Res", "Carne molida de res", "Molida al momento.", 16500, 0, "", "", 2, false, "kg", 250},
+		{"Res", "Costilla de res para asar", "Cortada en tiras.", 19500, 0, "", "", 10, false, "kg", 500},
+		{"Res", "Diezmillo", "Para guisar o asar.", 17800, 0, "", "", 6, false, "kg", 250},
+		{"Cerdo", "Chuleta de cerdo", "Ahumada o natural.", 12900, 0, "", "", 15, false, "kg", 250},
+		{"Cerdo", "Pierna de cerdo", "Entera o en trozo.", 11500, 0, "", "", 18, false, "kg", 500},
+		{"Cerdo", "Costilla de cerdo", "Para salsa verde o asada.", 13500, 11900, "", "", 12, false, "kg", 500},
+		{"Cerdo", "Chicharrón de cerdo", "Hecho aquí.", 24000, 0, "", "", 30, true, "kg", 250},
+		{"Pollo", "Pechuga sin hueso", "Entera o en bisteces.", 14900, 0, "", "", 40, false, "kg", 250},
+		{"Pollo", "Pierna y muslo", "Con piel.", 8900, 0, "", "", 35, false, "kg", 500},
+		{"Pollo", "Pollo entero", "Aproximadamente 2 kg, limpio.", 16000, 0, "", "", 45, false, "", 0},
+		{"Pollo", "Alitas de pollo", "Para hornear o freír.", 10900, 0, "", "", 38, false, "kg", 500},
+		{"Salchichonería", "Jamón de pavo", "Rebanado al gusto.", 15800, 0, "", "", 350, false, "kg", 250},
+		{"Salchichonería", "Queso Oaxaca", "De bola.", 16900, 0, "", "", 55, false, "kg", 250},
+		{"Salchichonería", "Chorizo casero", "Receta de la casa.", 13900, 0, "", "", 12, true, "kg", 250},
+	},
+	"abarrotes": {
+		{"Despensa", "Arroz 1 kg", "", 3200, 0, "", "", 50, false, "", 0},
+		{"Despensa", "Frijol negro 1 kg", "", 4200, 0, "", "", 20, false, "", 0},
+		{"Despensa", "Aceite vegetal 1 L", "", 4800, 4300, "", "", 55, false, "", 0},
+		{"Despensa", "Azúcar estándar 1 kg", "", 3300, 0, "", "", 45, false, "", 0},
+		{"Despensa", "Café soluble 120 g", "", 8900, 0, "", "", 25, true, "", 0},
+		{"Despensa", "Tortilla de maíz", "Del molino de la esquina.", 2600, 0, "", "", 48, false, "kg", 500},
+		{"Bebidas", "Refresco de cola 2 L", "", 3800, 0, "", "", 0, false, "", 0},
+		{"Bebidas", "Agua natural 1.5 L", "", 1600, 0, "", "", 200, false, "", 0},
+		{"Bebidas", "Jugo de naranja 1 L", "", 2800, 0, "", "", 35, true, "", 0},
+		{"Lácteos y huevo", "Leche entera 1 L", "", 2900, 0, "", "", 210, false, "", 0},
+		{"Lácteos y huevo", "Huevo blanco 18 piezas", "", 6200, 0, "", "", 40, false, "", 0},
+		{"Lácteos y huevo", "Crema 450 ml", "", 3900, 0, "", "", 50, false, "", 0},
+		{"Limpieza", "Detergente en polvo 1 kg", "", 4900, 0, "", "", 190, false, "", 0},
+		{"Limpieza", "Lavatrastes líquido 750 ml", "", 3600, 3200, "", "", 120, false, "", 0},
+		{"Limpieza", "Papel higiénico 4 rollos", "", 3900, 0, "", "", 230, false, "", 0},
+		{"Limpieza", "Cloro 1 L", "", 2200, 0, "", "", 180, false, "", 0},
+	},
+	"papeleria": {
+		{"Escolar", "Cuaderno profesional de cuadro", "100 hojas, cuadro chico.", 4500, 0, "", "Azul,Rojo,Verde", 220, true, "", 0},
+		{"Escolar", "Lápiz del 2", "", 600, 0, "", "", 45, false, "", 0},
+		{"Escolar", "Colores de madera 24 piezas", "", 8900, 0, "", "", 20, true, "", 0},
+		{"Escolar", "Pegamento en barra", "", 2200, 0, "", "", 60, false, "", 0},
+		{"Escolar", "Juego de geometría", "", 3500, 0, "", "", 200, false, "", 0},
+		{"Escolar", "Mochila escolar", "", 45000, 39900, "", "Negro,Azul", 230, false, "", 0},
+		{"Oficina", "Folder tamaño carta", "", 300, 0, "", "Crema,Azul,Rosa", 50, false, "", 0},
+		{"Oficina", "Plumas negras, caja de 12", "", 9600, 8500, "", "", 240, false, "", 0},
+		{"Oficina", "Notas adhesivas", "", 3900, 0, "", "Amarillo,Rosa", 55, false, "", 0},
+		{"Oficina", "Engrapadora", "", 12000, 0, "", "", 210, false, "", 0},
+		{"Arte", "Acuarelas 12 colores", "", 9900, 0, "", "", 300, true, "", 0},
+		{"Arte", "Juego de pinceles", "", 6500, 0, "", "", 25, false, "", 0},
+		{"Arte", "Cartulina", "", 900, 0, "", "Blanco,Negro,Rojo", 0, false, "", 0},
+		{"Regalos", "Bolsa de regalo mediana", "", 2500, 0, "", "Rojo,Dorado", 350, false, "", 0},
+		{"Regalos", "Listón de satín", "Se corta por metro.", 800, 0, "", "Rojo,Blanco", 340, false, "metro", 1000},
+	},
+	"barberia": {
+		{"Cabello", "Pomada base agua", "Brillo medio, se lava fácil.", 18000, 0, "", "", 210, true, "", 0},
+		{"Cabello", "Cera mate", "Sin brillo.", 16500, 0, "", "", 30, false, "", 0},
+		{"Cabello", "Gel fijación fuerte", "", 9500, 0, "", "", 200, false, "", 0},
+		{"Cabello", "Shampoo para caballero", "", 14000, 0, "", "", 190, false, "", 0},
+		{"Barba", "Aceite para barba", "", 22000, 19000, "", "", 35, false, "", 0},
+		{"Barba", "Bálsamo para barba", "", 19500, 0, "", "", 40, false, "", 0},
+		{"Barba", "After shave", "", 21000, 0, "", "", 180, false, "", 0},
+		{"Herramientas", "Peine de carey", "", 6000, 0, "", "", 25, false, "", 0},
+		{"Herramientas", "Cepillo de cerdas", "", 15000, 0, "", "", 20, false, "", 0},
+		{"Herramientas", "Máquina recortadora", "", 89000, 0, "", "", 0, true, "", 0},
+		{"Herramientas", "Brocha de afeitar", "", 32000, 0, "", "", 30, false, "", 0},
+	},
 }
 
 func main() {
 	slug := flag.String("slug", "ana", "tienda a llenar")
 	dir := flag.String("fotos", "demo/fotos", "carpeta con fotos (vacío = siluetas generadas)")
+	giro := flag.String("giro", "", "catálogo y estilo: carniceria, abarrotes, papeleria, barberia, boutique, vitrina (vacío = ropa, sin cambiar el estilo)")
 	flag.Parse()
-	if *dir != "" {
-		realPhotos, _ = filepath.Glob(filepath.Join(*dir, "*"))
+	catalog = ropa
+	if *giro != "" {
+		if catalog = catalogs[*giro]; catalog == nil {
+			fmt.Fprintln(os.Stderr, "error: giro desconocido:", *giro)
+			os.Exit(1)
+		}
 	}
-	if err := run(*slug); err != nil {
+	// Fotos: demo/fotos/<giro>/ si existe; las de la raíz son de ropa (boutique, vitrina o sin giro).
+	if *dir != "" {
+		photoDir := *dir
+		if sub := filepath.Join(*dir, *giro); *giro != "" && isDir(sub) {
+			photoDir = sub
+		} else if catalog[0].name != ropa[0].name {
+			photoDir = "" // giro sin fotos propias: siluetas
+		}
+		if photoDir != "" {
+			all, _ := filepath.Glob(filepath.Join(photoDir, "*"))
+			for _, f := range all {
+				if !isDir(f) {
+					realPhotos = append(realPhotos, f)
+				}
+			}
+		}
+	}
+	if err := run(*slug, *giro); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run(slug string) error {
+// catalog: lo que se va a sembrar (ropa o el del giro).
+var catalog []item
+
+func run(slug, giro string) error {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -117,6 +218,11 @@ func run(slug string) error {
 		_, _ = q.DeleteCategory(ctx, db.DeleteCategoryParams{StoreID: s.ID, ID: c.ID})
 	}
 
+	if giro != "" {
+		if _, err := pool.Exec(ctx, "UPDATE stores SET style = $1 WHERE id = $2", giro, s.ID); err != nil {
+			return err
+		}
+	}
 	catIDs := map[string]int64{}
 	for _, it := range catalog {
 		if catIDs[it.cat] == 0 {
@@ -133,7 +239,7 @@ func run(slug string) error {
 		pid, err := q.CreateProduct(ctx, db.CreateProductParams{
 			StoreID: s.ID, CategoryID: pgtype.Int8{Int64: catIDs[it.cat], Valid: true},
 			Name: it.name, Description: it.desc, PriceCents: it.price, SalePriceCents: sale,
-			Unit: "pieza", Step: 1000, Stock: pgtype.Int4{Int32: int32(3+i%6) * 1000, Valid: it.sizes == "" && it.colors == ""}, // #nosec G115 -- índice chico
+			Unit: cmp.Or(it.unit, "pieza"), Step: cmp.Or(it.step, 1000), Stock: pgtype.Int4{Int32: int32(3+i%6) * 1000 * map[bool]int32{true: 6, false: 1}[it.unit != ""], Valid: it.sizes == "" && it.colors == ""}, // #nosec G115 -- índice chico
 		})
 		if err != nil {
 			return err
@@ -146,6 +252,9 @@ func run(slug string) error {
 			}
 		}
 		for si, size := range split(it.sizes) {
+			if it.sizes == "" && it.colors == "" {
+				break // sin tallas ni colores: la existencia va en el producto
+			}
 			for ci, col := range split(it.colors) {
 				stock := int32((si*3+ci*2+i)%6) * 1000 // #nosec G115 -- índices chicos; algunas quedan en 0 (agotadas)
 				if si == 0 && ci == 1 {
@@ -156,7 +265,11 @@ func run(slug string) error {
 				}
 			}
 		}
-		for n := range 1 + i%3 {
+		photos := 1 + i%3
+		if catalog[0].name != ropa[0].name {
+			photos = 1 - i%3/2 // en carnes, abarrotes, etc. muchas tiendas no ponen foto: uno de cada tres va sin
+		}
+		for n := range photos {
 			if err := addPhoto(ctx, q, disk, s.ID, pid, it.hue+float64(n)*25); err != nil {
 				return err
 			}
@@ -240,6 +353,11 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, q *db.Queries, storeID 
 }
 
 // split devuelve [""] si no hay valores: así el producto sin tallas ni colores no tiene variantes cruzadas vacías.
+func isDir(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
+}
+
 func split(s string) []string {
 	if s == "" {
 		return []string{""}
