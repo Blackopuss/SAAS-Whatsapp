@@ -294,7 +294,7 @@ function Shell({ shop, children }: { shop: ShopInfo; children: ReactNode }) {
     },
     open: () => setOpen(true),
   };
-  const count = items.reduce((s, i) => s + i.qty, 0);
+  const count = items.length; // productos distintos: las cantidades van en milésimas y pueden ser kg
   const cats = [{ href: "/", name: "Todo", on: shop.home }, ...shop.categories.map((c) => ({ href: `/c/${c.id}`, name: c.name, on: shop.current === c.id }))];
 
   return (
@@ -525,7 +525,7 @@ function Reorder() {
   const cart = useContext(CartCtx);
   const [last] = useState(() => read(LAST));
   if (!last.length || cart.items.length) return null;
-  const n = last.reduce((s, i) => s + i.qty, 0);
+  const n = last.length;
   return (
     <section className="reorder" aria-label="Tu último pedido">
       <RotateCcw aria-hidden size={22} />
