@@ -1,7 +1,7 @@
 // Tienda pública (<slug>.<dominio>). Datos desde views/store.templ.
 // Sin componentes de Astryx a propósito: aquí pesaban ~190 KB y la compradora suele estar en un celular con datos.
 // El aspecto sale del tema del estilo (tokens --color-*, --font-*, --radius-*) que Go pone en <html>.
-import { StrictMode, createContext, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { Fragment, StrictMode, createContext, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { ShoppingBag, MessageCircle, Minus, Plus, Search, X, Share2, CreditCard, Truck, CheckCircle2, RotateCcw, ChevronRight, HelpCircle, BookOpen } from "lucide-react";
 import "./shop.css";
@@ -27,6 +27,37 @@ const money = (c: number) => (c % 100 === 0 ? fmt0 : fmt2).format(c / 100);
 const off = (c: CardData) => Math.round((1 - c.price / c.was) * 100);
 const wa = (phone: string, text: string) => `https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(text)}`;
 const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+// ——— Movimiento ———
+// Tres capas y nada más: el título entra una vez al cargar, todo lo que se toca responde (CSS) y cada inicio
+// tiene uno o dos "momentos" en su propia sección. Nada aparece al hacer scroll fuera de esos momentos.
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Título que sube palabra por palabra desde su renglón (CSS .w); 80 ms entre palabras, 240 ms como máximo.
+function Rise({ text }: { text: string }) {
+  return <>{text.split(/\s+/).filter(Boolean).map((w, i) => (
+    <Fragment key={i}>{i > 0 && " "}<span className="w" style={{ "--d": `${Math.min(i, 3) * 80}ms`, "--len": w.length } as React.CSSProperties}>{w}</span></Fragment>
+  ))}</>;
+}
+
+// La foto se revela como en la charola de revelado (gris y plana, luego sombras, luego color) al entrar en pantalla, una vez.
+function useDevelop<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || reduced() || !("IntersectionObserver" in window)) return;
+    el.classList.add("armed");
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      el.classList.add("develop");
+      io.disconnect();
+    }, { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return ref;
+}
+
 
 // ——— Carrito ———
 // Vive en localStorage. Precios y existencias siempre salen de /carrito.json; lo guardado solo dice qué y cuánto.
@@ -467,10 +498,10 @@ function Img({ c, sizes, eager }: { c: CardData; sizes: string; eager?: boolean 
   );
 }
 
-function Card({ c, i, eager }: { c: CardData; i: number; eager?: boolean }) {
+function Card({ c, eager }: { c: CardData; eager?: boolean }) {
   const quick = useContext(QuickCtx);
   return (
-    <li className="pcard rise" style={{ "--i": i } as React.CSSProperties}>
+    <li className="pcard">
       <a className={"card" + (c.soldOut ? " sold" : "")} href={`/p/${c.id}`}>
         <span className="ph" style={c.color ? { backgroundColor: c.color } : undefined}>
           <Img c={c} eager={eager} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 46vw" />
@@ -495,7 +526,7 @@ function Card({ c, i, eager }: { c: CardData; i: number; eager?: boolean }) {
 }
 
 function Grid({ cards, eager = 0 }: { cards: CardData[]; eager?: number }) {
-  return <ul className="grid">{cards.map((c, i) => <Card key={c.id} c={c} i={i} eager={i < eager} />)}</ul>;
+  return <ul className="grid">{cards.map((c, i) => <Card key={c.id} c={c} eager={i < eager} />)}</ul>;
 }
 
 function Rail({ title, kicker, cards, id }: { title: string; kicker?: string; cards: CardData[]; id: string }) {
@@ -506,16 +537,16 @@ function Rail({ title, kicker, cards, id }: { title: string; kicker?: string; ca
         {kicker && <span className="kicker">{kicker}</span>}
         <h2 id={id} className="sec-title">{title}</h2>
       </div>
-      <ul className="rail">{cards.map((c, i) => <Card key={c.id} c={c} i={i} />)}</ul>
+      <ul className="rail">{cards.map((c) => <Card key={c.id} c={c} />)}</ul>
     </section>
   );
 }
 
 // Renglón de lista de precios (carnicería): nombre a la izquierda, precio por unidad a la derecha.
-function Row({ c, i }: { c: CardData; i: number }) {
+function Row({ c }: { c: CardData }) {
   const quick = useContext(QuickCtx);
   return (
-    <li className="brow rise" style={{ "--i": i } as React.CSSProperties}>
+    <li className="brow">
       <a className={"brow-link" + (c.soldOut ? " sold" : "")} href={`/p/${c.id}`}>
         {c.photo.src && <span className="brow-ph" style={c.color ? { backgroundColor: c.color } : undefined}><Img c={c} sizes="72px" /></span>}
         <span className="brow-name">
@@ -536,7 +567,7 @@ function Row({ c, i }: { c: CardData; i: number }) {
 }
 
 function Rows({ cards }: { cards: CardData[] }) {
-  return <ul className="rows">{cards.map((c, i) => <Row key={c.id} c={c} i={i} />)}</ul>;
+  return <ul className="rows">{cards.map((c) => <Row key={c.id} c={c} />)}</ul>;
 }
 
 // Productos agrupados por categoría (en el orden de la tienda); lo que no tiene categoría va al final.
@@ -575,7 +606,7 @@ function Aisles({ shop, cards, label }: { shop: ShopInfo; cards: CardData[]; lab
             </div>
             {g.id > 0 && g.items.length > 12 && <a href={`/c/${g.id}`} className="more">{`Ver los ${g.items.length}`} <ChevronRight aria-hidden size={16} /></a>}
           </div>
-          <ul className="rail shelf">{g.items.slice(0, g.id ? 12 : undefined).map((c, i) => <Card key={c.id} c={c} i={i} />)}</ul>
+          <ul className="rail shelf">{g.items.slice(0, g.id ? 12 : undefined).map((c) => <Card key={c.id} c={c} />)}</ul>
         </section>
       ))}
     </div>
@@ -617,9 +648,9 @@ function Cover({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
   const month = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" }).format(new Date());
   return (
     <section className="cover" aria-labelledby="tienda">
-      <div className="cover-text rise">
+      <div className="cover-text">
         <span className="kicker">{KICKER[shop.style] ?? "Catálogo"} · {month}</span>
-        <h1 id="tienda">{shop.name}</h1>
+        <h1 id="tienda"><Rise text={shop.name} /></h1>
         <p className="cover-sub">{cards.length} {cards.length === 1 ? "producto" : "productos"} para pedir directo por WhatsApp.</p>
         <div className="cover-cta">
           <a href="#catalogo" className="btn primary lg"><BookOpen aria-hidden size={20} /> Ver catálogo</a>
@@ -644,16 +675,6 @@ function Cover({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
   );
 }
 
-function Steps() {
-  return (
-    <ol className="steps-band" aria-label="Cómo comprar">
-      <li><span className="step-n" aria-hidden>1</span><span><strong>Elige</strong> lo que te guste</span></li>
-      <li><span className="step-n" aria-hidden>2</span><span><strong>Agrégalo</strong> al carrito</span></li>
-      <li><span className="step-n" aria-hidden>3</span><span><strong>Envía</strong> tu pedido por WhatsApp</span></li>
-    </ol>
-  );
-}
-
 function Shots({ cards, eager }: { cards: CardData[]; eager?: boolean }) {
   return (
     <span className="tile-shots" aria-hidden>
@@ -673,7 +694,7 @@ function CategoryTiles({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
       <div className="sec-head"><span className="kicker">Explora</span><h2 id="cats" className="sec-title">Categorías</h2></div>
       <ul className="tiles">
         {tiles.map(({ cat, items }, i) => (
-          <li key={cat.id} className="rise" style={{ "--i": i } as React.CSSProperties}>
+          <li key={cat.id}>
             <a href={`/c/${cat.id}`} className={`tile t${i % 4}`}>
               <span className="tile-text">
                 <strong>{cat.name}</strong>
@@ -691,11 +712,12 @@ function CategoryTiles({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
 // Destacado: la mejor oferta real (o la novedad) en grande.
 function Spotlight({ cards }: { cards: CardData[] }) {
   const quick = useContext(QuickCtx);
+  const dev = useDevelop<HTMLAnchorElement>();
   const c = withPhoto(cards).filter((x) => x.was).sort((a, b) => off(b) - off(a))[0] ?? withPhoto(cards).find((x) => x.new);
   if (!c) return null;
   return (
     <section className="spot" aria-labelledby="spot" style={c.color ? ({ "--spot": c.color } as React.CSSProperties) : undefined}>
-      <a href={`/p/${c.id}`} className="spot-ph" tabIndex={-1} aria-hidden><Img c={c} sizes="(min-width: 900px) 40vw, 90vw" /></a>
+      <a ref={dev} href={`/p/${c.id}`} className="spot-ph" tabIndex={-1} aria-hidden><Img c={c} sizes="(min-width: 900px) 40vw, 90vw" /></a>
       <div className="spot-text">
         <span className="kicker">{c.was ? "La mejor oferta" : "Lo más nuevo"}</span>
         <h2 id="spot"><a href={`/p/${c.id}`}>{c.name}</a></h2>
@@ -705,6 +727,76 @@ function Spotlight({ cards }: { cards: CardData[] }) {
           <button type="button" className="btn primary lg" onClick={() => quick(c)}><ShoppingBag aria-hidden size={20} /> Agregar al carrito</button>
           <a href={`/p/${c.id}`} className="btn secondary lg">Ver detalles</a>
         </div>
+      </div>
+    </section>
+  );
+}
+
+// Capítulos (boutique): cada categoría es una página de revista. La sección se queda en pantalla mientras
+// la foto de la siguiente categoría sube desde abajo y tapa a la anterior; el recuadro cambia a esa categoría.
+// Sin movimiento, en pantallas de menos de 600 px de alto o con menos de 3 categorías con foto: mosaico quieto.
+function Chapters({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
+  const ch = shop.categories
+    .map((cat) => {
+      const items = cards.filter((c) => c.cat === cat.id);
+      const prices = items.filter((c) => !c.soldOut).map((c) => c.price);
+      return { cat, items, pic: withPhoto(items)[0], from: prices.length ? Math.min(...prices) : 0 };
+    })
+    .filter((t) => t.pic)
+    .slice(0, 5);
+  const ref = useRef<HTMLElement>(null);
+  const [live, setLive] = useState(false);
+  const [cur, setCur] = useState(0);
+  const n = ch.length;
+  useEffect(() => {
+    const sec = ref.current;
+    if (!sec || n < 3) return;
+    let raf = 0;
+    const tick = () => {
+      raf = 0;
+      if (!sec.classList.contains("live")) return;
+      const r = sec.getBoundingClientRect();
+      const p = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - innerHeight))) * (n - 1); // 0 … n-1
+      sec.querySelectorAll<HTMLElement>(".chap-pic").forEach((el, i) => {
+        if (!i) return;
+        const t = Math.min(1, Math.max(0, (p - (i - 1)) / 0.5)); // sube en la primera mitad de su tramo y luego se queda
+        el.style.setProperty("--c", `${((1 - t) * 100).toFixed(2)}%`);
+        el.style.setProperty("--z", (1.06 - 0.06 * t).toFixed(4));
+      });
+      setCur(Math.min(n - 1, Math.floor(p + 0.75)));
+    };
+    const fit = () => {
+      const ok = !reduced() && innerHeight >= 600;
+      sec.style.setProperty("--top", `${document.querySelector(".top")?.getBoundingClientRect().height ?? 0}px`);
+      setLive(ok);
+      raf ||= requestAnimationFrame(tick);
+    };
+    const on = () => { raf ||= requestAnimationFrame(tick); };
+    fit();
+    addEventListener("scroll", on, { passive: true });
+    addEventListener("resize", fit);
+    return () => { removeEventListener("scroll", on); removeEventListener("resize", fit); cancelAnimationFrame(raf); };
+  }, [n]);
+  if (n < 3) return <CategoryTiles shop={shop} cards={cards} />;
+  const pad = (k: number) => String(k).padStart(2, "0");
+  return (
+    <section ref={ref} className={"chapters" + (live ? " live" : "")} aria-labelledby="cats" style={{ "--n": n } as React.CSSProperties}>
+      <div className="chap-in">
+        <div className="sec-head"><span className="kicker">Colección</span><h2 id="cats" className="sec-title">Categorías</h2></div>
+        <ol className="chap-list">
+          {ch.map((t, i) => (
+            <li key={t.cat.id} className={"chap" + (i === cur ? " on" : "")}>
+              <a href={`/c/${t.cat.id}`} className="chap-pic" tabIndex={-1} aria-hidden style={{ zIndex: i }}>
+                <Img c={t.pic} sizes="(min-width: 72rem) 70rem, 100vw" />
+              </a>
+              <div className="chap-words">
+                <span className="chap-n" aria-hidden>{pad(i + 1)} / {pad(n)}</span>
+                <h3><a href={`/c/${t.cat.id}`}>{t.cat.name}</a></h3>
+                <p>{t.items.length} {t.items.length === 1 ? "producto" : "productos"}{t.from > 0 && <> · desde {money(t.from)}</>}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
   );
@@ -771,7 +863,6 @@ function Home({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
     <Shell shop={shop}>
       <WithQuick>
         <Cover shop={shop} cards={cards} />
-        <Steps />
         <Reorder />
         {!cards.length ? <Empty /> : board ? (
           catalog
@@ -785,7 +876,7 @@ function Home({ shop, cards }: { shop: ShopInfo; cards: CardData[] }) {
           <>
             {news}
             {!term && <Spotlight cards={cards} />}
-            {!term && <CategoryTiles shop={shop} cards={cards} />}
+            {!term && <Chapters shop={shop} cards={cards} />}
             {deals}
             {catalog}
           </>
@@ -808,10 +899,10 @@ function Category({ shop, title, cards }: { shop: ShopInfo; title: string; cards
   return (
     <Shell shop={shop}>
       <WithQuick>
-        <section className="cat-banner rise" aria-labelledby="cat-title">
+        <section className="cat-banner" aria-labelledby="cat-title">
           <div>
             <span className="kicker">{shop.name}</span>
-            <h1 id="cat-title">{title}</h1>
+            <h1 id="cat-title"><Rise text={title} /></h1>
             <p>{cards.length} {cards.length === 1 ? "producto" : "productos"}</p>
           </div>
           <Shots cards={withPhoto(cards).slice(0, 3)} eager />
@@ -922,9 +1013,9 @@ function ProductBody({ shop, p }: { shop: ShopInfo; p: Product }) {
       </nav>
       <article className="product">
         <Gallery p={p} />
-        <div className="info rise">
+        <div className="info">
           {c.soldOut ? <span className="tag dark inline">Agotado</span> : c.new ? <span className="tag inline">Nuevo</span> : null}
-          <h1>{c.name}</h1>
+          <h1><Rise text={c.name} /></h1>
           <Price c={c} big />
           {c.was > 0 && <p className="save">Ahorras {money(c.was - c.price)} ({off(c)} %)</p>}
 
@@ -1011,7 +1102,7 @@ function FAQ({ shop }: { shop: ShopInfo }) {
       </div>
       <div className="faq">
         {[...base, ...shop.faq].map((qa, i) => (
-          <details key={i} className="rise" style={{ "--i": i } as React.CSSProperties} open={i === 0}>
+          <details key={i} open={i === 0}>
             <summary>{qa.q}</summary>
             {qa.a && <p className="pre">{qa.a}</p>}
           </details>

@@ -18,9 +18,6 @@
 :root .shot { border: 1px solid var(--color-border); border-radius: var(--radius-element); box-shadow: var(--shadow-low); }
 :root .shot .ptag { border-radius: 2px; box-shadow: none; border: 1px solid var(--color-border-emphasized); }
 
-:root .steps-band { border-block: 1px solid var(--color-border); padding-block: 1rem; }
-:root .steps-band li { border: 0; border-inline-start: 1px solid var(--color-border); border-radius: 0; padding: 0.5rem 0.75rem; }
-:root .step-n { inline-size: 2.25rem; block-size: 2.25rem; border-radius: var(--radius-element); }
 
 :root .tiles { gap: 0.75rem; }
 :root .tile { min-block-size: 9rem; border: 1px solid var(--color-border); border-radius: var(--radius-element); }

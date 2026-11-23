@@ -9,11 +9,13 @@
   background: repeating-linear-gradient(90deg, var(--color-accent) 0 1.5rem, var(--color-background-body) 1.5rem 3rem);
 }
 :root .cover { padding-block-start: 2.25rem; }
-:root .cover h1 { text-transform: uppercase; letter-spacing: 0.01em; }
+:root .cover h1 { text-transform: uppercase; letter-spacing: 0.01em; --wfit: 0.95; } /* Alfa Slab en mayúsculas es ancha */
 :root .cover .kicker { padding: 0.125rem 0.5rem; background: var(--color-text-primary); color: var(--color-background-body); }
 
-/* Pasos como ticket de turno. */
-:root .steps-band { border: 2px dashed var(--color-border-emphasized); border-radius: var(--radius-element); background: none; }
+/* El toldo se desenrolla al cargar. */
+:root .cover::before { transform-origin: top; animation: awning 600ms var(--ease-enter) backwards; }
+@keyframes awning { from { transform: scaleY(0); } }
+
 
 /* El pizarrón: cada categoría es una pizarra oscura con renglones gis. */
 :root .board-sec {

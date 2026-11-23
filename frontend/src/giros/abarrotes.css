@@ -20,9 +20,6 @@
 :root .cover .btn.primary { background: var(--tag); color: var(--tag-ink); border-color: var(--tag); }
 :root .cover .btn.secondary { background: transparent; color: inherit; border-color: currentColor; }
 
-/* Pasos como letreritos de cartón. */
-:root .steps-band li { border: 2px solid var(--color-text-primary); border-radius: var(--radius-element); background: var(--color-background-body); }
-:root .step-n { border-radius: var(--radius-element); background: var(--tag); color: var(--tag-ink); }
 
 /* Etiqueta de precio amarilla, recta, con el precio grande. */
 :root .ptag { background: var(--tag); color: var(--tag-ink); border-radius: 2px; box-shadow: 0 1px 0 var(--tag-ink); }

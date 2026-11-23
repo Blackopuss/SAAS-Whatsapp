@@ -12,7 +12,8 @@
 @view-transition { navigation: auto; }
 
 :root {
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1); /* lo que entra y se asienta; sin rebote */
   --tint: color-mix(in oklch, var(--color-accent) 9%, var(--color-background-body));
   --wa: #0b7a3e; /* verde WhatsApp oscurecido para que el texto blanco lea 5:1 */
 }
@@ -61,18 +62,20 @@ button { cursor: pointer; }
   min-block-size: 2.75rem; padding: 0.625rem 1.25rem;
   border: 1px solid transparent; border-radius: var(--radius-element);
   font: inherit; font-weight: 600; text-decoration: none; text-align: center;
-  transition: transform 120ms var(--ease), background-color 160ms, box-shadow 160ms, filter 160ms;
+  transition: transform 150ms var(--ease), background-color 150ms, border-color 150ms, box-shadow 150ms;
 }
-.btn:active { transform: scale(0.97); }
+/* Al pasar sube 1 px y el color se acerca 14 % a la tinta; al presionar se hunde. Solo con mouse. */
+@media (hover: hover) and (pointer: fine) { .btn:hover { transform: translateY(-1px); } }
+.btn:active { transform: translateY(1px) scale(0.985); transition-duration: 90ms; }
 .btn.block { inline-size: 100%; }
 .btn.lg { min-block-size: 3.25rem; font-size: 1.0625rem; }
 .btn.primary { background: var(--color-accent); color: var(--color-on-accent); box-shadow: 0 0.5rem 1.25rem -0.75rem var(--color-accent); }
-.btn.primary:hover { filter: brightness(1.08); }
+.btn.primary:hover { background: color-mix(in oklch, var(--color-accent) 86%, var(--color-text-primary)); }
 .btn.secondary { background: var(--color-background-body); border-color: var(--color-border-emphasized); color: var(--color-text-primary); }
 .btn.secondary:hover { background: var(--color-background-muted); }
 .btn.ghost { background: transparent; color: var(--color-text-primary); }
 .btn.wa { background: var(--wa); color: #fff; box-shadow: 0 0.5rem 1.25rem -0.75rem var(--wa); }
-.btn.wa:hover { filter: brightness(1.1); }
+.btn.wa:hover { background: color-mix(in oklch, var(--wa) 86%, #000); }
 .icon-btn, .link-btn { border: 0; background: none; font: inherit; color: inherit; }
 .icon-btn { display: grid; place-items: center; inline-size: 2.75rem; block-size: 2.75rem; border-radius: var(--radius-full); }
 .icon-btn:hover { background: var(--color-background-muted); }
@@ -91,12 +94,18 @@ button { cursor: pointer; }
 .brand span { font-family: var(--font-family-heading); font-size: 1.25rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-link { display: inline-flex; align-items: center; min-block-size: 2.75rem; padding-inline: 0.5rem; text-decoration: none; font-weight: 500; color: var(--color-text-secondary); }
 .top-link:hover { color: var(--color-text-primary); }
+/* Enlaces sueltos: el subrayado aparece al pasar (mismo estilo en toda la tienda). */
+:is(.top-link, .foot-links a, .row-links a, .more, .crumbs a, .sheet-info a) {
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+  text-decoration-color: transparent; transition: text-decoration-color 150ms var(--ease), color 150ms var(--ease);
+}
+:is(.top-link, .foot-links a, .row-links a, .more, .crumbs a, .sheet-info a):hover { text-decoration-color: currentColor; }
 .cart-btn {
   position: relative; display: grid; place-items: center; inline-size: 2.75rem; block-size: 2.75rem;
   border: 0; border-radius: var(--radius-full); background: var(--color-background-muted); color: var(--color-text-primary);
 }
-.cart-btn.bump { animation: bump 420ms cubic-bezier(0.3, 1.6, 0.5, 1); }
-@keyframes bump { 40% { transform: scale(1.18); } }
+.cart-btn.bump { animation: bump 360ms var(--ease); }
+@keyframes bump { 40% { transform: scale(1.14); } }
 .badge {
   position: absolute; inset-block-start: -0.125rem; inset-inline-end: -0.125rem;
   min-inline-size: 1.25rem; block-size: 1.25rem; padding-inline: 0.3rem;
@@ -149,13 +158,16 @@ button { cursor: pointer; }
 }
 .ph img {
   inline-size: 100%; block-size: 100%; object-fit: cover;
-  opacity: 0; transform: scale(1.02);
-  transition: opacity 400ms var(--ease), transform 600ms var(--ease);
+  opacity: 0; transition: opacity 400ms var(--ease), transform 400ms var(--ease);
 }
-.ph img.in { opacity: 1; transform: none; }
-@media (hover: hover) {
-  .card:hover .ph img.in { transform: scale(1.05); }
-  .card:hover .card-name { text-decoration: underline; text-underline-offset: 3px; }
+.ph img.in { opacity: 1; }
+/* Tarjeta: sube 2 px, la foto se acerca 3 % dentro de su marco y el nombre se subraya. */
+.pcard { transition: translate 120ms var(--ease); }
+.card-name { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color 150ms var(--ease); }
+@media (hover: hover) and (pointer: fine) {
+  .pcard:hover { translate: 0 -2px; transition-duration: 180ms; }
+  .card:hover .ph img.in { transform: scale(1.03); transition: opacity 400ms var(--ease), transform 600ms var(--ease); }
+  .card:hover .card-name { text-decoration-color: currentColor; }
 }
 .card.sold .ph img.in { filter: grayscale(0.85); opacity: 0.65; }
 .tag {
@@ -386,26 +398,18 @@ a.cart-name:hover { text-decoration: underline; }
   .shot .ptag strong { font-size: 0.875rem; }
   .shot .ptag s, .shot .ptag-off { display: none; }
 }
-.collage .s0 { z-index: 2; inset-block-start: 4%; inset-inline-start: 24%; inline-size: 52%; animation: pop 600ms var(--ease) 100ms both; }
-.collage .s1 { z-index: 1; inset-block-start: 14%; inset-inline-start: 0; inline-size: 36%; rotate: -7deg; animation: pop 600ms var(--ease) 220ms both; }
-.collage .s2 { z-index: 3; inset-block-end: 0; inset-inline-end: 0; inline-size: 36%; rotate: 6deg; animation: pop 600ms var(--ease) 340ms both; }
+.collage .s0 { z-index: 2; inset-block-start: 4%; inset-inline-start: 24%; inline-size: 52%; animation: settle 900ms var(--ease-enter) 0ms backwards; }
+.collage .s1 { z-index: 1; inset-block-start: 14%; inset-inline-start: 0; inline-size: 36%; rotate: -7deg; animation: settle 900ms var(--ease-enter) 60ms backwards; }
+.collage .s2 { z-index: 3; inset-block-end: 0; inset-inline-end: 0; inline-size: 36%; rotate: 6deg; animation: settle 900ms var(--ease-enter) 120ms backwards; }
 .collage.n1 .s0 { inset-inline-start: 18%; inline-size: 64%; }
-@media (hover: hover) { .shot:hover { transform: translateY(-0.375rem) scale(1.02); } }
+@media (hover: hover) and (pointer: fine) {
+  .shot:hover { transform: translateY(-2px); }
+  .shot img { transition: opacity 400ms var(--ease), transform 600ms var(--ease); }
+  .shot:hover img.in { transform: scale(1.03); }
+}
+@keyframes settle { from { transform: scale(0.98); } }
 @keyframes pop { from { opacity: 0; transform: translateY(1.5rem) scale(0.94); } }
 
-.steps-band {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; list-style: none;
-  margin-block-start: -1rem; font-size: 0.875rem; line-height: 1.3;
-}
-.steps-band li {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.875rem;
-  border-radius: var(--radius-container); border: 1px solid var(--color-border);
-}
-@media (min-width: 640px) { .steps-band li { flex-direction: row; align-items: center; font-size: 0.9375rem; } }
-.step-n {
-  flex: none; display: grid; place-items: center; inline-size: 2rem; block-size: 2rem; border-radius: 50%;
-  background: var(--color-accent); color: var(--color-on-accent); font-family: var(--font-family-heading); font-weight: 700;
-}
 
 /* Etiqueta de precio en bloque. */
 .ptag {
@@ -443,16 +447,17 @@ a.cart-name:hover { text-decoration: underline; }
   background: var(--color-background-body); color: var(--color-text-primary); box-shadow: var(--shadow-med);
   transition: transform 160ms var(--ease), background-color 160ms, color 160ms;
 }
-.quick:hover { background: var(--color-accent); color: var(--color-on-accent); transform: scale(1.08); }
-.quick:active { transform: scale(0.92); }
+.quick:hover { background: var(--color-accent); color: var(--color-on-accent); }
+@media (hover: hover) and (pointer: fine) { .quick:hover { transform: translateY(-1px); } }
+.quick:active { transform: translateY(1px) scale(0.94); transition-duration: 90ms; }
 .sizes { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-block-start: 0.25rem; }
 .sizes i {
   font-style: normal; font-size: 0.75rem; font-weight: 600; min-inline-size: 1.75rem; text-align: center;
   padding: 0.0625rem 0.375rem; border-radius: var(--radius-element); border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
 }
-.ph { transition: box-shadow 300ms var(--ease); }
-@media (hover: hover) { .pcard:hover .ph { box-shadow: var(--shadow-high); } }
+.ph { transition: box-shadow 180ms var(--ease); }
+@media (hover: hover) and (pointer: fine) { .pcard:hover .ph { box-shadow: 0 0.75rem 1.5rem -0.75rem rgb(0 0 0 / 0.22); } }
 
 /* Mosaico de categorías. */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); gap: 0.75rem; list-style: none; }
@@ -462,7 +467,11 @@ a.cart-name:hover { text-decoration: underline; }
   border-radius: var(--radius-container); text-decoration: none;
   transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
 }
-@media (hover: hover) { .tile:hover { transform: translateY(-0.25rem); box-shadow: var(--shadow-high); } }
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover { transform: translateY(-2px); box-shadow: 0 0.75rem 1.5rem -0.75rem rgb(0 0 0 / 0.22); }
+  .tile .tshot img { transition: opacity 400ms, transform 600ms var(--ease); }
+  .tile:hover .tshot img.in { transform: scale(1.03); }
+}
 .tile.t0 { background: var(--color-accent); color: var(--color-on-accent); }
 .tile.t1 { background: color-mix(in oklch, var(--color-accent) 16%, var(--color-background-body)); color: var(--color-text-primary); }
 .tile.t2 { background: var(--color-text-primary); color: var(--color-background-body); }
@@ -490,9 +499,9 @@ a.cart-name:hover { text-decoration: underline; }
 @media (min-width: 760px) { .spot { grid-template-columns: 1fr 1fr; align-items: center; } }
 .spot-ph { display: block; aspect-ratio: 4 / 3; overflow: hidden; max-block-size: 34rem; }
 @media (min-width: 760px) { .spot-ph { aspect-ratio: 4 / 5; } }
-.spot-ph img { inline-size: 100%; block-size: 100%; object-fit: cover; opacity: 0; transition: opacity 500ms, transform 700ms var(--ease); }
+.spot-ph img { inline-size: 100%; block-size: 100%; object-fit: cover; opacity: 0; transition: opacity 500ms, transform 600ms var(--ease), scale 1400ms var(--ease-enter); }
 .spot-ph img.in { opacity: 1; }
-@media (hover: hover) { .spot:hover .spot-ph img { transform: scale(1.04); } }
+@media (hover: hover) and (pointer: fine) { .spot-ph:hover img.in { transform: scale(1.03); } }
 .spot-text { display: grid; gap: 0.875rem; justify-items: start; padding: 1.5rem 1.25rem 1.75rem; }
 @media (min-width: 760px) { .spot-text { padding: 2.5rem; } }
 .spot h2 { font-size: clamp(2rem, 7vw, 3.25rem); font-weight: var(--text-heading-1-weight); }
@@ -545,6 +554,68 @@ a.cart-name:hover { text-decoration: underline; }
 .sheet-ph img { inline-size: 100%; block-size: 100%; object-fit: cover; }
 .sheet-info { display: grid; gap: 0.25rem; align-content: start; }
 .sheet-info h2 { font-size: 1.25rem; }
+
+/* ——— Entrada de la portada (una vez al cargar) ———
+   Cada palabra del título sube desde su renglón (el recorte baja con ella, así nunca se ve fuera del renglón);
+   lo demás de la columna sube 12 px después; las fotos se asientan sin desaparecer. Unos 1.1 s en total. */
+/* Una palabra larga ("BRUNOSBURGUER") se achica para caber entera en el celular en vez de partirse. */
+.w { display: inline-block; max-inline-size: 100%; font-size: min(1em, calc((100vw - 5rem) / (var(--len, 1) * var(--wfit, 0.66)))); animation: word-up 700ms var(--ease-enter) var(--d, 0ms) backwards; }
+@keyframes word-up { from { transform: translateY(100%); clip-path: inset(0 0 100% 0); } to { clip-path: inset(-50%); } }
+.cover-text > :not(h1) { animation: fade-up 520ms var(--ease-enter) 380ms backwards; }
+.cover-text > .kicker { animation-delay: 0ms; }
+.cover-text > .cover-cta { animation-delay: 440ms; }
+.cat-banner > div > :not(h1) { animation: fade-up 520ms var(--ease-enter) 320ms backwards; }
+.cat-banner .tile-shots { animation: settle 900ms var(--ease-enter) backwards; }
+.info > :not(h1) { animation: fade-up 520ms var(--ease-enter) 320ms backwards; }
+.gallery img:first-child { animation: photo-in 1100ms var(--ease-enter) backwards; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } }
+@keyframes photo-in { from { transform: scale(1.05); } }
+
+/* ——— Momento: foto que se revela (una vez) ——— */
+.armed { filter: grayscale(1) contrast(0.55) brightness(1.32); }
+.armed img { scale: 1.06; }
+.armed.develop { filter: none; animation: develop 1600ms ease-out; }
+.armed.develop img { scale: 1; }
+@keyframes develop {
+  0% { filter: grayscale(1) contrast(0.55) brightness(1.32); }
+  45% { filter: grayscale(0.85) contrast(1.15) brightness(1.02); }
+  100% { filter: none; }
+}
+
+/* ——— Momento: capítulos (boutique) ———
+   Quieto: mosaico de categorías con foto. Vivo (.live): la sección mide una pantalla más 2/3 por capítulo y su
+   interior se queda pegado bajo el encabezado; las fotos se apilan y cada una sube desde abajo (--c, --z por JS). */
+.chap-in { display: grid; align-content: start; }
+.chap-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 1.5rem 1rem; list-style: none; }
+.chap { display: grid; gap: 0.625rem; align-content: start; }
+.chap-pic { display: block; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--radius-container); background: var(--color-background-muted); }
+.chap-pic img { inline-size: 100%; block-size: 100%; object-fit: cover; opacity: 0; transition: opacity 400ms; }
+.chap-pic img.in { opacity: 1; }
+.chap-words { display: grid; gap: 0.25rem; }
+.chap-n { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.chap-words h3 { font-size: clamp(1.5rem, 5vw, 2.25rem); }
+.chap-words h3 a { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; transition: text-decoration-color 150ms; }
+.chap-words h3 a:hover { text-decoration-color: currentColor; }
+.chap-words p { color: var(--color-text-secondary); }
+
+.chapters.live { block-size: calc(100svh + (var(--n) - 1) * 66svh); }
+.chapters.live .chap-in {
+  position: sticky; inset-block-start: var(--top, 0px); block-size: calc(100svh - var(--top, 0px));
+  grid-template-rows: auto minmax(0, 1fr); padding-block: 1rem;
+}
+.chapters.live .chap-list { position: relative; display: block; overflow: clip; border-radius: var(--radius-container); background: var(--color-background-muted); }
+.chapters.live .chap-pic { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; clip-path: inset(var(--c, 0%) 0 0 0); }
+.chapters.live .chap:not(:first-child) .chap-pic { --c: 100%; }
+.chapters.live .chap-pic img { scale: var(--z, 1); transform-origin: 50% 100%; }
+.chapters.live .chap-words {
+  position: absolute; z-index: 20; inset-inline-start: 1rem; inset-block-end: 1rem; inline-size: min(26rem, calc(100% - 2rem));
+  padding: 1.25rem 1.5rem; border-radius: var(--radius-container); background: var(--color-background-body); color: var(--color-text-primary);
+  opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity 220ms ease, transform 220ms ease;
+}
+.chapters.live .chap.on .chap-words, .chapters.live .chap-words:focus-within {
+  opacity: 1; transform: none; pointer-events: auto;
+  transition: opacity 420ms var(--ease-enter) 60ms, transform 520ms var(--ease-enter) 60ms;
+}
 
 /* Entrada escalonada; --i lo pone el componente. */
 @keyframes rise { from { opacity: 0; transform: translateY(0.75rem); } }
