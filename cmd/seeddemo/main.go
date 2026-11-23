@@ -189,7 +189,7 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, q *db.Queries, storeID 
 	for _, v := range vs {
 		combos[v.ProductID] = append(combos[v.ProductID], v)
 	}
-	rng := rand.New(rand.NewPCG(7, uint64(storeID))) // #nosec G404 -- datos de ejemplo
+	rng := rand.New(rand.NewPCG(7, uint64(storeID))) // #nosec G404 G115 -- datos de ejemplo; storeID es un id positivo
 	const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	for n := range 70 {
 		code := make([]byte, 6)

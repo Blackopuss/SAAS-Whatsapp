@@ -87,6 +87,7 @@ if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
   await page.getByLabel("Nombre").fill("Blusa lino");
   await page.getByRole("combobox", { name: "Categoría" }).click();
   await page.getByRole("option", { name: "Blusas" }).click();
+  await page.locator("[role=dialog]").waitFor({ state: "hidden" }); // en celular el selector es una hoja que tarda en cerrar
   await page.getByLabel("Descripción").fill("Blusa de lino fresco.\nIdeal para calor.");
   await page.getByRole("tab", { name: "Precio y existencias" }).click();
   await page.getByLabel("Precio por pieza").fill("289");
@@ -220,6 +221,76 @@ if (!code || orderStatus !== 204 || !(await card.count())) {
   }
 }
 await audit("ventas-resumen", `${BASE}/panel/ventas/resumen`);
+
+// Granel: "Churros" por kilo de 0.25 en 0.25 con 5 kg; se piden 0.5 kg, se vende y quedan 4.5 kg.
+await page.goto(`${BASE}/panel/`);
+const churros = page.getByRole("link", { name: "Churros", exact: true });
+await page.goto((await churros.count()) ? `${BASE}${await churros.first().getAttribute("href")}` : `${BASE}/panel/productos/nuevo`);
+if (!(await page.getByLabel("Nombre").inputValue())) await page.getByLabel("Nombre").fill("Churros");
+await page.getByRole("tab", { name: "Precio y existencias" }).click();
+await page.getByRole("combobox", { name: "Cómo se vende" }).click();
+await page.getByRole("option", { name: "Por kilo (kg)" }).click();
+// Al cerrar, la hoja del selector ignora lo que se escribe ~300 ms (animación); reintenta hasta que quede.
+const fillSure = async (label, value) => {
+  for (let i = 0; i < 20 && (await page.getByLabel(label).inputValue()) !== value; i++) {
+    await page.getByLabel(label).fill(value);
+    await page.waitForTimeout(100);
+  }
+};
+await fillSure("De cuánto en cuánto (kg)", "0.25");
+await fillSure("Precio por kg", "120");
+await fillSure("Existencia (kg)", "5");
+await page.getByRole("button", { name: "Guardar producto" }).click();
+await page.getByRole("status").filter({ hasText: "Producto guardado" }).waitFor({ timeout: 10_000 })
+  .catch(async (e) => { await page.screenshot({ path: "out/granel-error.png", fullPage: true }); throw e; });
+await page.goto(`${BASE}/panel/`);
+const churrosId = (await churros.first().getAttribute("href")).split("/").pop();
+await page.evaluate(() => localStorage.removeItem("carrito-2"));
+await page.goto(`${BASE}/p/${churrosId}`);
+await page.getByLabel("Cantidad (kg)").fill("0.5");
+await page.getByRole("button", { name: "Agregar al carrito" }).click();
+const waKg = page.getByRole("dialog", { name: "Tu carrito" }).getByRole("link", { name: "Enviar pedido por WhatsApp" });
+await waKg.waitFor();
+await page.waitForTimeout(400);
+await page.screenshot({ path: "out/carrito-granel.png" });
+const msgKg = decodeURIComponent((await waKg.getAttribute("href")).split("?text=")[1]);
+const codeKg = msgKg.match(/\(pedido ([A-Z0-9]{6})\)/)?.[1];
+if (!msgKg.includes("0.5 kg") || !msgKg.includes("Total: $60.00")) {
+  failed = true;
+  console.log(`  granel: mensaje sin "0.5 kg" o total distinto de $60:\n${msgKg}`);
+}
+const sentKg = page.waitForResponse((r) => r.url().endsWith("/pedido") && r.request().method() === "POST");
+await page.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: true }));
+await waKg.click();
+await sentKg;
+await page.goto(`${BASE}/panel/ventas`);
+await page.locator("article").filter({ has: page.getByRole("heading", { name: `Pedido ${codeKg}` }) }).getByRole("button", { name: "Marcar como vendido" }).click();
+await page.waitForURL(/estado=vendidos/);
+const left = await page.evaluate(async (id) => (await (await fetch("/carrito.json")).json())[id]?.s, churrosId); // Node no resuelve *.localhost
+if (left !== 4500) {
+  failed = true;
+  console.log(`  granel: tras vender 0.5 kg deberían quedar 4500 milésimas y quedan ${left}`);
+}
+console.log(`Granel: pedido ${codeKg} de 0.5 kg vendido; quedan ${left / 1000} kg`);
+await audit("tienda-producto-granel", `${BASE}/p/${churrosId}`, { auth: false, lighthouseRun: false });
+
+// Modo oscuro: mismo recorrido de axe con el sistema en oscuro (los temas cambian colores y contraste).
+const dark = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, locale: "es-MX", colorScheme: "dark" });
+await dark.addCookies(await ctx.cookies());
+const darkPage = await dark.newPage();
+for (const [name, url] of [["productos", "/panel/"], ["producto-editar", `/panel/productos/${churrosId}`], ["ventas", "/panel/ventas"], ["ventas-resumen", "/panel/ventas/resumen?periodo=3-meses"], ["tienda", "/"], ["tienda-producto", `/p/${churrosId}`]]) {
+  await darkPage.goto(`${BASE}${url}`);
+  await darkPage.waitForFunction(() => document.getElementById("root")?.childElementCount > 0, null, { timeout: 10_000 }).catch(() => {});
+  await darkPage.evaluate(() => Promise.race([Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))), new Promise((r) => setTimeout(r, 3000))]));
+  await darkPage.screenshot({ path: `out/oscuro-${name}.png`, fullPage: true });
+  const axe = await new AxeBuilder({ page: darkPage }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
+  for (const v of axe.violations) {
+    failed = true;
+    console.log(`  axe [oscuro-${name}] ${v.id}: ${v.help} ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3)}`);
+  }
+  results.push({ página: `oscuro-${name}`, axe: axe.violations.length });
+}
+await dark.close();
 
 // Estilos por giro: cada uno con su inicio y producto (contraste, foco y textos cambian con el CSS).
 const styles = { boutique: "Boutique", barberia: "Barbería", carniceria: "Carnicería", abarrotes: "Abarrotes", papeleria: "Papelería", vitrina: "Vitrina" };

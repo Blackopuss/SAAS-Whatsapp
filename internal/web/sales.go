@@ -156,7 +156,7 @@ func (a *app) orderLose(w http.ResponseWriter, r *http.Request) {
 		if o.Status != orderPending {
 			return errDecided
 		}
-		return q.SetOrderStatus(r.Context(), db.SetOrderStatusParams{Status: orderLost, Reason: int16(reason), StoreID: sid, ID: o.ID})
+		return q.SetOrderStatus(r.Context(), db.SetOrderStatusParams{Status: orderLost, Reason: int16(reason), StoreID: sid, ID: o.ID}) // #nosec G115 -- reason validado en 1..4 arriba
 	})
 	a.finish(w, r, err, "no-vendidos")
 }
