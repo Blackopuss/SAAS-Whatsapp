@@ -4,7 +4,7 @@
 import { chromium, devices } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
 import lighthouse from "lighthouse";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHmac } from "node:crypto";
 
 const BASE = process.env.BASE ?? "http://ana.localhost:8080";
@@ -304,13 +304,14 @@ for (const [id, label] of Object.entries(styles)) {
   await audit(`estilo-${id}-producto`, `${BASE}${prodURL}`, { auth: false });
 }
 
-// Superadmin (necesita ADMIN_TOTP: la clave que imprimió cmd/createadmin).
+// Superadmin (necesita ADMIN_TOTP: la clave que imprimió cmd/createadmin; si no, la toma de e2e/.admin-totp, que git ignora).
+const ADMIN_TOTP = process.env.ADMIN_TOTP ?? (existsSync(".admin-totp") ? readFileSync(".admin-totp", "utf8").trim() : "");
 const ADMIN = BASE.replace("ana.", "admin.");
-if (process.env.ADMIN_TOTP) {
+if (ADMIN_TOTP) {
   await page.goto(`${ADMIN}/login`);
   await page.getByLabel("Email").fill(process.env.ADMIN_EMAIL ?? "admin@demo.mx");
   await page.getByLabel("Contraseña").fill(process.env.ADMIN_PASS ?? "admin-dev-2026-largo");
-  await page.getByLabel("Código de tu app de autenticación").fill(totp(process.env.ADMIN_TOTP));
+  await page.getByLabel("Código de tu app de autenticación").fill(totp(ADMIN_TOTP));
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.waitForURL(`${ADMIN}/`);
   await audit("admin-tiendas", `${ADMIN}/`);

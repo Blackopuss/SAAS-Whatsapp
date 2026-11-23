@@ -1,6 +1,6 @@
 // Campos de Astryx para formularios nativos (method="post"): cada uno guarda su valor y lo envía con htmlName.
 // Así los handlers de Go, la protección CSRF y las redirecciones siguen igual que con templ.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { TextInput, type TextInputProps } from "@astryxdesign/core/TextInput";
 import { TextArea, type TextAreaProps } from "@astryxdesign/core/TextArea";
 import { CheckboxInput } from "@astryxdesign/core/CheckboxInput";
@@ -72,4 +72,17 @@ export function Form({ action, children, multipart, gap = 4 }: { action: string;
       <VStack gap={gap}>{children}</VStack>
     </form>
   );
+}
+
+// useWide: true en pantallas de tableta para arriba; en el celular la tabla se vuelve una lista de una columna.
+export function useWide() {
+  const mq = typeof matchMedia === "function" ? matchMedia("(min-width: 720px)") : null;
+  const [wide, setWide] = useState(mq?.matches ?? true);
+  useEffect(() => {
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
 }

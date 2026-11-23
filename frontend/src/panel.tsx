@@ -5,7 +5,7 @@ import { mount } from "./boot";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
 import { MessagesBody } from "./messages";
-import { Txt, Area, Check, Pick, Msg, PostButton, Form } from "./ui";
+import { Txt, Area, Check, Pick, Msg, PostButton, Form, useWide } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Link } from "@astryxdesign/core/Link";
@@ -167,19 +167,6 @@ function StockDialog({ p, onClose }: { p: ProductRow | null; onClose: () => void
       )}
     </Dialog>
   );
-}
-
-// useWide: true en pantallas de tableta para arriba; en el celular la tabla se vuelve una lista de una columna.
-function useWide() {
-  const mq = typeof matchMedia === "function" ? matchMedia("(min-width: 720px)") : null;
-  const [wide, setWide] = useState(mq?.matches ?? true);
-  useEffect(() => {
-    if (!mq) return;
-    const on = () => setWide(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return wide;
 }
 
 function Products({ products, categories, ...b }: Base & { products: ProductRow[]; categories: Opt[] }) {

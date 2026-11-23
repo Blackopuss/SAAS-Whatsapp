@@ -9,3 +9,4 @@ web/static/css/app.css
 /demo/
 node_modules/
 /web/static/app/
+/e2e/.admin-totp*

@@ -210,6 +210,25 @@ func (q *Queries) ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, er
 	return items, nil
 }
 
+const resetAdmin = `-- name: ResetAdmin :execrows
+UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0 WHERE email = $1
+`
+
+type ResetAdminParams struct {
+	Email        string
+	PasswordHash string
+	TotpSecret   []byte
+}
+
+// ResetAdmin: contraseña y clave TOTP nuevas para un admin que ya existe (conserva su historial).
+func (q *Queries) ResetAdmin(ctx context.Context, arg ResetAdminParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resetAdmin, arg.Email, arg.PasswordHash, arg.TotpSecret)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setUserPassword = `-- name: SetUserPassword :exec
 UPDATE users SET password_hash = $3, password_changed_at = now() WHERE store_id = $1 AND id = $2
 `

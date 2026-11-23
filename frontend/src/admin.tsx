@@ -4,7 +4,7 @@ import { Store, Plus, ScrollText, Copy } from "lucide-react";
 import { mount } from "./boot";
 import { neutralTheme } from "@astryxdesign/theme-neutral/built";
 import { Shell, AuthCard, type NavLink } from "./shell";
-import { Txt, Check, Pick, Msg, PostButton, Form } from "./ui";
+import { Txt, Check, Pick, Msg, PostButton, Form, useWide } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
 import { Table } from "@astryxdesign/core/Table";
 import { Link } from "@astryxdesign/core/Link";
@@ -63,6 +63,7 @@ const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCas
 function Stores({ stores }: { stores: StoreRow[] }) {
   const [q, setQ] = useState("");
   const [show, setShow] = useState("todas");
+  const wide = useWide();
   const active = stores.filter((s) => s.active).length;
   const late = stores.filter((s) => s.active && s.overdue).length;
   const rows = stores.filter((s) =>
@@ -88,7 +89,20 @@ function Stores({ stores }: { stores: StoreRow[] }) {
           idKey="id"
           hasHover
           emptyState={<EmptyState title="Aún no hay tiendas" description="Da de alta la primera para empezar." actions={<Button href="/tiendas/nueva" variant="primary" label="Dar de alta" />} />}
-          columns={[
+          columns={!wide ? [
+            { key: "name", header: "Tienda", renderCell: (s) => (
+              <VStack gap={1}>
+                <HStack gap={2} vAlign="center" wrap="wrap">
+                  <Link href={`/tiendas/${s.id}`} weight="semibold">{s.name}</Link>
+                  {s.founder && <Token label="Fundadora" color="purple" size="sm" />}
+                </HStack>
+                <HStack gap={2} vAlign="center">{status(s)}<Text type="supporting">{s.status}</Text></HStack>
+                <Text type="supporting" color={s.overdue ? "accent" : "secondary"} hasTabularNumbers>
+                  {`${s.paidUntil === "sin pagos" ? "Sin pagos" : `Pagado hasta ${s.paidUntil}`} · ${s.products} productos · ${s.orders} pedidos en 30 días`}
+                </Text>
+              </VStack>
+            ) },
+          ] : [
             { key: "name", header: "Tienda", renderCell: (s) => (
               <VStack gap={0.5}>
                 <Link href={`/tiendas/${s.id}`} weight="semibold">{s.name}</Link>
@@ -100,7 +114,7 @@ function Stores({ stores }: { stores: StoreRow[] }) {
             { key: "streak", header: "Racha", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.streak > 0 ? `${s.streak} m` : "—"}</Text> },
             { key: "products", header: "Productos", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.products}</Text> },
             { key: "orders", header: "Pedidos 30 días", align: "end", renderCell: (s) => <Text hasTabularNumbers>{s.orders}</Text> },
-            { key: "founder", header: "", renderCell: (s) => (s.founder ? <Token label="Fundadora" color="purple" size="sm" /> : null) },
+            { key: "founder", header: "Plan", renderCell: (s) => (s.founder ? <Token label="Fundadora" color="purple" size="sm" /> : null) },
           ]}
         />
       </Card>
@@ -175,7 +189,7 @@ function StoreDetail(v: StoreView) {
       <section hidden={tab !== "pagos"} id="t-pagos" role="tabpanel" aria-label="Pagos">
         <Card padding={0}>
           {v.payments.length === 0 ? (
-            <EmptyState title="Aún no hay pagos" isCompact headingLevel={3} actions={<Button label="Registrar pago" onClick={() => setPaying(true)} />} />
+            <EmptyState title="Aún no hay pagos" isCompact headingLevel={2} actions={<Button label="Registrar pago" onClick={() => setPaying(true)} />} />
           ) : (
             <List hasDividers>
               {v.payments.map((p, i) => (

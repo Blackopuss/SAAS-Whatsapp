@@ -1,6 +1,7 @@
 // createadmin da de alta un superadmin con 2FA TOTP.
 //
 //	go run ./cmd/createadmin -email yo@ejemplo.com < password.txt
+//	go run ./cmd/createadmin -reset -email yo@ejemplo.com < password.txt  (perdiste la clave: contraseña y clave nuevas)
 //
 // Necesita DATABASE_URL y TOTP_KEY. Imprime la clave para tu app de autenticación.
 package main
@@ -23,14 +24,15 @@ import (
 
 func main() {
 	email := flag.String("email", "", "email del superadmin")
+	reset := flag.Bool("reset", false, "cambiar contraseña y clave TOTP de un superadmin que ya existe")
 	flag.Parse()
-	if err := run(strings.ToLower(strings.TrimSpace(*email))); err != nil {
+	if err := run(strings.ToLower(strings.TrimSpace(*email)), *reset); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run(email string) error {
+func run(email string, reset bool) error {
 	key, err := hex.DecodeString(os.Getenv("TOTP_KEY"))
 	if err != nil || len(key) != 32 {
 		return fmt.Errorf("TOTP_KEY debe ser 64 caracteres hex (openssl rand -hex 32)")
@@ -63,10 +65,20 @@ func run(email string) error {
 		return err
 	}
 	defer func() { _ = conn.Close(ctx) }()
-	if _, err := db.New(conn).CreateAdmin(ctx, db.CreateAdminParams{Email: email, PasswordHash: hash, TotpSecret: sealed}); err != nil {
+	verb := "creado"
+	if reset {
+		n, err := db.New(conn).ResetAdmin(ctx, db.ResetAdminParams{Email: email, PasswordHash: hash, TotpSecret: sealed})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return fmt.Errorf("no existe el superadmin %s", email)
+		}
+		verb = "actualizado (la clave anterior ya no sirve)"
+	} else if _, err := db.New(conn).CreateAdmin(ctx, db.CreateAdminParams{Email: email, PasswordHash: hash, TotpSecret: sealed}); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "\nSuperadmin %s creado. Agrega esta clave en tu app de autenticación (Google Authenticator, 1Password...):\n\n", email)
+	fmt.Fprintf(os.Stderr, "\nSuperadmin %s %s. Agrega esta clave en tu app de autenticación (Google Authenticator, 1Password...):\n\n", email, verb)
 	fmt.Println(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret))
 	fmt.Fprintf(os.Stderr, "\nO como enlace: %s\n", auth.TOTPURI(secret, "Tiendas", email))
 	return nil

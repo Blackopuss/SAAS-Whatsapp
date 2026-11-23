@@ -79,6 +79,8 @@ type Querier interface {
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (int64, error)
 	// @ids es la lista completa en el nuevo orden.
 	ReorderCategories(ctx context.Context, arg ReorderCategoriesParams) error
+	// ResetAdmin: contraseña y clave TOTP nuevas para un admin que ya existe (conserva su historial).
+	ResetAdmin(ctx context.Context, arg ResetAdminParams) (int64, error)
 	ReturnProductStock(ctx context.Context, arg ReturnProductStockParams) error
 	ReturnVariantStock(ctx context.Context, arg ReturnVariantStockParams) error
 	SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVRow, error)

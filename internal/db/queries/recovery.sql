@@ -33,6 +33,10 @@ UPDATE admins SET last_totp_step = $2 WHERE id = $1 AND last_totp_step < $2;
 -- name: CreateAdmin :one
 INSERT INTO admins (email, password_hash, totp_secret) VALUES ($1, $2, $3) RETURNING id;
 
+-- ResetAdmin: contraseña y clave TOTP nuevas para un admin que ya existe (conserva su historial).
+-- name: ResetAdmin :execrows
+UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0 WHERE email = $1;
+
 -- name: ListStoresAdmin :many
 SELECT s.id, s.slug, s.name, s.status, s.created_at, sub.paid_until, sub.streak_months, sub.is_founder,
     (SELECT count(*) FROM products p WHERE p.store_id = s.id) AS products,

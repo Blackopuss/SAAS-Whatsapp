@@ -22,7 +22,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 
 - `docker compose up -d app` levanta Postgres 16 y el servidor con recarga en caliente (air en modo polling) en http://ana.localhost:8080. Se corre en Docker porque Windows Defender bloquea los binarios recién compilados. El servicio `web` compila `frontend/` una vez al arrancar; para editar el frontend en vivo corre `cd frontend && npm run watch` en Windows (el polling de Docker no ve los cambios).
 - `.env` (copia de `.env.example`) lo lee el contenedor; dentro de Docker la base se llama `db`.
-- Tiendas demo: `ana@demo.mx` / `demo-ana-2026`, `luz@demo.mx` / `demo-luz-2026`. Superadmin: http://admin.localhost:8080, `admin@demo.mx` / `admin-dev-2026-largo` + TOTP.
+- Tiendas demo: `ana@demo.mx` / `demo-ana-2026`, `luz@demo.mx` / `demo-luz-2026`. Superadmin: http://admin.localhost:8080, `admin@demo.mx` / `admin-dev-2026-largo` + TOTP. Su clave está en `e2e/.admin-totp` (y el enlace `otpauth://` en `e2e/.admin-totp-uri`), fuera de git; si se pierde: `go run ./cmd/createadmin -reset -email admin@demo.mx`.
 - `go run ./cmd/createstore`, `./cmd/createadmin` (imprime la clave TOTP), `./cmd/seeddemo -slug ana [-fotos carpeta]` (borra y llena 20 productos; usa R2 si hay variables).
 - Tests: `TEST_DATABASE_URL=postgres://tiendas_app:app_dev@localhost:5432/tiendas?sslmode=disable go test ./...`. `-race` solo en CI (necesita cgo).
 - Revisión móvil: `cd e2e && ADMIN_TOTP=<clave de createadmin> npm run check` (sin `ADMIN_TOTP` se salta el superadmin; con él pausa y reactiva a luz y espera 61 s por el caché). (Playwright 360 px + axe-core + Lighthouse; falla si axe encuentra algo o accesibilidad < 100). Capturas en `e2e/out/`. Rápido, sin Lighthouse: `cd e2e && node shots.mjs` (tienda a 360 px, axe, desborde lateral). Si Lighthouse falla con `Network.enable timed out`, quedó un Chrome viejo en el puerto 9333.
@@ -74,7 +74,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
 - Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
-- Superadmin nuevo (búsqueda, filtros, pestañas en el detalle) revisado solo con typecheck: falta correr e2e con `ADMIN_TOTP`.
+- La e2e escribe el WhatsApp de prueba en "Mi tienda" de ana en cada corrida (pisa el número que tenga).
 - El presupuesto de peso de la tienda (130 KB gzip: JS + `shop.css` + tema + la fuente más pesada; ~123 KB hoy) lo revisa `npm run budget` en CI. React solo ya son ~58 KB.
 - Fotos reales para la demo: `demo/fotos/` (fuera de git).
 
