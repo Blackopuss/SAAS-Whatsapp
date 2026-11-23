@@ -1,0 +1,31 @@
+{
+  "name": "carniceria",
+  "like": "neutral",
+  "mode": "light-only",
+  "settings": [
+    {
+      "thing": "font",
+      "value": "\"Alfa Slab\", Rockwell, serif",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "corners",
+      "value": "small",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#8e1b1b",
+      "source": "dial"
+    },
+    {
+      "thing": "headings",
+      "value": "regular",
+      "source": "dial",
+      "axis": "weight"
+    }
+  ],
+  "lifted": [],
+  "palette": "427bf0989bf7693c385781a874a47690d2c5f1942a8a4cf7d6425b1857804cb4"
+}

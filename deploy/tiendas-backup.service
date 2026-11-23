@@ -1,0 +1,16 @@
+[Unit]
+Description=Respaldo cifrado de PostgreSQL de Tiendas
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/tiendas/backup.env
+ExecStart=/opt/tiendas/current/deploy/backup.sh
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tiendas/backups

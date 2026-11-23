@@ -1,0 +1,30 @@
+[Unit]
+Description=Aplicación SaaS Tiendas
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=tiendas
+Group=tiendas
+WorkingDirectory=/opt/tiendas/current
+EnvironmentFile=/etc/tiendas/env
+ExecStartPre=!/bin/sh -ec 'export PGPASSFILE=/etc/tiendas/pgpass; exec /opt/tiendas/current/bin/goose -dir /opt/tiendas/current/migrations postgres "$$MIGRATIONS_URL" up'
+ExecStart=/opt/tiendas/current/bin/server
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

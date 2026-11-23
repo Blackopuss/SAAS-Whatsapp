@@ -1,0 +1,77 @@
+@import "../themes/boutique/boutique.css";
+
+/* Boutique: portada de revista y catálogo editorial. */
+:root .cover {
+  position: relative; grid-template-columns: minmax(0, 1fr); gap: 1rem;
+  padding-block: clamp(2.5rem, 9vw, 6rem) 1.5rem; border-block-end: 1px solid var(--color-border);
+}
+:root .cover::before { inline-size: 5rem; aspect-ratio: 1; inset: auto 0 1rem auto; opacity: 0.12; }
+:root .cover-text { max-inline-size: 54rem; }
+:root .cover h1 {
+  max-inline-size: 12ch; font-size: clamp(3.25rem, 15vw, 8rem); line-height: 0.88;
+  letter-spacing: -0.055em; overflow-wrap: anywhere;
+}
+:root .cover .kicker { letter-spacing: 0.16em; text-transform: uppercase; }
+:root .cover-sub { max-inline-size: 34rem; color: var(--color-text-secondary); font-size: clamp(1rem, 2vw, 1.2rem); }
+:root .cover-cta { gap: 0.75rem; }
+:root .collage { min-block-size: 15rem; }
+:root .shot { border: 1px solid var(--color-border); border-radius: var(--radius-element); box-shadow: var(--shadow-low); }
+:root .shot .ptag { border-radius: 2px; box-shadow: none; border: 1px solid var(--color-border-emphasized); }
+
+:root .steps-band { border-block: 1px solid var(--color-border); padding-block: 1rem; }
+:root .steps-band li { border: 0; border-inline-start: 1px solid var(--color-border); border-radius: 0; padding: 0.5rem 0.75rem; }
+:root .step-n { inline-size: 2.25rem; block-size: 2.25rem; border-radius: var(--radius-element); }
+
+:root .tiles { gap: 0.75rem; }
+:root .tile { min-block-size: 9rem; border: 1px solid var(--color-border); border-radius: var(--radius-element); }
+:root .tile.t0, :root .tile.t2 { background: var(--color-text-primary); color: var(--color-background-body); }
+:root .tile.t1, :root .tile.t3 { background: var(--color-background-muted); color: var(--color-text-primary); }
+:root .tile.t0 :is(strong, span), :root .tile.t2 :is(strong, span) { color: inherit; }
+:root .tile-shots { opacity: 0.86; }
+:root .tshot { border-radius: 2px; box-shadow: none; }
+
+:root .spot { border: 1px solid var(--color-border); border-radius: var(--radius-element); }
+:root .spot-text { padding: clamp(1.25rem, 4vw, 3rem); }
+:root .spot :is(h2, p) { color: inherit; }
+:root .spot .muted, :root .spot .kicker { color: var(--color-text-primary); }
+
+:root .rail { gap: 1rem; }
+:root .pcard .card { border-radius: 0; }
+:root .pcard .ph { aspect-ratio: 4 / 5; border-radius: 2px; background-color: var(--color-background-muted); }
+:root .pcard .ph img { transition: opacity 400ms var(--ease); }
+:root .pcard .card-body { gap: 0.25rem; padding-block: 0.25rem 0.5rem; }
+:root .pcard .card-name { font-family: var(--font-family-heading); font-size: 1.125rem; line-height: 1.15; }
+:root .pcard .sizes { gap: 0.25rem 0.625rem; }
+:root .pcard .sizes i { min-inline-size: 0; padding: 0; border: 0; border-radius: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
+:root .pcard .ptag {
+  border-radius: 2px; border: 1px solid var(--color-border-emphasized); box-shadow: none;
+  padding: 0.25rem 0.5rem; background: var(--color-background-body); color: var(--color-text-primary);
+}
+:root .pcard .ptag.sale { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+:root .pcard .ptag.sold { background: var(--color-text-primary); color: var(--color-background-body); }
+:root .pcard .ptag-off { background: var(--color-on-accent); color: var(--color-accent); }
+:root .quick { inline-size: 2.75rem; block-size: 2.75rem; border: 1px solid var(--color-border-emphasized); box-shadow: none; }
+:root .pcard:focus-within .ph { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+:root .closing :is(h2, h3, p) { color: inherit; }
+:root .cat-banner :is(h1, h2, h3, p) { color: inherit; }
+
+@media (min-width: 640px) {
+  :root .cover { grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr); align-items: center; }
+  :root .cover h1 { font-size: clamp(4rem, 9vw, 8rem); }
+  :root .all .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.25rem 1.25rem; }
+  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
+  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 8 / 5; }
+}
+@media (min-width: 1000px) {
+  :root .all .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
+  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 8 / 5; }
+}
+@media (max-width: 639px) {
+  :root .all .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 0.75rem; }
+  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
+  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 4 / 5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .shot, :root .tile, :root .pcard, :root .pcard .ph img { animation: none; transition: none; }
+}

@@ -9,12 +9,15 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/auth"
 	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
 )
 
+// fakeQ implementa solo lo que usan los tests de auth; el resto de db.Querier entra en pánico si se llama.
 type fakeQ struct {
+	db.Querier
 	stores map[string]db.Store
 	users  map[db.GetUserForLoginParams]db.GetUserForLoginRow
 }
@@ -25,7 +28,7 @@ func newFakeQ() *fakeQ {
 		panic(err)
 	}
 	return &fakeQ{
-		stores: map[string]db.Store{"ana": {ID: 1, Slug: "ana", Name: "Ana Moda"}, "luz": {ID: 2, Slug: "luz", Name: "Paca Luz"}},
+		stores: map[string]db.Store{"ana": {ID: 1, Slug: "ana", Name: "Ana Moda", Status: "active"}, "luz": {ID: 2, Slug: "luz", Name: "Paca Luz", Status: "active"}},
 		users: map[db.GetUserForLoginParams]db.GetUserForLoginRow{
 			{StoreID: 1, Email: "ana@x.mx"}: {ID: 10, StoreID: 1, PasswordHash: hash},
 			{StoreID: 2, Email: "luz@x.mx"}: {ID: 20, StoreID: 2, PasswordHash: hash},
@@ -158,4 +161,30 @@ func TestCSRFCrossOriginRejected(t *testing.T) {
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("POST cross-site: status %d", rec.Code)
 	}
+}
+
+func (f *fakeQ) ListProducts(context.Context, int64) ([]db.Product, error) { return nil, nil }
+
+func (f *fakeQ) ListPanelProducts(context.Context, int64) ([]db.ListPanelProductsRow, error) {
+	return nil, nil
+}
+
+func (f *fakeQ) ListAllVariants(context.Context, int64) ([]db.ListAllVariantsRow, error) {
+	return nil, nil
+}
+
+func (f *fakeQ) CountPendingOrders(context.Context, int64) (int64, error) { return 0, nil }
+
+func (f *fakeQ) GetUserPasswordChangedAt(context.Context, db.GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error) {
+	return pgtype.Timestamptz{Valid: true}, nil
+}
+
+func (f *fakeQ) ListCategories(context.Context, int64) ([]db.Category, error) { return nil, nil }
+
+func (f *fakeQ) ListStoreProducts(context.Context, int64) ([]db.ListStoreProductsRow, error) {
+	return nil, nil
+}
+
+func (f *fakeQ) GetSubscription(context.Context, int64) (db.Subscription, error) {
+	return db.Subscription{}, pgx.ErrNoRows
 }

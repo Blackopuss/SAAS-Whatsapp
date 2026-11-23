@@ -48,18 +48,34 @@ jobs:
           # La app no debe poder crear tablas.
           ! PGPASSWORD=app_dev psql -h localhost -U tiendas_app -d tiendas -c "CREATE TABLE x(id int)"
 
-      - name: Tests
+      - name: Tests (incluye aislamiento entre tiendas contra Postgres real)
+        env:
+          TEST_DATABASE_URL: postgres://tiendas_app:app_dev@localhost:5432/tiendas?sslmode=disable
         run: go test -race ./...
 
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Interfaz (tipos, compilación y presupuesto de peso de la tienda, 130 KB)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npm run budget
+
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
       - name: gosec
-        run: go run github.com/securego/gosec/v2/cmd/gosec@latest ./...
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest -exclude-generated ./...
 
       - uses: gitleaks/gitleaks-action@v2
         env:

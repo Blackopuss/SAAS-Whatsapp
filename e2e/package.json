@@ -1,0 +1,14 @@
+{
+  "name": "tiendas-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Revisión de pantallas en móvil: capturas, axe-core y Lighthouse. Solo herramienta de desarrollo, no se sirve al público.",
+  "scripts": {
+    "check": "node check.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "lighthouse": "13.6.0",
+    "playwright": "1.65.1"
+  }
+}

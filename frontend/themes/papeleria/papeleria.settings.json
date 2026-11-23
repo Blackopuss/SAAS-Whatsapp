@@ -1,0 +1,37 @@
+{
+  "name": "papeleria",
+  "like": "neutral",
+  "mode": "light-only",
+  "settings": [
+    {
+      "thing": "font",
+      "value": "Fredoka, system-ui, sans-serif",
+      "source": "dial",
+      "on": "heading"
+    },
+    {
+      "thing": "corners",
+      "value": "24px",
+      "source": "dial"
+    },
+    {
+      "thing": "accent",
+      "value": "#244c86",
+      "source": "dial"
+    },
+    {
+      "thing": "headings",
+      "value": "semibold",
+      "source": "dial",
+      "axis": "weight"
+    },
+    {
+      "thing": "headings",
+      "value": "tight",
+      "source": "dial",
+      "axis": "tracking"
+    }
+  ],
+  "lifted": [],
+  "palette": "f24b355d44783045f1c9fd855dc38380486e83b779a1e3a88a38d6ab87332ab6"
+}

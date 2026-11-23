@@ -1,0 +1,19 @@
+{
+  "recipe": "astryx-oklch-v2",
+  "modeStrategy": "light-and-dark",
+  "families": [
+    {
+      "id": "accent",
+      "name": "Accent",
+      "seed": "#285b35",
+      "anchors": [
+        {
+          "mode": "light",
+          "stop": 35,
+          "color": "#285b35",
+          "policy": "exact"
+        }
+      ]
+    }
+  ]
+}

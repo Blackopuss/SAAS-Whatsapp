@@ -1,0 +1,45 @@
+@import "../themes/barberia/barberia.css";
+
+/* ——— Barbería: cartel de barbería, poste a rayas y estaciones numeradas ———
+   Tema oscuro. Reglas con :root para ganarle a shop.css. */
+
+:root { --pole: repeating-linear-gradient(135deg, var(--color-accent) 0 0.75rem, var(--color-text-primary) 0.75rem 1.5rem, var(--color-background-body) 1.5rem 2.25rem); }
+
+/* Portada tipo cartel: centrada, letras altas y franjas del poste arriba y abajo. */
+:root .cover {
+  justify-items: center; text-align: center; background: var(--color-background-muted);
+  border-block: 0.75rem solid transparent; border-image: var(--pole) 1;
+}
+:root .cover::before { display: none; }
+:root .cover-text { justify-items: center; }
+:root .cover h1 { text-transform: uppercase; letter-spacing: 0.02em; font-size: clamp(2.75rem, 14vw, 6.5rem); }
+:root .cover .kicker { letter-spacing: 0.3em; }
+:root .cover-cta { justify-content: center; }
+@media (min-width: 900px) { :root .cover { grid-template-columns: 1fr; min-block-size: 0; } }
+:root .collage { max-inline-size: 30rem; }
+
+/* Pasos con número en recuadro, sin redondeos. */
+:root .steps-band li { border-color: var(--color-border-emphasized); border-radius: 0; }
+:root .step-n { border-radius: 0; background: none; color: var(--color-accent); border: 2px solid currentColor; }
+
+/* Estaciones: número grande, raya de poste entre una y otra. */
+:root .aisles { gap: 0; }
+:root .aisle { padding-block: 1.75rem; }
+:root .aisle + .aisle { border-block-start: 0.375rem solid transparent; border-image: var(--pole) 1; }
+:root .aisle .kicker { font-family: var(--font-family-heading); font-size: 1rem; letter-spacing: 0.2em; color: var(--color-text-primary); }
+:root .aisle-title { font-size: clamp(2rem, 9vw, 3rem); text-transform: uppercase; line-height: 1; margin: 0; }
+
+/* Tarjeta como etiqueta de frasco: foto cuadrada y nombre dentro de un marco doble. */
+:root .ph { aspect-ratio: 1; border-radius: 0; }
+:root .card-body {
+  padding: 0.5rem 0.625rem; text-align: center; border: 3px double var(--color-border-emphasized);
+  text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.875rem;
+}
+:root .sizes { justify-content: center; }
+:root .ptag { border-radius: 0; }
+:root .quick { border-radius: 0; }
+
+/* Destacado como cartel en caja. */
+:root .spot { border: 3px double var(--color-border-emphasized); border-radius: 0; }
+
+:root .closing { border-radius: 0; border-block: 0.75rem solid transparent; border-image: var(--pole) 1; }

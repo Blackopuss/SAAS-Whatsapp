@@ -7,10 +7,14 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createStore = `-- name: CreateStore :one
-INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at
+WITH s AS (INSERT INTO stores (slug, name) VALUES ($1, $2) RETURNING id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info, style),
+     sub AS (INSERT INTO subscriptions (store_id) SELECT id FROM s)
+SELECT id, slug, name, whatsapp, template, brand_color, status, created_at, brand_color_raw, logo_key, logo_widths, faq, payment_info, style FROM s
 `
 
 type CreateStoreParams struct {
@@ -18,9 +22,27 @@ type CreateStoreParams struct {
 	Name string
 }
 
-func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store, error) {
+type CreateStoreRow struct {
+	ID            int64
+	Slug          string
+	Name          string
+	Whatsapp      string
+	Template      string
+	BrandColor    string
+	Status        string
+	CreatedAt     pgtype.Timestamptz
+	BrandColorRaw string
+	LogoKey       string
+	LogoWidths    []int32
+	Faq           string
+	PaymentInfo   string
+	Style         string
+}
+
+// Toda tienda nace con su suscripción (sin pagar aún), así ningún JOIN la pierde.
+func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (CreateStoreRow, error) {
 	row := q.db.QueryRow(ctx, createStore, arg.Slug, arg.Name)
-	var i Store
+	var i CreateStoreRow
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -30,6 +52,12 @@ func (q *Queries) CreateStore(ctx context.Context, arg CreateStoreParams) (Store
 		&i.BrandColor,
 		&i.Status,
 		&i.CreatedAt,
+		&i.BrandColorRaw,
+		&i.LogoKey,
+		&i.LogoWidths,
+		&i.Faq,
+		&i.PaymentInfo,
+		&i.Style,
 	)
 	return i, err
 }

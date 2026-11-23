@@ -1,26 +1,35 @@
 package views
 
-templ page(title string) {
+type pageData struct {
+	Page string `json:"page"`
+	Data any    `json:"data"`
+}
+
+// reactPage es el único HTML que sale del servidor: <head> (SEO, Open Graph, CSP) y los datos de la página.
+// React (Astryx) pinta todo lo demás desde /static/app/{entry}.js. children va dentro de <head>.
+// description vacía = página privada (panel, superadmin), que no se indexa.
+templ reactPage(title, description, entry, page string, data any) {
 	<!DOCTYPE html>
 	<html lang="es-MX">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="robots" content="noindex"/>
+			if description == "" {
+				<meta name="robots" content="noindex"/>
+			} else {
+				<meta name="description" content={ description }/>
+			}
 			<title>{ title }</title>
-			<link rel="stylesheet" href="/static/css/app.css"/>
-		</head>
-		<body class="min-h-dvh bg-stone-50 text-stone-900 font-sans text-base antialiased">
+			<link rel="stylesheet" href="/static/app/styles.css"/>
+			<link rel="modulepreload" href={ "/static/app/" + entry + ".js" }/>
 			{ children... }
+		</head>
+		<body>
+			<div id="root"></div>
+			<noscript><p>Activa JavaScript para usar esta página.</p></noscript>
+			// Sin nonce: es JSON (no se ejecuta) y así la respuesta no cambia entre peticiones iguales.
+			@templ.JSONScript("page-data", pageData{Page: page, Data: data}).WithNonceFromString("")
+			<script type="module" src={ "/static/app/" + entry + ".js" }></script>
 		</body>
 	</html>
-}
-
-templ StoreHome(name string) {
-	@page(name) {
-		<main class="mx-auto max-w-xl p-4">
-			<h1 class="text-3xl font-extrabold tracking-tight">{ name }</h1>
-			<p class="mt-2 text-stone-600">El catálogo llega en el sprint 3.</p>
-		</main>
-	}
 }

@@ -8,12 +8,77 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Admin struct {
+	ID           int64
+	Email        string
+	PasswordHash string
+	TotpSecret   []byte
+	LastTotpStep int64
+	CreatedAt    pgtype.Timestamptz
+}
+
+type AdminAudit struct {
+	ID        int64
+	AdminID   pgtype.Int8
+	StoreID   pgtype.Int8
+	Action    string
+	Detail    string
+	CreatedAt pgtype.Timestamptz
+}
+
 type Category struct {
 	ID        int64
 	StoreID   int64
 	Name      string
 	Position  int32
 	CreatedAt pgtype.Timestamptz
+}
+
+type Order struct {
+	ID         int64
+	StoreID    int64
+	Code       string
+	Status     int16
+	Reason     int16
+	TotalCents int32
+	CreatedAt  pgtype.Timestamptz
+	DecidedAt  pgtype.Timestamptz
+}
+
+type OrderItem struct {
+	ID         int64
+	StoreID    int64
+	OrderID    int64
+	ProductID  pgtype.Int8
+	Name       string
+	Category   string
+	Size       string
+	Color      string
+	Unit       string
+	Qty        int32
+	PriceCents int32
+}
+
+type PasswordReset struct {
+	TokenHash []byte
+	StoreID   int64
+	UserID    int64
+	ExpiresAt pgtype.Timestamptz
+	UsedAt    pgtype.Timestamptz
+}
+
+type Payment struct {
+	ID            int64
+	StoreID       int64
+	AmountCents   int32
+	Months        int32
+	PaidOn        pgtype.Date
+	Note          string
+	OnTime        bool
+	PrevPaidUntil pgtype.Date
+	NewPaidUntil  pgtype.Date
+	AdminID       pgtype.Int8
+	CreatedAt     pgtype.Timestamptz
 }
 
 type Product struct {
@@ -30,6 +95,9 @@ type Product struct {
 	OnSale         bool
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+	Unit           string
+	Step           int32
+	Stock          pgtype.Int4
 }
 
 type ProductImage struct {
@@ -40,6 +108,7 @@ type ProductImage struct {
 	Position      int32
 	DominantColor string
 	CreatedAt     pgtype.Timestamptz
+	Widths        []int32
 }
 
 type ProductVariant struct {
@@ -49,6 +118,7 @@ type ProductVariant struct {
 	Size      string
 	Color     string
 	SoldOut   bool
+	Stock     pgtype.Int4
 }
 
 type Session struct {
@@ -58,20 +128,35 @@ type Session struct {
 }
 
 type Store struct {
-	ID         int64
-	Slug       string
-	Name       string
-	Whatsapp   string
-	Template   string
-	BrandColor string
-	Status     string
-	CreatedAt  pgtype.Timestamptz
+	ID            int64
+	Slug          string
+	Name          string
+	Whatsapp      string
+	Template      string
+	BrandColor    string
+	Status        string
+	CreatedAt     pgtype.Timestamptz
+	BrandColorRaw string
+	LogoKey       string
+	LogoWidths    []int32
+	Faq           string
+	PaymentInfo   string
+	Style         string
+}
+
+type Subscription struct {
+	StoreID      int64
+	PaidUntil    pgtype.Date
+	StreakMonths int32
+	IsFounder    bool
+	PriceCents   int32
 }
 
 type User struct {
-	ID           int64
-	StoreID      int64
-	Email        string
-	PasswordHash string
-	CreatedAt    pgtype.Timestamptz
+	ID                int64
+	StoreID           int64
+	Email             string
+	PasswordHash      string
+	CreatedAt         pgtype.Timestamptz
+	PasswordChangedAt pgtype.Timestamptz
 }

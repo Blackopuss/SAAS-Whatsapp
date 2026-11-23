@@ -9,6 +9,14 @@ package views
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import (
+	"context"
+	"strconv"
+
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+)
+
+// Las páginas del panel de la vendedora las pinta frontend/src/panel.tsx; aquí solo se arman sus datos.
 func Login(store, email, errMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -26,94 +34,7 @@ func Login(store, email, errMsg string) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"mx-auto flex min-h-dvh max-w-sm flex-col justify-center p-4\"><h1 class=\"text-2xl font-bold\">Entrar a tu panel</h1><p class=\"mt-1 text-stone-600\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(store)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/panel.templ`, Line: 7, Col: 41}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</p><form method=\"post\" action=\"/panel/login\" class=\"mt-6 flex flex-col gap-4\" novalidate>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if errMsg != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<p role=\"alert\" class=\"rounded-md border border-red-300 bg-red-50 p-3 text-red-800\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/panel.templ`, Line: 10, Col: 97}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</p>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"flex flex-col gap-1\"><label for=\"email\" class=\"font-medium\">Email</label> <input id=\"email\" name=\"email\" type=\"email\" value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression(email).Resolve(ctx)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/panel.templ`, Line: 14, Col: 62}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" autocomplete=\"username\" required")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if email == "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " autofocus")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " class=\"min-h-12 rounded-md border border-stone-400 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900\"></div><div class=\"flex flex-col gap-1\"><label for=\"password\" class=\"font-medium\">Contraseña</label> <input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if email != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " autofocus")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " class=\"min-h-12 rounded-md border border-stone-400 bg-white px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900\"></div><button type=\"submit\" class=\"min-h-12 rounded-md bg-stone-900 px-4 font-semibold text-white hover:bg-stone-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900\">Entrar</button></form></main>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = page("Entrar · "+store).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = reactPage("Entrar · "+store, "", "panel", "login", map[string]string{"store": store, "email": email, "error": errMsg}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -121,7 +42,50 @@ func Login(store, email, errMsg string) templ.Component {
 	})
 }
 
-func PanelHome(store string) templ.Component {
+// panelData agrega lo que toda página del panel necesita: nombre de la tienda y aviso de cobro.
+func panelData(ctx context.Context, store string, data map[string]any) map[string]any {
+	data["store"] = store
+	data["notice"] = noticeFrom(ctx)
+	data["pending"], _ = ctx.Value(pendingKey{}).(int64)
+	return data
+}
+
+func money(cents int32) string {
+	s := strconv.FormatInt(int64(cents)/100, 10)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	if c := cents % 100; c != 0 {
+		return "$" + s + "." + strconv.FormatInt(int64(c)+100, 10)[1:]
+	}
+	return "$" + s
+}
+
+func idStr(id int64) string { return strconv.FormatInt(id, 10) }
+
+type StockRow struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	Stock string `json:"stock"`
+}
+
+type ProductRow struct {
+	ID       int64      `json:"id"`
+	Name     string     `json:"name"`
+	Category string     `json:"category"`
+	Thumb    string     `json:"thumb"`
+	Price    string     `json:"price"`
+	Was      string     `json:"was"` // precio normal tachado cuando está en oferta
+	Active   bool       `json:"active"`
+	SoldOut  bool       `json:"soldOut"`
+	IsNew    bool       `json:"isNew"`
+	Unit     string     `json:"unit"`
+	Stock    string     `json:"stock"`  // vacío = no lleva inventario
+	Low      bool       `json:"low"`    // 3 pasos o menos
+	Combos   []StockRow `json:"combos"` // existencia por talla/color, para ajustarla desde la lista
+}
+
+func Products(store string, rows []ProductRow, cats []db.Category) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -138,43 +102,313 @@ func PanelHome(store string) templ.Component {
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var7 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<main class=\"mx-auto max-w-xl p-4\"><div class=\"flex items-center justify-between gap-4\"><h1 class=\"text-2xl font-bold\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(store)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/panel.templ`, Line: 30, Col: 42}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</h1><form method=\"post\" action=\"/panel/logout\"><button type=\"submit\" class=\"min-h-11 rounded-md border border-stone-400 px-4 font-medium hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900\">Salir</button></form></div><p class=\"mt-4 text-stone-600\">Aquí vas a dar de alta tus productos (sprint 2).</p></main>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = page("Panel · "+store).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = reactPage("Productos · "+store, "", "panel", "products", panelData(ctx, store, map[string]any{"products": rows, "categories": categoryOptions(cats)})).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+type option struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+func categoryOptions(cats []db.Category) []option {
+	out := make([]option, 0, len(cats))
+	for _, c := range cats {
+		out = append(out, option{idStr(c.ID), c.Name})
+	}
+	return out
+}
+
+func Categories(store string, cats []db.Category, errMsg string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Categorías · "+store, "", "panel", "categories", panelData(ctx, store, map[string]any{"categories": categoryOptions(cats), "error": errMsg})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type VariantRow struct {
+	Key, Label string
+	SoldOut    bool
+	Stock      string
+}
+
+type ProductForm struct {
+	ID                                  int64
+	Name, Description, Price, SalePrice string
+	CategoryID                          int64
+	Sizes, Colors                       string
+	Variants                            []VariantRow
+	Unit, Step, Stock                   string
+	Track, OnSale, IsNew, SoldOut       bool
+	Error                               string
+	Field                               string // campo con error, para abrir su pestaña
+	Saved                               bool
+	Photos                              []Photo
+	PhotoOK                             bool
+	PhotoError                          string
+}
+
+// Photo: srcset ya armados por el handler.
+type Photo struct {
+	ID          int64
+	Src, SrcSet string
+	OG          string // JPG para og:image
+}
+
+func productEditData(ctx context.Context, store string, cats []db.Category, f ProductForm) map[string]any {
+	cat := ""
+	if f.CategoryID != 0 {
+		cat = idStr(f.CategoryID)
+	}
+	return panelData(ctx, store, map[string]any{"form": f, "category": cat, "categories": categoryOptions(cats)})
+}
+
+func ProductEdit(store string, cats []db.Category, f ProductForm) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage(map[bool]string{true: "Nuevo producto", false: "Editar producto"}[f.ID == 0]+" · "+store, "", "panel", "productEdit", productEditData(ctx, store, cats, f)).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type StoreForm struct {
+	Name, ShopURL, Whatsapp string
+	Color, Applied          string // Color: el que eligió; Applied: el que se usa (ajustado)
+	FAQ, Payment            string
+	Style                   string
+	Logo                    Photo
+	Error, LogoError        string
+	Saved, Adjusted, LogoOK bool
+}
+
+func myStoreData(ctx context.Context, f StoreForm) map[string]any {
+	f.Style = StyleByID(f.Style).ID
+	adjusted := f.Adjusted && isHex(f.Color) && isHex(f.Applied)
+	return panelData(ctx, f.Name, map[string]any{"form": f, "adjusted": adjusted, "styles": Styles})
+}
+
+func MyStore(f StoreForm) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Mi tienda · "+f.Name, "", "panel", "myStore", myStoreData(ctx, f)).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type noticeKey struct{}
+
+// WithNotice guarda el aviso de cobro para que lo pinte cualquier página del panel.
+func WithNotice(ctx context.Context, msg string) context.Context {
+	return context.WithValue(ctx, noticeKey{}, msg)
+}
+
+func noticeFrom(ctx context.Context) string {
+	s, _ := ctx.Value(noticeKey{}).(string)
+	return s
+}
+
+func Messages(store, shopURL, payment string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Mensajes · "+store, "", "panel", "messages", panelData(ctx, store, map[string]any{"shopURL": shopURL, "payment": payment})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type Choice struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+type OrderItem struct {
+	ID      int64  `json:"id"`
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	Qty     string `json:"qty"`
+	Step    string `json:"step"`
+	Unit    string `json:"unit"`
+	Price   string `json:"price"`
+	Line    string `json:"line"`
+	Stock   string `json:"stock"` // vacío = no lleva inventario
+	Short   bool   `json:"short"` // no alcanza la existencia actual
+}
+
+type OrderView struct {
+	ID      int64       `json:"id"`
+	Code    string      `json:"code"`
+	Created string      `json:"created"`
+	Total   string      `json:"total"`
+	Reason  string      `json:"reason"`
+	Items   []OrderItem `json:"items"`
+}
+
+func Sales(store, tab string, orders []OrderView, errMsg string, focus int64) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Ventas · "+store, "", "panel", "sales", panelData(ctx, store, map[string]any{"tab": tab, "orders": orders, "error": errMsg, "focus": focus})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type ReasonRow struct {
+	Label  string `json:"label"`
+	Orders int32  `json:"orders"`
+	Cents  int64  `json:"cents"`
+}
+
+type SeriesPoint struct {
+	Label string `json:"label"`
+	Sold  int64  `json:"sold"`
+	Lost  int64  `json:"lost"`
+}
+
+type ItemRow struct {
+	ID      int64  `json:"id,omitempty"`
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	Qty     string `json:"qty"`
+	Unit    string `json:"unit"`
+	Cents   int64  `json:"cents"`
+}
+
+type SalesSummary struct {
+	Period     string        `json:"period"`
+	Periods    []Choice      `json:"periods"`
+	Revenue    int64         `json:"revenue"`
+	LostCents  int64         `json:"lostCents"`
+	Ticket     int64         `json:"ticket"`
+	Sold       int32         `json:"sold"`
+	Lost       int32         `json:"lost"`
+	Pending    int32         `json:"pending"`
+	Conversion int32         `json:"conversion"` // % de pedidos decididos que se vendieron
+	Series     []SeriesPoint `json:"series"`
+	Top        []ItemRow     `json:"top"`
+	TopLost    []ItemRow     `json:"topLost"`
+	Categories []ItemRow     `json:"categories"`
+	Reasons    []ReasonRow   `json:"reasons"`
+	LowStock   []ItemRow     `json:"lowStock"`
+}
+
+func SalesSummaryPage(store string, v SalesSummary) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Resumen de ventas · "+store, "", "panel", "salesSummary", panelData(ctx, store, map[string]any{"summary": v})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+type pendingKey struct{}
+
+// WithPending guarda cuántos pedidos esperan respuesta, para el número junto a "Ventas".
+func WithPending(ctx context.Context, n int64) context.Context {
+	return context.WithValue(ctx, pendingKey{}, n)
 }
 
 var _ = templruntime.GeneratedTemplate

@@ -24,10 +24,12 @@ services:
       - sh
       - -c
       - |
-        test -x /usr/local/bin/tailwindcss || { curl -sSL -o /usr/local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.5/tailwindcss-linux-x64 && chmod +x /usr/local/bin/tailwindcss; }
         go tool goose -dir migrations postgres "$$MIGRATIONS_URL" up
         exec go tool air
-    environment:
+    env_file:
+      - path: .env
+        required: false
+    environment: # pisa lo que venga de .env: dentro de Docker la base se llama "db"
       APP_ENV: dev
       ADDR: ":8080"
       BASE_DOMAIN: localhost
@@ -42,8 +44,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      web:
+        condition: service_completed_successfully
+
+  # Interfaz: compila frontend/ a web/static/app/ una vez al levantar. Para editar en caliente corre
+  # `cd frontend && npm run watch` en Windows: el sondeo desde Docker no ve los cambios del disco de Windows.
+  # node_modules vive en un volumen porque rolldown trae binarios nativos y los de Windows no corren en Linux.
+  web:
+    image: node:24-alpine
+    working_dir: /src/frontend
+    command: sh -c "npm ci && npm run build"
+    volumes:
+      - .:/src
+      - webmodules:/src/frontend/node_modules
 
 volumes:
+  webmodules:
   pgdata:
   gomod:
   gobuild:

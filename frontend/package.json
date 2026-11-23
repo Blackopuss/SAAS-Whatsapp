@@ -1,0 +1,27 @@
+{
+  "name": "tiendas-web",
+  "private": true,
+  "type": "module",
+  "description": "Interfaz React + Astryx de panel, superadmin y tienda. Se compila a web/static/app.",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "budget": "node scripts/budget.mjs"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "0.7.17",
+    "@astryxdesign/theme-neutral": "0.7.17",
+    "@stylexjs/stylex": "^0.19.2",
+    "lucide-react": "^1.77.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "@astryxdesign/cli": "0.7.17"
+  }
+}

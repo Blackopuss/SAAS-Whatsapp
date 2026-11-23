@@ -1,0 +1,283 @@
+package views
+
+import (
+	"net/url"
+	"strings"
+
+	"github.com/Blackopuss/SAAS-Whatsapp/internal/db"
+)
+
+// La tienda pública la pinta frontend/src/shop.tsx. Aquí quedan el <head> (SEO, Open Graph, color de la marca)
+// y los datos de cada página. Solo viajan los campos que la compradora ve.
+
+type Shop struct {
+	Name       string
+	Categories []db.Category
+	Current    int64  // categoría activa en la navegación; 0 = Todo
+	Whatsapp   string // E.164 sin "+", o vacío
+	Brand      string // color ya ajustado por contraste; vacío = el de la plantilla
+	BrandInk   string
+	Logo       Photo
+	FAQ        []QA
+	Payment    string
+	URL        string // URL absoluta de esta página (Open Graph)
+	OGImage    string
+	Preview    bool // dentro del <iframe> de "Mi tienda": los links abren en otra pestaña
+	Style      string
+}
+
+type QA struct{ Q, A string }
+
+type Card struct {
+	ID         int64
+	Name       string
+	Price, Was int32 // Was > 0 = en oferta
+	SoldOut    bool
+	New        bool
+	Photo      Photo
+	Color      string // color dominante de la foto: fondo mientras carga
+	Sizes      []string
+	CategoryID int64
+	Unit       string // abreviatura: pza, kg, g, L, m
+	Step       int32  // milésimas
+}
+
+type Opt struct {
+	Name    string
+	SoldOut bool
+	Swatch  string
+}
+
+type ProductPage struct {
+	Card
+	Description   string
+	Photos        []Photo
+	CategoryID    int64
+	CategoryName  string
+	Sizes, Colors []Opt
+	SoldOutCombos []string
+	Related       []Card
+}
+
+func isHex(s string) bool {
+	if len(s) != 7 || s[0] != '#' {
+		return false
+	}
+	for _, r := range s[1:] {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
+			return false
+		}
+	}
+	return true
+}
+
+templ nonceStyle(css string) {
+	if css != "" {
+		@templ.Raw(`<style nonce="` + templ.GetNonce(ctx) + `">` + css + `</style>`)
+	}
+}
+
+type shopCat struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type shopQA struct {
+	Q string `json:"q"`
+	A string `json:"a"`
+}
+
+type shopInfo struct {
+	Name       string    `json:"name"`
+	Categories []shopCat `json:"categories"`
+	Current    int64     `json:"current"`
+	Home       bool      `json:"home"`
+	Whatsapp   string    `json:"whatsapp"`
+	Logo       string    `json:"logo"`
+	FAQ        []shopQA  `json:"faq"`
+	Payment    string    `json:"payment"`
+	URL        string    `json:"url"`
+	Preview    bool      `json:"preview"`
+	Style      string    `json:"style"`
+}
+
+func shopInfoOf(sh Shop, home bool) shopInfo {
+	cats := make([]shopCat, 0, len(sh.Categories))
+	for _, c := range sh.Categories {
+		cats = append(cats, shopCat{c.ID, c.Name})
+	}
+	faq := make([]shopQA, 0, len(sh.FAQ))
+	for _, qa := range sh.FAQ {
+		faq = append(faq, shopQA{qa.Q, qa.A})
+	}
+	return shopInfo{sh.Name, cats, sh.Current, home, sh.Whatsapp, sh.Logo.Src, faq, sh.Payment, sh.URL, sh.Preview, StyleByID(sh.Style).ID}
+}
+
+type shopPhoto struct {
+	Src    string `json:"src"`
+	SrcSet string `json:"srcSet"`
+}
+
+type shopCard struct {
+	ID      int64     `json:"id"`
+	Name    string    `json:"name"`
+	Price   int32     `json:"price"`
+	Was     int32     `json:"was"`
+	SoldOut bool      `json:"soldOut"`
+	New     bool      `json:"new"`
+	Photo   shopPhoto `json:"photo"`
+	Color   string    `json:"color"`
+	Sizes   []string  `json:"sizes"`
+	Cat     int64     `json:"cat"`
+	Unit    string    `json:"unit"`
+	Step    int32     `json:"step"`
+}
+
+func shopCardOf(c Card) shopCard {
+	color := ""
+	if isHex(c.Color) {
+		color = c.Color
+	}
+	sizes := c.Sizes
+	if sizes == nil {
+		sizes = []string{}
+	}
+	step := c.Step
+	if step <= 0 {
+		step = 1000
+	}
+	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID, c.Unit, step}
+}
+
+func shopCards(cs []Card) []shopCard {
+	out := make([]shopCard, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, shopCardOf(c))
+	}
+	return out
+}
+
+// brandCSS: el color de la marca de la vendedora sobre el tema del estilo. Va en <style nonce> porque es dato
+// de cada tienda (un tema compilado no puede saberlo) y la CSP prohíbe style="".
+func brandCSS(sh Shop) string {
+	if !isHex(sh.Brand) || !isHex(sh.BrandInk) {
+		return ""
+	}
+	return `[data-astryx-theme]{--color-accent:` + sh.Brand + `;--color-on-accent:` + sh.BrandInk + `;--brand:` + sh.Brand + `;--brand-ink:` + sh.BrandInk + `}`
+}
+
+// shopDoc: el HTML de la tienda. No usa reactPage porque la tienda no carga los componentes de Astryx
+// (pesan ~190 KB y aquí no hacen falta): solo su tema del estilo, en el <html> para que pinte sin esperar a JS.
+templ shopDoc(style Style, title, description, page string, data any) {
+	<!DOCTYPE html>
+	<html lang="es-MX" data-astryx-theme={ style.ID } data-theme={ style.scheme() } data-astryx-scheme={ style.scheme() }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+			if description == "" {
+				<meta name="robots" content="noindex"/>
+			} else {
+				<meta name="description" content={ description }/>
+			}
+			<title>{ title }</title>
+			<link rel="stylesheet" href={ "/static/app/theme-" + style.ID + ".css" }/>
+			<link rel="stylesheet" href="/static/app/shop.css"/>
+			<link rel="preload" href={ "/static/fonts/" + style.Font } as="font" type="font/woff2" crossorigin/>
+			<link rel="modulepreload" href="/static/app/shop.js"/>
+			{ children... }
+		</head>
+		<body>
+			<div id="root"></div>
+			<noscript><p>Activa JavaScript para ver la tienda.</p></noscript>
+			@templ.JSONScript("page-data", pageData{Page: page, Data: data}).WithNonceFromString("")
+			<script type="module" src="/static/app/shop.js"></script>
+		</body>
+	</html>
+}
+
+// shopPage: shopDoc + Open Graph, color de la marca y precarga de productos.
+templ shopPage(sh Shop, title, description, page string, data any) {
+	@shopDoc(StyleByID(sh.Style), title, description, page, data) {
+		<meta property="og:type" content="website"/>
+		<meta property="og:title" content={ title }/>
+		<meta property="og:description" content={ description }/>
+		if sh.URL != "" {
+			<meta property="og:url" content={ sh.URL }/>
+		}
+		if sh.OGImage != "" {
+			<meta property="og:image" content={ sh.OGImage }/>
+		}
+		if sh.Preview {
+			<base target="_blank"/>
+			// La vista previa recarga el iframe a cada cambio; la transición entre páginas ahí cierra Chromium.
+			@nonceStyle("@view-transition{navigation:none}")
+		}
+		@nonceStyle(brandCSS(sh))
+		<script type="speculationrules" nonce={ templ.GetNonce(ctx) }>
+			{"prerender":[{"where":{"href_matches":"/p/*"},"eagerness":"moderate"}]}
+		</script>
+	}
+}
+
+templ ShopHome(sh Shop, cards []Card) {
+	@shopPage(sh, sh.Name, "Catálogo de "+sh.Name+". Elige tus productos y haz tu pedido por WhatsApp.", "home",
+		map[string]any{"shop": shopInfoOf(sh, true), "cards": shopCards(cards)})
+}
+
+templ ShopCategory(sh Shop, name string, cards []Card) {
+	@shopPage(sh, name+" · "+sh.Name, name+" de "+sh.Name+". Haz tu pedido por WhatsApp.", "category",
+		map[string]any{"shop": shopInfoOf(sh, false), "title": name, "cards": shopCards(cards)})
+}
+
+type shopOpt struct {
+	Name    string `json:"name"`
+	SoldOut bool   `json:"soldOut"`
+	Swatch  string `json:"swatch"`
+}
+
+func shopOpts(os []Opt) []shopOpt {
+	out := make([]shopOpt, 0, len(os))
+	for _, o := range os {
+		sw := ""
+		if isHex(o.Swatch) {
+			sw = o.Swatch
+		}
+		out = append(out, shopOpt{o.Name, o.SoldOut, sw})
+	}
+	return out
+}
+
+func productData(sh Shop, p ProductPage) map[string]any {
+	photos := make([]shopPhoto, 0, len(p.Photos))
+	for _, ph := range p.Photos {
+		photos = append(photos, shopPhoto{ph.Src, ph.SrcSet})
+	}
+	combos := p.SoldOutCombos
+	if combos == nil {
+		combos = []string{}
+	}
+	return map[string]any{
+		"shop": shopInfoOf(sh, false),
+		"product": map[string]any{
+			"card": shopCardOf(p.Card), "description": p.Description, "photos": photos,
+			"categoryID": p.CategoryID, "categoryName": p.CategoryName,
+			"sizes": shopOpts(p.Sizes), "colors": shopOpts(p.Colors), "soldOutCombos": combos,
+			"related": shopCards(p.Related),
+			"share": "https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL),
+		},
+	}
+}
+
+templ ShopProduct(sh Shop, p ProductPage) {
+	@shopPage(sh, p.Name+" · "+sh.Name, p.Name+" en "+sh.Name+": "+money(p.Price)+". Pídelo por WhatsApp.", "product", productData(sh, p))
+}
+
+templ ShopFAQ(sh Shop) {
+	@shopPage(sh, "Preguntas frecuentes · "+sh.Name, "Cómo comprar en "+sh.Name+": pedidos, pagos y entregas por WhatsApp.", "faq",
+		map[string]any{"shop": shopInfoOf(sh, false)})
+}
+
+// Paused: 503 sin ningún dato de la vendedora.
+templ Paused() {
+	@shopDoc(StyleByID(""), "Tienda en pausa", "", "paused", map[string]any{})
+}

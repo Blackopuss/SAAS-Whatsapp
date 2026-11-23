@@ -1,0 +1,19 @@
+package views
+
+// Recuperar contraseña: las pinta frontend/src/panel.tsx.
+
+templ Forgot(store string, enabled bool, sent, errMsg string) {
+	@reactPage("Recuperar contraseña · "+store, "", "panel", "forgot", map[string]any{"store": store, "enabled": enabled, "sent": sent, "error": errMsg})
+}
+
+templ ResetForm(store, token, errMsg string) {
+	@reactPage("Nueva contraseña · "+store, "", "panel", "reset", map[string]any{"store": store, "action": "/panel/recuperar?t=" + token, "error": errMsg})
+}
+
+templ ResetDone(store string) {
+	@reactPage("Contraseña cambiada · "+store, "", "panel", "resetDone", map[string]any{"store": store})
+}
+
+templ ResetExpired(store string) {
+	@reactPage("Enlace vencido · "+store, "", "panel", "resetExpired", map[string]any{"store": store})
+}

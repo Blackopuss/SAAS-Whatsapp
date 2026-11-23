@@ -5,3 +5,8 @@
 web/static/css/app.css
 *.lock
 *.stale
+/uploads/
+/demo/
+node_modules/
+/web/static/app/
+/e2e/.admin-totp*

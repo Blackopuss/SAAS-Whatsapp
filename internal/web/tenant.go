@@ -96,3 +96,10 @@ func (t *tenants) middleware(next http.Handler) http.Handler {
 func StoreFrom(ctx context.Context) db.Store {
 	return ctx.Value(storeKey).(db.Store)
 }
+
+// forget saca una tienda del caché para que un cambio (p. ej. su WhatsApp) se vea de inmediato.
+func (t *tenants) forget(slug string) {
+	t.mu.Lock()
+	delete(t.m, slug)
+	t.mu.Unlock()
+}

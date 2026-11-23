@@ -1,0 +1,8 @@
+Fuentes de los estilos por giro, descargadas de Google Fonts (subconjunto latino), todas con
+SIL Open Font License 1.1 (https://openfontlicense.org):
+
+cormorant.woff2     Cormorant (Christian Thalmann)                       Boutique
+bigshoulders.woff2  Big Shoulders Display (Patric King)                  Barbería
+alfaslab.woff2      Alfa Slab One (JM Solé)                              Carnicería
+lilita.woff2        Lilita One (Juan Montoreano)                         Abarrotes
+fredoka.woff2       Fredoka (Milena Brandão, Hafontia)                   Papelería
