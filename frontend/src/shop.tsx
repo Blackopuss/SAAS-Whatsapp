@@ -474,6 +474,7 @@ function Card({ c, i, eager }: { c: CardData; i: number; eager?: boolean }) {
       <a className={"card" + (c.soldOut ? " sold" : "")} href={`/p/${c.id}`}>
         <span className="ph" style={c.color ? { backgroundColor: c.color } : undefined}>
           <Img c={c} eager={eager} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 46vw" />
+          {!c.photo.src && <span className="ph-none" aria-hidden>{c.name}</span>}
           {c.new && !c.soldOut && <span className="ribbon">Nuevo</span>}
           <Tag c={c} />
         </span>

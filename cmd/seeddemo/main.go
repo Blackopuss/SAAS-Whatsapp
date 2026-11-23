@@ -18,6 +18,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -380,7 +381,11 @@ func addPhoto(ctx context.Context, q *db.Queries, st storage.Storage, storeID, p
 			return err
 		}
 		if img, err = images.Decode(data); err != nil {
-			return fmt.Errorf("%s: %w", f, err)
+			// La que no pasa la validación (p. ej. más de 40 MP) se quita y se usa la siguiente.
+			fmt.Fprintf(os.Stderr, "se omite %s: %v\n", f, err)
+			realPhotos = slices.Delete(realPhotos, (photoN-1)%len(realPhotos), (photoN-1)%len(realPhotos)+1)
+			photoN--
+			return addPhoto(ctx, q, st, storeID, pid, hue)
 		}
 	}
 	rs, err := images.Renditions(img)
