@@ -15,6 +15,7 @@ Catálogo en línea por subdominio (`ana.<dominio>`) para vendedoras; la comprad
 | 6 Producción | Listo en el repo | `deploy/` y `docs/PRODUCCION.md`; falta rentar el VPS y seguir la guía. Auditoría en `SECURITY.md` |
 | Rediseño React | Hecho | Admin, panel y tienda en React; tienda con portada, mosaico de categorías, destacado, "agregar rápido"; página Mensajes (plantillas de WhatsApp) en el panel |
 | Inventario y Ventas | Hecho | Existencias por producto o talla × color, venta a granel por pasos, pedidos desde el carrito, Ventas con gráficas y no ventas; productos en tabla con filtros y formulario en pestañas; superadmin con búsqueda y filtros |
+| Diseño por giro | Hecho | Cada giro cambia estructura además de color: carnicería pizarrón, abarrotes pasillos, barbería cartel, boutique revista, papelería carpetas (boutique y papelería de Codex) |
 
 Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es público (CI gratis). Sin `Co-Authored-By` ni atribución a Claude en commits o PRs.
 
@@ -72,7 +73,8 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 ## Pendientes conocidos
 
 - Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
-- Elegir propuestas del artifact de estilos y, si se quieren, agregar los giros nuevos (columna `style` + CSS).
+- Giros nuevos propuestos (panadería, florería, ferretería, antojitos, mascotas): columna `style`, tema, `giros/<giro>.css` y catálogo en `seeddemo`. Hay fotos de pan en `demo/fotos/panaderia/`.
+- Antes de pasar a `main`: dejar que CI corra la e2e completa con Lighthouse (la última ronda de giros solo se revisó con axe a 360 px y escritorio).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.
 - La e2e escribe el WhatsApp de prueba en "Mi tienda" de ana en cada corrida (pisa el número que tenga).
 - El presupuesto de peso de la tienda (200 KB gzip desde 2026-11-22, antes 130: JS + `shop.css` + el tema/giro más pesado + la fuente más pesada) lo revisa `npm run budget` en CI. React solo ya son ~58 KB. Cada giro tiene su CSS de estructura en `frontend/src/giros/<giro>.css` (importa su tema; solo carga el de la tienda).
