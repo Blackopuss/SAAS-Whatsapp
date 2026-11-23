@@ -18,6 +18,8 @@ import (
 
 const maxPhotos = 10
 
+var errPhotoLimit = errors.New("tope de fotos")
+
 // shortcut: las fotos se procesan en la petición (unos segundos), con 2 a la vez para no ahogar el CPU.
 // Mover a un job de River (plan, sprint 2) si las subidas tardan demasiado o el VPS se satura.
 var photoSlots = make(chan struct{}, 2)
@@ -26,7 +28,7 @@ var photoErrors = map[string]string{
 	"limite":   "Ya tiene 10 fotos, que es el máximo por producto. Borra una para subir otra.",
 	"invalida": images.ErrInvalid.Error() + ".",
 	"falta":    "Elige una foto para subir.",
-	"pesada":   "La foto debe pesar menos de 10 MB y medir menos de 40 megapíxeles.",
+	"pesada":   "La foto debe pesar menos de 10 MB y medir menos de 24 megapíxeles.",
 }
 
 func photoKeys(base string, widths []int32) []string {
@@ -69,9 +71,28 @@ func (a *app) photoUpload(w http.ResponseWriter, r *http.Request) {
 		fail(code)
 		return
 	}
-	if _, err := a.q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: s.ID, ProductID: id, R2Key: up.base, DominantColor: images.DominantColor(up.img), Widths: up.widths}); err != nil {
+	// El conteo de arriba evita procesar de balde; este, con el producto bloqueado, es el que cuenta.
+	err = a.tx(ctx, func(q db.Querier) error {
+		if _, err := q.LockProductForPhotos(ctx, db.LockProductForPhotosParams{StoreID: s.ID, ID: id}); err != nil {
+			return err
+		}
+		n, err := q.CountProductImages(ctx, db.CountProductImagesParams{StoreID: s.ID, ProductID: id})
+		if err != nil {
+			return err
+		}
+		if n >= maxPhotos {
+			return errPhotoLimit
+		}
+		_, err = q.CreateProductImage(ctx, db.CreateProductImageParams{StoreID: s.ID, ProductID: id, R2Key: up.base, DominantColor: images.DominantColor(up.img), Widths: up.widths})
+		return err
+	})
+	if err != nil {
 		a.cleanup(ctx, up.keys)
-		a.fail(w, r, err)
+		if errors.Is(err, errPhotoLimit) {
+			fail("limite")
+			return
+		}
+		a.notFoundOr500(w, r, err)
 		return
 	}
 	back(w, r, editURL+"?foto=ok#fotos")
@@ -140,6 +161,13 @@ func (a *app) saveUpload(r *http.Request, field string, storeID int64, maxRendit
 	if err != nil {
 		return stored{}, "falta", nil
 	}
+	// El lugar se toma antes de decodificar: decodificar es lo que ocupa la memoria (cientos de MB por foto grande).
+	select {
+	case photoSlots <- struct{}{}:
+		defer func() { <-photoSlots }()
+	case <-ctx.Done():
+		return stored{}, "", ctx.Err()
+	}
 	img, err := images.Decode(data)
 	if err != nil {
 		Log(ctx).Warn("imagen rechazada", "err", err)
@@ -147,13 +175,6 @@ func (a *app) saveUpload(r *http.Request, field string, storeID int64, maxRendit
 			return stored{}, "invalida", nil
 		}
 		return stored{}, "pesada", nil
-	}
-
-	select {
-	case photoSlots <- struct{}{}:
-		defer func() { <-photoSlots }()
-	case <-ctx.Done():
-		return stored{}, "", ctx.Err()
 	}
 	rends, err := images.Renditions(img)
 	if err != nil {

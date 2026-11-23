@@ -280,11 +280,11 @@ func (a *app) shopCartJSON(w http.ResponseWriter, r *http.Request) {
 		now, _ := salePrice(p.PriceCents, p.OnSale, p.SalePriceCents.Int32, p.SalePriceCents.Valid)
 		id := strconv.FormatInt(p.ID, 10)
 		out[id] = &cartProduct{Name: p.Name, Price: now, URL: "/p/" + id, SoldOut: p.SoldOut, Image: a.photo(p.ImageKey, p.ImageWidths).Src,
-			Unit: units[p.Unit], Step: p.Step, Stock: available(p.SoldOut, p.Stock), Combos: map[string]int32{}}
+			Unit: units[p.Unit], Step: p.Step, Stock: publicStock(available(p.SoldOut, p.Stock), p.Step), Combos: map[string]int32{}}
 	}
 	for _, v := range vs {
 		if p := out[strconv.FormatInt(v.ProductID, 10)]; p != nil {
-			p.Combos[variantKey{v.Size, v.Color}.String()] = available(v.SoldOut, v.Stock)
+			p.Combos[variantKey{v.Size, v.Color}.String()] = publicStock(available(v.SoldOut, v.Stock), p.Step)
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -330,3 +330,14 @@ func (a *app) requireOpen(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// publicStock: lo que /carrito.json dice de la existencia. Hasta 99 pasos es exacto (el carrito no deja
+// pedir más); arriba se recorta, para que la competencia no lea el inventario real de la tienda.
+func publicStock(avail, step int32) int32 {
+	if limit := step * maxUnits; avail > limit {
+		return limit
+	}
+	return avail
+}
+
+const maxUnits = 99 // igual que MAX_UNITS en shop.tsx

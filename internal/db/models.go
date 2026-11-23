@@ -9,12 +9,13 @@ import (
 )
 
 type Admin struct {
-	ID           int64
-	Email        string
-	PasswordHash string
-	TotpSecret   []byte
-	LastTotpStep int64
-	CreatedAt    pgtype.Timestamptz
+	ID                   int64
+	Email                string
+	PasswordHash         string
+	TotpSecret           []byte
+	LastTotpStep         int64
+	CreatedAt            pgtype.Timestamptz
+	CredentialsChangedAt pgtype.Timestamptz
 }
 
 type AdminAudit struct {

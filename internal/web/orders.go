@@ -53,7 +53,8 @@ type orderIn struct {
 func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	s := StoreFrom(ctx)
-	if !a.orderLimit.allow(strconv.FormatInt(s.ID, 10) + "|" + clientIP(r)) {
+	if !a.orderLimit.allow(strconv.FormatInt(s.ID, 10) + "|" + limitIP(r)) {
+		Log(ctx).Warn("pedido frenado por límite", "event", "order_limited", "ip", clientIP(r))
 		http.Error(w, "Demasiados pedidos seguidos. Intenta más tarde.", http.StatusTooManyRequests)
 		return
 	}

@@ -44,7 +44,7 @@ func (a *app) adminRoutes(store scs.Store, secure bool) http.Handler {
 		"POST /tiendas":                a.adminStoreCreate,
 		"GET /tiendas/{id}":            a.adminStore,
 		"POST /tiendas/{id}/pagos":     a.adminPayment,
-		"POST /tiendas/{id}/pausar":    a.adminSetStatus("suspended", "pausada", "pausada"),
+		"POST /tiendas/{id}/pausar":    a.adminSetStatus("paused", "pausada", "pausada"),
 		"POST /tiendas/{id}/reactivar": a.adminSetStatus("active", "reactivada", "reactivada"),
 		"POST /tiendas/{id}/plan":      a.adminPlan,
 		"GET /bitacora":                a.adminAudit,
@@ -56,7 +56,20 @@ func (a *app) adminRoutes(store scs.Store, secure bool) http.Handler {
 
 func (a *app) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.admin.GetInt64(r.Context(), "admin_id") == 0 {
+		ctx := r.Context()
+		id := a.admin.GetInt64(ctx, "admin_id")
+		if id == 0 {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		// Si al admin le cambiaron contraseña y TOTP (o lo borraron), las sesiones de antes ya no sirven.
+		changed, err := a.q.GetAdminCredentialsChangedAt(ctx, id)
+		if err != nil && !isNoRows(err) {
+			a.fail(w, r, err)
+			return
+		}
+		if err != nil || changed.Time.Unix() > a.admin.GetInt64(ctx, "auth_at") {
+			_ = a.admin.Destroy(ctx)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -73,16 +86,23 @@ func (a *app) adminLoginPost(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(r.PostFormValue("email")))
 	pass := r.PostFormValue("password")
 	code := strings.ReplaceAll(r.PostFormValue("code"), " ", "")
-	fail := func(status int, msg string) {
-		Log(ctx).Warn("admin: login fallido", "ip", clientIP(r))
-		renderStatus(w, r, status, views.AdminLogin(email, msg))
+	emailKey := "admin-email:" + email
+	// event distingue el tipo de fallo en el log: "contraseña bien, TOTP mal" indica una contraseña filtrada.
+	fail := func(event string) {
+		a.accounts.fail(emailKey)
+		a.loginFailed(ctx, r, event, email, "admin", true)
+		renderStatus(w, r, http.StatusUnauthorized, views.AdminLogin(email, adminFailMsg))
+	}
+	tooMany := func() {
+		Log(ctx).Warn("admin: login bloqueado por límite", "event", "admin_login_limited", "ip", clientIP(r), "email_tag", emailTag(email))
+		renderStatus(w, r, http.StatusTooManyRequests, views.AdminLogin(email, "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
 	}
 	if len(email) > 254 || len(pass) > 1024 || len(code) != 6 {
-		fail(http.StatusUnauthorized, adminFailMsg)
+		renderStatus(w, r, http.StatusUnauthorized, views.AdminLogin(email, adminFailMsg))
 		return
 	}
-	if !a.limit.allow("admin-ip:"+clientIP(r)) || !a.limit.allow("admin-email:"+email) {
-		fail(http.StatusTooManyRequests, "Demasiados intentos. Espera 15 minutos y vuelve a intentar.")
+	if !a.limit.allow("admin-ip:" + limitIP(r)) {
+		tooMany()
 		return
 	}
 	ad, err := a.q.GetAdminByEmail(ctx, email)
@@ -94,8 +114,12 @@ func (a *app) adminLoginPost(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if a.accounts.blocked(emailKey) && !a.knownDevice(r, adminDeviceCookie, ad.PasswordHash, email) {
+		tooMany()
+		return
+	}
 	if ok, err := auth.Verify(pass, hash); err != nil || !ok || ad.ID == 0 {
-		fail(http.StatusUnauthorized, adminFailMsg)
+		fail("admin_login_failed")
 		return
 	}
 	secret, err := auth.Open(a.totpKey, ad.TotpSecret)
@@ -105,12 +129,12 @@ func (a *app) adminLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 	step, ok := auth.VerifyTOTP(secret, code, time.Now())
 	if !ok {
-		fail(http.StatusUnauthorized, adminFailMsg)
+		fail("admin_password_ok_totp_failed")
 		return
 	}
 	// Marca el paso como usado: el mismo código no sirve dos veces.
 	if n, err := a.q.UseTOTPStep(ctx, db.UseTOTPStepParams{ID: ad.ID, LastTotpStep: step}); err != nil || n == 0 {
-		fail(http.StatusUnauthorized, adminFailMsg)
+		fail("admin_totp_replay")
 		return
 	}
 	if err := a.admin.RenewToken(ctx); err != nil {
@@ -118,6 +142,8 @@ func (a *app) adminLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.admin.Put(ctx, "admin_id", ad.ID)
+	a.admin.Put(ctx, "auth_at", time.Now().Unix())
+	a.rememberDevice(w, adminDeviceCookie, "/", ad.PasswordHash, email)
 	Log(ctx).Info("admin: login", "admin_id", ad.ID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

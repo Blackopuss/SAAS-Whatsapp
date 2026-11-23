@@ -16,6 +16,8 @@ apt-get install -y ca-certificates curl gnupg lsb-release openssh-server sudo uf
 
 # Cuentas separadas: el proceso no puede iniciar sesión y deploy solo entra con llave.
 if ! id tiendas >/dev/null 2>&1; then useradd --system --create-home --home-dir /var/lib/tiendas --shell /usr/sbin/nologin tiendas; fi
+# Solo corre las migraciones (tiendas-migrate.service) y es el único que lee la clave del rol migrador.
+if ! id tiendas-migrate >/dev/null 2>&1; then useradd --system --no-create-home --shell /usr/sbin/nologin tiendas-migrate; fi
 if ! id deploy >/dev/null 2>&1; then useradd --create-home --shell /bin/bash deploy; passwd deploy; fi
 usermod -aG sudo deploy
 cat > /etc/sudoers.d/tiendas-deploy <<'EOF'
@@ -100,12 +102,20 @@ su postgres -c "psql -tAc \"SELECT 1 FROM pg_database WHERE datname='tiendas'\""
 su postgres -c "psql -v ON_ERROR_STOP=1 -d tiendas -c 'CREATE EXTENSION IF NOT EXISTS citext'"
 su postgres -c "psql -v ON_ERROR_STOP=1 -d tiendas -c 'REVOKE ALL ON DATABASE tiendas FROM PUBLIC; GRANT CONNECT ON DATABASE tiendas TO tiendas_migrator, tiendas_app; REVOKE ALL ON SCHEMA public FROM PUBLIC; ALTER SCHEMA public OWNER TO tiendas_migrator; GRANT USAGE ON SCHEMA public TO tiendas_app; ALTER DEFAULT PRIVILEGES FOR ROLE tiendas_migrator IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tiendas_app; ALTER DEFAULT PRIVILEGES FOR ROLE tiendas_migrator IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO tiendas_app'"
 install -d -m 0750 -o root -g tiendas /etc/tiendas
+# Dos copias de la clave del migrador: la de root (respaldo) y la de tiendas-migrate (migraciones).
 if [[ ! -f /etc/tiendas/pgpass ]]; then
   install -o root -g root -m 0600 /dev/null /etc/tiendas/pgpass
   printf '127.0.0.1:5432:tiendas:tiendas_migrator:%s\n' "$MIG_PASS" > /etc/tiendas/pgpass
 fi
+install -d -m 0750 -o root -g tiendas-migrate /etc/tiendas-migrate
+if [[ ! -f /etc/tiendas-migrate/pgpass ]]; then
+  install -o tiendas-migrate -g tiendas-migrate -m 0600 /dev/null /etc/tiendas-migrate/pgpass
+  printf '127.0.0.1:5432:tiendas:tiendas_migrator:%s\n' "$MIG_PASS" > /etc/tiendas-migrate/pgpass
+fi
 
 install -d -m 0750 -o root -g tiendas /etc/tiendas /var/lib/tiendas/backups
+# deploy publica releases y mueve el symlink current; lo que hay ahí solo corre como tiendas o tiendas-migrate.
+install -d -m 0755 -o deploy -g tiendas /opt/tiendas
 install -d -m 2775 -o deploy -g tiendas /opt/tiendas/releases
 BASE_DOMAIN=CAMBIAR-DOMINIO.example
 if [[ ! -f /etc/tiendas/env ]]; then
@@ -114,8 +124,8 @@ cat > /etc/tiendas/env <<EOF
 APP_ENV=prod
 ADDR=127.0.0.1:8080
 BASE_DOMAIN=$BASE_DOMAIN
-DATABASE_URL=postgres://tiendas_app:$APP_PASS@127.0.0.1:5432/tiendas?sslmode=disable
-MIGRATIONS_URL=postgres://tiendas_migrator@127.0.0.1:5432/tiendas?sslmode=disable
+# statement_timeout: una consulta lenta se corta a los 5 s en vez de dejar sin conexiones a las demás.
+DATABASE_URL=postgres://tiendas_app:$APP_PASS@127.0.0.1:5432/tiendas?sslmode=disable&statement_timeout=5000
 R2_ACCOUNT_ID=CAMBIAR_ACCOUNT_ID
 R2_ACCESS_KEY_ID=CAMBIAR_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY=CAMBIAR_SECRET_ACCESS_KEY
@@ -168,6 +178,9 @@ install -d -m 0755 /etc/systemd/system/caddy.service.d
 cat > /etc/systemd/system/caddy.service.d/tiendas-env.conf <<'EOF'
 [Service]
 EnvironmentFile=/etc/caddy/caddy.env
+# Socket de la API de administración (Caddyfile: admin unix//run/caddy/admin.sock); solo el usuario caddy entra.
+RuntimeDirectory=caddy
+RuntimeDirectoryMode=0700
 EOF
 systemctl daemon-reload
 

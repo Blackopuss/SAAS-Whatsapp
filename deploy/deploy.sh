@@ -17,14 +17,14 @@ sha=$(git rev-parse --short=12 HEAD)
 [[ $sha =~ ^[0-9a-f]{12}$ ]] || fail "no se pudo determinar el SHA de Git."
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/release/bin" "$work/release/migrations" "$work/release/deploy" "$work/release/web"
+mkdir -p "$work/release/bin" "$work/release/migrations" "$work/release/web"
 cp bin/server bin/goose bin/createadmin bin/createstore "$work/release/bin/"
 cp migrations/*.sql "$work/release/migrations/"
 # La app sirve /static desde web/static: fuentes y web/static/app (interfaz que compila build-prod con Vite).
 cp -R web/static "$work/release/web/static"
-cp deploy/backup.sh "$work/release/deploy/backup.sh"
-chmod 0755 "$work/release/bin/"* "$work/release/deploy/backup.sh"
-(cd "$work/release" && find bin migrations deploy web -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+# backup.sh no viaja en el release: corre como root y se instala aparte (docs/PRODUCCION.md §5).
+chmod 0755 "$work/release/bin/"*
+(cd "$work/release" && find bin migrations web -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 tar -C "$work" -czf "$work/release-$sha.tar.gz" release
 scp "$work/release-$sha.tar.gz" "$DEPLOY_HOST:/tmp/tiendas-$sha.tar.gz"
 

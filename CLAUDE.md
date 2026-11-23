@@ -41,9 +41,12 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Cada query lleva `store_id` del Host, nunca del formulario; FKs compuestas `(store_id, id)`. Lo ajeno responde 404. `isolation_test.go` y `recovery_test.go` lo prueban contra Postgres real.
 - Sesión: cookie `tiendas_sid` Path=/panel, HttpOnly, SameSite=Lax, Secure en prod; token nuevo al entrar; cambiar contraseña invalida sesiones viejas (`password_changed_at` vs `auth_at`).
 - Admin: `admin.<dominio>`, cookie `tiendas_admin` SameSite=Strict, 30 min de inactividad, TOTP RFC 6238 con secreto cifrado AES-GCM y sin reuso de código.
-- argon2id; límite 5 intentos / 15 min por IP y por email; mismo mensaje exista o no la cuenta.
+- argon2id; límite 5 intentos / 15 min por IP (IPv6 por /64) y 5 fallos / 15 min por cuenta; con la cuenta bloqueada entra solo un navegador donde ya había entrado (cookie `tiendas_disp`/`tiendas_admin_disp`, HMAC de `TOTP_KEY` + hash de la contraseña, en `guard.go`); mismo mensaje exista o no la cuenta. Límites en memoria con tope de 50 000 llaves; el de cuentas (`accounts`) nunca suelta un bloqueo vivo. Más de 30 fallos en 10 min: `event=login_alert` en el log.
+- `createadmin -reset` cierra las sesiones del admin (`admins.credentials_changed_at`); recuperar la contraseña revoca los otros enlaces. La app solo puede INSERT en `admin_audit` (migración 00010).
+- Estado `paused` (pausa manual del superadmin) distinto de `suspended` (atraso): registrar un pago solo reabre `suspended`.
+- Despliegue: Caddy toma la IP de `CF-Connecting-IP`; migraciones en `tiendas-migrate.service` con su propio usuario; nada del release corre como root. Acciones de CI fijadas por SHA, Dependabot activo.
 - CSRF con `http.NewCrossOriginProtection` (stdlib). CSP con nonce por petición, sin `unsafe-inline` (los colores por producto van en `<style nonce>`); `frame-ancestors 'none'` salvo la vista previa del panel.
-- Fotos: tipo real por magic bytes, 10 MB, 40 MP, recodificadas a WebP 400/800/1200 (quita EXIF), llave aleatoria por tienda.
+- Fotos: tipo real por magic bytes, 10 MB, 24 MP (se decodifica dentro del límite de 2 a la vez), recodificadas a WebP 400/800/1200 (quita EXIF), llave aleatoria por tienda.
 - Recuperación: token de 32 bytes, solo su hash en la base, 30 min, un uso, ligado a la tienda; va en `?t=` porque el log guarda solo la ruta.
 
 ## Decisiones que se apartan del plan

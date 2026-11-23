@@ -111,3 +111,20 @@ func (q *Queries) ListProductImages(ctx context.Context, arg ListProductImagesPa
 	}
 	return items, nil
 }
+
+const lockProductForPhotos = `-- name: LockProductForPhotos :one
+SELECT id FROM products WHERE store_id = $1 AND id = $2 FOR UPDATE
+`
+
+type LockProductForPhotosParams struct {
+	StoreID int64
+	ID      int64
+}
+
+// Dentro de la transacción de alta de foto: dos subidas simultáneas no pueden pasar ambas el tope de fotos.
+func (q *Queries) LockProductForPhotos(ctx context.Context, arg LockProductForPhotosParams) (int64, error) {
+	row := q.db.QueryRow(ctx, lockProductForPhotos, arg.StoreID, arg.ID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}

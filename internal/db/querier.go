@@ -39,6 +39,7 @@ type Querier interface {
 	ExpireOrders(ctx context.Context) (int64, error)
 	GetAdmin(ctx context.Context, id int64) (Admin, error)
 	GetAdminByEmail(ctx context.Context, email string) (Admin, error)
+	GetAdminCredentialsChangedAt(ctx context.Context, id int64) (pgtype.Timestamptz, error)
 	GetOrderForUpdate(ctx context.Context, arg GetOrderForUpdateParams) (Order, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	GetStoreAdmin(ctx context.Context, id int64) (GetStoreAdminRow, error)
@@ -70,6 +71,8 @@ type Querier interface {
 	ListStoreVariants(ctx context.Context, storeID int64) ([]ListStoreVariantsRow, error)
 	ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, error)
 	ListVariants(ctx context.Context, arg ListVariantsParams) ([]ProductVariant, error)
+	// Dentro de la transacción de alta de foto: dos subidas simultáneas no pueden pasar ambas el tope de fotos.
+	LockProductForPhotos(ctx context.Context, arg LockProductForPhotosParams) (int64, error)
 	LockSubscription(ctx context.Context, storeID int64) (Subscription, error)
 	// Lo que lleva inventario y tiene 3 pasos o menos (0.75 kg si se vende de 0.25 en 0.25).
 	LowStock(ctx context.Context, storeID int64) ([]LowStockRow, error)
@@ -83,6 +86,8 @@ type Querier interface {
 	ResetAdmin(ctx context.Context, arg ResetAdminParams) (int64, error)
 	ReturnProductStock(ctx context.Context, arg ReturnProductStockParams) error
 	ReturnVariantStock(ctx context.Context, arg ReturnVariantStockParams) error
+	// Tras recuperar la contraseña, los demás enlaces pendientes de esa cuenta ya no sirven.
+	RevokePasswordResets(ctx context.Context, arg RevokePasswordResetsParams) error
 	SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVRow, error)
 	// Por producto + talla + color y estado; el handler arma lo más vendido, lo perdido y las categorías.
 	SalesItems(ctx context.Context, arg SalesItemsParams) ([]SalesItemsRow, error)

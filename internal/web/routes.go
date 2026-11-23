@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/a-h/templ"
@@ -40,8 +41,12 @@ type app struct {
 	limit    *limiter
 	// orderLimit: pedidos por tienda e IP; frena a quien llene de pedidos falsos el panel de una vendedora.
 	orderLimit *limiter
-	store      storage.Storage
-	mediaURL   string
+	// accounts: fallos por cuenta (email). Aparte de limit porque nunca suelta una llave viva para hacer lugar.
+	accounts *limiter
+	// failAlarm: cuenta logins fallidos de todo el servidor para levantar una alerta.
+	failAlarm *limiter
+	store     storage.Storage
+	mediaURL  string
 
 	base      string
 	secure    bool
@@ -71,7 +76,8 @@ func newSessions(store scs.Store, secure bool) *scs.SessionManager {
 
 // Orden del plan: recover, request_id, logger, security headers, tenant, sesión, CSRF.
 func Routes(d Deps) http.Handler {
-	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), orderLimit: newLimiter(10, time.Hour), store: d.Storage, mediaURL: d.MediaURL,
+	a := &app{q: d.Q, tx: d.Tx, sessions: newSessions(d.Sessions, d.Secure), limit: newLimiter(5, 15*time.Minute), orderLimit: newLimiter(10, time.Hour),
+		accounts: newStrictLimiter(5, 15*time.Minute), failAlarm: newLimiter(failAlarmMax, failAlarmWindow), store: d.Storage, mediaURL: d.MediaURL,
 		base: d.BaseDomain, secure: d.Secure, totpKey: d.TOTPKey, sendReset: d.SendReset}
 	if a.tx == nil {
 		a.tx = func(_ context.Context, fn func(db.Querier) error) error { return fn(d.Q) }
@@ -149,9 +155,9 @@ func Routes(d Deps) http.Handler {
 	store.Handle("/panel/", chain(panel, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
 
 	top := http.NewServeMux()
-	top.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	top.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(noDirs{http.Dir("web/static")})))
 	if d.MediaDir != "" {
-		media := http.StripPrefix("/media/", http.FileServer(http.Dir(d.MediaDir)))
+		media := http.StripPrefix("/media/", http.FileServer(noDirs{http.Dir(d.MediaDir)}))
 		top.Handle("GET /media/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // llaves aleatorias: nunca cambian
 			media.ServeHTTP(w, r)
@@ -184,4 +190,19 @@ func Routes(d Deps) http.Handler {
 	}))
 
 	return chain(top, recoverer, requestID, logger, securityHeaders)
+}
+
+// noDirs: sirve archivos pero nunca el listado de una carpeta (en /media/ mostraría las llaves de todas las tiendas).
+type noDirs struct{ fs http.FileSystem }
+
+func (n noDirs) Open(name string) (http.File, error) {
+	f, err := n.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	if st, err := f.Stat(); err != nil || st.IsDir() {
+		_ = f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
 }

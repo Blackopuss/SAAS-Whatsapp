@@ -71,6 +71,11 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 		t.Fatalf("enlace: %s", sent[0])
 	}
 	tok := link.Query().Get("t")
+	// Un segundo enlace pedido antes de usar el primero deja de servir cuando se recupera la cuenta.
+	if rec := do(h, "POST", "http://"+aHost+"/panel/recuperar", url.Values{"email": {a.Slug + "@x.mx"}}, nil); rec.Code != 200 || len(sent) != 2 {
+		t.Fatalf("segundo enlace: status %d envíos %d", rec.Code, len(sent))
+	}
+	otherLink := sent[1]
 
 	// El token de A no sirve en la tienda B.
 	if rec := do(h, "GET", "http://"+b.Slug+".tiendas.test/panel/recuperar?t="+tok, nil, nil); rec.Code != http.StatusGone {
@@ -86,6 +91,12 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 	}
 	if rec := do(h, "POST", link.String(), newPass, nil); rec.Code != http.StatusGone {
 		t.Errorf("token reusado: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", otherLink, nil, nil); rec.Code != http.StatusGone {
+		t.Errorf("otro enlace pendiente tras recuperar: status %d", rec.Code)
+	}
+	if rec := do(h, "GET", link.String(), nil, nil); rec.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Errorf("la página de recuperar debe ir sin Referer: %q", rec.Header().Get("Referrer-Policy"))
 	}
 	if rec := do(h, "GET", "http://"+aHost+"/panel/", nil, oldSession); rec.Code != http.StatusSeeOther {
 		t.Errorf("sesión previa al cambio sigue abierta: status %d", rec.Code)
@@ -212,6 +223,16 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 	if s, _ := q.GetStoreAdmin(ctx, ns.ID); s.Status != "active" || s.StreakMonths != 3 {
 		t.Errorf("tras pagar atrasado: estado %s racha %d (quiero active y racha reiniciada a 3)", s.Status, s.StreakMonths)
 	}
+	// Una pausa manual (p. ej. por abuso) no se levanta sola al registrar un pago.
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pausar", url.Values{}, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("pausar: status %d", rec.Code)
+	}
+	if rec := do(h, "POST", adminURL+"/tiendas/"+nsID+"/pagos", pay, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Fatalf("pago con pausa manual: status %d", rec.Code)
+	}
+	if s, _ := q.GetStoreAdmin(ctx, ns.ID); s.Status != "paused" {
+		t.Errorf("pausa manual tras pagar: estado %s, quiero paused", s.Status)
+	}
 
 	// Bitácora: cada acción con quién la hizo.
 	rec = do(h, "GET", adminURL+"/bitacora", nil, adminCookie)
@@ -219,5 +240,14 @@ func TestPasswordRecoveryAndAdmin(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), action) {
 			t.Errorf("bitácora sin %q", action)
 		}
+	}
+
+	// Cambiarle contraseña y TOTP al admin (createadmin -reset) cierra sus sesiones abiertas.
+	time.Sleep(1100 * time.Millisecond)
+	if n, err := q.ResetAdmin(ctx, db.ResetAdminParams{Email: adminEmail, PasswordHash: adminPass, TotpSecret: sealed}); err != nil || n != 1 {
+		t.Fatalf("reset admin: %d %v", n, err)
+	}
+	if rec := do(h, "GET", adminURL+"/", nil, adminCookie); rec.Code != http.StatusSeeOther {
+		t.Errorf("sesión de admin tras reset: status %d", rec.Code)
 	}
 }

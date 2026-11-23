@@ -14,6 +14,10 @@ UPDATE password_resets SET used_at = now()
 WHERE token_hash = $1 AND store_id = $2 AND used_at IS NULL AND expires_at > now()
 RETURNING user_id;
 
+-- name: RevokePasswordResets :exec
+-- Tras recuperar la contraseña, los demás enlaces pendientes de esa cuenta ya no sirven.
+UPDATE password_resets SET used_at = now() WHERE store_id = $1 AND user_id = $2 AND used_at IS NULL;
+
 -- name: SetUserPassword :exec
 UPDATE users SET password_hash = $3, password_changed_at = now() WHERE store_id = $1 AND id = $2;
 
@@ -35,7 +39,10 @@ INSERT INTO admins (email, password_hash, totp_secret) VALUES ($1, $2, $3) RETUR
 
 -- ResetAdmin: contraseña y clave TOTP nuevas para un admin que ya existe (conserva su historial).
 -- name: ResetAdmin :execrows
-UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0 WHERE email = $1;
+UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0, credentials_changed_at = now() WHERE email = $1;
+
+-- name: GetAdminCredentialsChangedAt :one
+SELECT credentials_changed_at FROM admins WHERE id = $1;
 
 -- name: ListStoresAdmin :many
 SELECT s.id, s.slug, s.name, s.status, s.created_at, sub.paid_until, sub.streak_months, sub.is_founder,

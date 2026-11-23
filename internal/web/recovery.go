@@ -44,7 +44,8 @@ func (a *app) issueReset(ctx context.Context, storeID, userID int64) (string, er
 // resetLink lleva el token en la query (?t=) y no en la ruta: el log de peticiones solo guarda la ruta.
 func (a *app) resetLink(reqHost, slug, raw string) string {
 	host := slug + "." + a.base
-	if _, port, err := net.SplitHostPort(reqHost); err == nil {
+	// Solo un puerto numérico del Host (dev usa :8080); nada más del Host llega al enlace.
+	if _, port, err := net.SplitHostPort(reqHost); err == nil && port != "" && len(port) <= 5 && strings.Trim(port, "0123456789") == "" {
 		host = net.JoinHostPort(host, port)
 	}
 	scheme := "http"
@@ -66,7 +67,7 @@ func (a *app) forgotPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(r.PostFormValue("email")))
-	if !a.limit.allow("reset-ip:"+clientIP(r)) || !a.limit.allow("reset-email:"+strconv.FormatInt(s.ID, 10)+":"+email) {
+	if !a.limit.allow("reset-ip:"+limitIP(r)) || !a.limit.allow("reset-email:"+strconv.FormatInt(s.ID, 10)+":"+email) {
 		renderStatus(w, r, http.StatusTooManyRequests, views.Forgot(s.Name, true, "", "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
 		return
 	}
@@ -92,7 +93,12 @@ func (a *app) forgotPost(w http.ResponseWriter, r *http.Request) {
 	renderStatus(w, r, http.StatusOK, views.Forgot(s.Name, true, resetSentMsg, ""))
 }
 
+// noReferrer: la página de recuperar lleva el token en ?t=; así no viaja en el Referer de sus
+// propios CSS/JS/fuentes (que sí guarda el log de Caddy) ni a ningún otro sitio.
+func noReferrer(w http.ResponseWriter) { w.Header().Set("Referrer-Policy", "no-referrer") }
+
 func (a *app) resetForm(w http.ResponseWriter, r *http.Request) {
+	noReferrer(w)
 	s := StoreFrom(r.Context())
 	raw := r.URL.Query().Get("t")
 	if _, err := a.q.CheckPasswordReset(r.Context(), db.CheckPasswordResetParams{TokenHash: hashToken(raw), StoreID: s.ID}); err != nil {
@@ -103,6 +109,7 @@ func (a *app) resetForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) resetPost(w http.ResponseWriter, r *http.Request) {
+	noReferrer(w)
 	ctx := r.Context()
 	s := StoreFrom(ctx)
 	raw := r.URL.Query().Get("t")
@@ -131,7 +138,10 @@ func (a *app) resetPost(w http.ResponseWriter, r *http.Request) {
 		if uid, err = q.UsePasswordReset(ctx, db.UsePasswordResetParams{TokenHash: hashToken(raw), StoreID: s.ID}); err != nil {
 			return err
 		}
-		return q.SetUserPassword(ctx, db.SetUserPasswordParams{StoreID: s.ID, ID: uid, PasswordHash: hash})
+		if err := q.SetUserPassword(ctx, db.SetUserPasswordParams{StoreID: s.ID, ID: uid, PasswordHash: hash}); err != nil {
+			return err
+		}
+		return q.RevokePasswordResets(ctx, db.RevokePasswordResetsParams{StoreID: s.ID, UserID: uid})
 	})
 	if err != nil {
 		a.resetInvalid(w, r, err)

@@ -63,11 +63,13 @@ func (a *app) loginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ipOK := a.limit.allow("ip:" + clientIP(r))
-	emailOK := a.limit.allow("email:" + strconv.FormatInt(s.ID, 10) + ":" + email)
-	if !ipOK || !emailOK {
-		Log(ctx).Warn("login bloqueado por límite", "ip", clientIP(r))
+	tooMany := func() {
+		Log(ctx).Warn("login bloqueado por límite", "event", "login_limited", "ip", clientIP(r), "email_tag", emailTag(email))
 		renderStatus(w, r, http.StatusTooManyRequests, views.Login(s.Name, email, "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
+	}
+	// La IP cuenta cada intento; si ya está bloqueada no se toca nada más (ni se crean llaves de email).
+	if !a.limit.allow("ip:" + limitIP(r)) {
+		tooMany()
 		return
 	}
 
@@ -81,9 +83,18 @@ func (a *app) loginPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error interno", http.StatusInternalServerError)
 		return
 	}
+	// El email solo cuenta fallos. Bloqueado, solo entra un navegador donde la dueña ya había entrado:
+	// así nadie la deja fuera a propósito con 5 intentos cada 15 minutos.
+	who := strconv.FormatInt(s.ID, 10) + ":" + email
+	emailKey := "email:" + who
+	if a.accounts.blocked(emailKey) && !a.knownDevice(r, deviceCookie, u.PasswordHash, who) {
+		tooMany()
+		return
+	}
 	ok, err := auth.Verify(pass, hash)
 	if err != nil || !ok || u.ID == 0 {
-		Log(ctx).Warn("login fallido", "ip", clientIP(r))
+		a.accounts.fail(emailKey)
+		a.loginFailed(ctx, r, "login_failed", email, "store_id", s.ID)
 		renderStatus(w, r, http.StatusUnauthorized, views.Login(s.Name, email, loginFailMsg))
 		return
 	}
@@ -96,6 +107,7 @@ func (a *app) loginPost(w http.ResponseWriter, r *http.Request) {
 	a.sessions.Put(ctx, "user_id", u.ID)
 	a.sessions.Put(ctx, "store_id", s.ID)
 	a.sessions.Put(ctx, "auth_at", time.Now().Unix())
+	a.rememberDevice(w, deviceCookie, "/panel", u.PasswordHash, who)
 	Log(ctx).Info("login", "user_id", u.ID)
 	http.Redirect(w, r, "/panel/", http.StatusSeeOther)
 }

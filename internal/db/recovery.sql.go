@@ -67,7 +67,7 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 }
 
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, email, password_hash, totp_secret, last_totp_step, created_at FROM admins WHERE id = $1
+SELECT id, email, password_hash, totp_secret, last_totp_step, created_at, credentials_changed_at FROM admins WHERE id = $1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -80,12 +80,13 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.TotpSecret,
 		&i.LastTotpStep,
 		&i.CreatedAt,
+		&i.CredentialsChangedAt,
 	)
 	return i, err
 }
 
 const getAdminByEmail = `-- name: GetAdminByEmail :one
-SELECT id, email, password_hash, totp_secret, last_totp_step, created_at FROM admins WHERE email = $1
+SELECT id, email, password_hash, totp_secret, last_totp_step, created_at, credentials_changed_at FROM admins WHERE email = $1
 `
 
 func (q *Queries) GetAdminByEmail(ctx context.Context, email string) (Admin, error) {
@@ -98,8 +99,20 @@ func (q *Queries) GetAdminByEmail(ctx context.Context, email string) (Admin, err
 		&i.TotpSecret,
 		&i.LastTotpStep,
 		&i.CreatedAt,
+		&i.CredentialsChangedAt,
 	)
 	return i, err
+}
+
+const getAdminCredentialsChangedAt = `-- name: GetAdminCredentialsChangedAt :one
+SELECT credentials_changed_at FROM admins WHERE id = $1
+`
+
+func (q *Queries) GetAdminCredentialsChangedAt(ctx context.Context, id int64) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getAdminCredentialsChangedAt, id)
+	var credentials_changed_at pgtype.Timestamptz
+	err := row.Scan(&credentials_changed_at)
+	return credentials_changed_at, err
 }
 
 const getStoreOwner = `-- name: GetStoreOwner :one
@@ -211,7 +224,7 @@ func (q *Queries) ListStoresAdmin(ctx context.Context) ([]ListStoresAdminRow, er
 }
 
 const resetAdmin = `-- name: ResetAdmin :execrows
-UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0 WHERE email = $1
+UPDATE admins SET password_hash = $2, totp_secret = $3, last_totp_step = 0, credentials_changed_at = now() WHERE email = $1
 `
 
 type ResetAdminParams struct {
@@ -227,6 +240,21 @@ func (q *Queries) ResetAdmin(ctx context.Context, arg ResetAdminParams) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const revokePasswordResets = `-- name: RevokePasswordResets :exec
+UPDATE password_resets SET used_at = now() WHERE store_id = $1 AND user_id = $2 AND used_at IS NULL
+`
+
+type RevokePasswordResetsParams struct {
+	StoreID int64
+	UserID  int64
+}
+
+// Tras recuperar la contraseña, los demás enlaces pendientes de esa cuenta ya no sirven.
+func (q *Queries) RevokePasswordResets(ctx context.Context, arg RevokePasswordResetsParams) error {
+	_, err := q.db.Exec(ctx, revokePasswordResets, arg.StoreID, arg.UserID)
+	return err
 }
 
 const setUserPassword = `-- name: SetUserPassword :exec

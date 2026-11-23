@@ -46,6 +46,7 @@ func TestNotice(t *testing.T) {
 		{"active", at("2026-11-22"), "vence hoy"},
 		{"active", at("2026-11-20"), "se pausará el 26 de noviembre de 2026"},
 		{"suspended", at("2026-11-01"), "en pausa"},
+		{"paused", at("2026-12-01"), "en pausa"},
 	} {
 		got := Notice(c.status, c.until, today)
 		if (c.want == "" && got != "") || !strings.Contains(got, c.want) {

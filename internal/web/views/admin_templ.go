@@ -33,8 +33,11 @@ func pesos(c int32) string {
 }
 
 func statusLabel(s string) string {
-	if s == "active" {
+	switch s {
+	case "active":
 		return "Abierta"
+	case "suspended":
+		return "En pausa por atraso"
 	}
 	return "En pausa"
 }

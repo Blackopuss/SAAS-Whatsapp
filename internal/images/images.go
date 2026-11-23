@@ -20,7 +20,8 @@ import (
 const MaxBytes = 10 << 20 // 10 MB por foto
 
 // maxPixels frena "bombas" de descompresión: un PNG chico que dice medir 50 000 × 50 000.
-var maxPixels = 40_000_000
+// 24 MP cubre la cámara de cualquier celular (el panel además las reduce a 1600 px antes de subir).
+var maxPixels = 24_000_000
 
 var Widths = []int{400, 800, 1200}
 
@@ -49,7 +50,7 @@ func Decode(data []byte) (image.Image, error) {
 		return nil, ErrInvalid
 	}
 	if cfg.Width*cfg.Height > maxPixels {
-		return nil, fmt.Errorf("la foto es demasiado grande (máximo 40 megapíxeles)")
+		return nil, fmt.Errorf("la foto es demasiado grande (máximo 24 megapíxeles)")
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {

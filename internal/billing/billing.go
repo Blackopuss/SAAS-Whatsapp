@@ -38,7 +38,7 @@ func SuspendsOn(paidUntil time.Time) time.Time { return paidUntil.AddDate(0, 0, 
 
 // Notice es el aviso para el panel de la vendedora; vacío si no hay nada que avisar.
 func Notice(status string, paidUntil *time.Time, today time.Time) string {
-	if status == "suspended" {
+	if status != "active" { // suspended (por atraso) o paused (a mano)
 		return "Tu tienda está en pausa: las compradoras no pueden verla. Escríbenos por WhatsApp para reactivarla."
 	}
 	if paidUntil == nil {

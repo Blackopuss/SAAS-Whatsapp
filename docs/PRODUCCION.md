@@ -27,7 +27,7 @@ scp deploy/setup-vps.sh root@IP_DEL_VPS:/root/setup-vps.sh
 ssh root@IP_DEL_VPS 'bash /root/setup-vps.sh'
 ```
 
-El script crea `tiendas` (cuenta sin login) y `deploy` (sudo, llave SSH copiada desde la llave autorizada de root y contraseña solo para sudo), desactiva login SSH por contraseña y root, activa UFW, actualizaciones automáticas y fail2ban, instala PostgreSQL 16 desde PGDG y crea la base/roles/extensión `citext`. Los passwords DB se generan con OpenSSL. El de la app queda en `/etc/tiendas/env`, `root:tiendas`, modo `0640`; el de migración queda en `/etc/tiendas/pgpass`, `root:root`, modo `0600`, para que el proceso normal no reciba esa clave.
+El script crea `tiendas` (cuenta sin login) y `deploy` (sudo, llave SSH copiada desde la llave autorizada de root y contraseña solo para sudo), desactiva login SSH por contraseña y root, activa UFW, actualizaciones automáticas y fail2ban, instala PostgreSQL 16 desde PGDG y crea la base/roles/extensión `citext`. Los passwords DB se generan con OpenSSL. El de la app queda en `/etc/tiendas/env`, `root:tiendas`, modo `0640`; el de migración queda en `/etc/tiendas/pgpass` (`root:root`, `0600`, para el respaldo) y en `/etc/tiendas-migrate/pgpass` (`tiendas-migrate`, `0600`, para las migraciones), para que el proceso normal no reciba esa clave. El usuario de sistema `tiendas-migrate` solo corre goose.
 
 El instalador permite repetirse: conserva los passwords iniciales en `/root/.tiendas-setup-secrets` (root, modo `0600`) y no reemplaza los archivos de entorno ya editados. Si modificas los passwords manualmente, actualiza los roles de PostgreSQL, `/etc/tiendas/pgpass` y las URLs juntas.
 
@@ -39,7 +39,6 @@ ADDR=127.0.0.1:8080
 BASE_DOMAIN=ejemplo.mx
 # statement_timeout: una consulta lenta se corta a los 5 s en vez de colgar la petición (SECURITY.md, A10)
 DATABASE_URL=postgres://tiendas_app:...@127.0.0.1:5432/tiendas?sslmode=disable&statement_timeout=5000
-MIGRATIONS_URL=postgres://tiendas_migrator@127.0.0.1:5432/tiendas?sslmode=disable
 R2_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
@@ -112,7 +111,7 @@ sudo systemctl restart caddy
 sudo systemctl status caddy
 ```
 
-El Caddyfile confía en los rangos oficiales de Cloudflare para interpretar `CF-Connecting-IP`; mantenlos actualizados al mismo tiempo que las reglas UFW. Los logs JSON se guardan en `/var/log/caddy/tiendas-access.json` y Caddy conserva 14 rotaciones de hasta 100 MB.
+El Caddyfile confía en los rangos oficiales de Cloudflare y toma la IP de la compradora de `CF-Connecting-IP` (`client_ip_headers`; el `X-Forwarded-For` que manda el cliente no cuenta); mantenlos actualizados al mismo tiempo que las reglas UFW. Los logs JSON se guardan en `/var/log/caddy/tiendas-access.json` y Caddy conserva 14 rotaciones de hasta 100 MB.
 
 ## 4. Restringe el origen al proxy Cloudflare
 
@@ -138,6 +137,8 @@ Instala los archivos systemd y scripts como administrador:
 
 ```bash
 sudo install -o root -g root -m 0644 /tmp/tiendas-deploy/tiendas.service /etc/systemd/system/tiendas.service
+sudo install -o root -g root -m 0644 /tmp/tiendas-deploy/tiendas-migrate.service /etc/systemd/system/tiendas-migrate.service
+sudo install -o root -g root -m 0755 /tmp/tiendas-deploy/backup.sh /usr/local/sbin/tiendas-backup
 sudo install -o root -g root -m 0644 /tmp/tiendas-deploy/tiendas-backup.service /etc/systemd/system/tiendas-backup.service
 sudo install -o root -g root -m 0644 /tmp/tiendas-deploy/tiendas-backup.timer /etc/systemd/system/tiendas-backup.timer
 sudo systemctl daemon-reload
@@ -157,10 +158,10 @@ make deploy
 
 ```bash
 ssh deploy@IP_DEL_VPS 'ls -1 /opt/tiendas/releases'
-ssh deploy@IP_DEL_VPS 'sudo ln -sfn /opt/tiendas/releases/SHA_ANTERIOR /opt/tiendas/current && sudo systemctl restart tiendas'
+ssh deploy@IP_DEL_VPS 'ln -sfn /opt/tiendas/releases/SHA_ANTERIOR /opt/tiendas/current && sudo systemctl restart tiendas'
 ```
 
-El release contiene goose y las migraciones. `ExecStartPre` aplica migraciones con `MIGRATIONS_URL` y el archivo pgpass root-only; `ExecStart` lanza la app como `tiendas`. El prefijo `!` eleva solo el paso previo de goose para poder leer la clave de migración. systemd limita filesystem, capacidades y llamadas al sistema del servicio.
+El release contiene goose y las migraciones. Al arrancar o reiniciar `tiendas`, systemd corre antes `tiendas-migrate.service` (goose como `tiendas-migrate`, con `/etc/tiendas-migrate/pgpass`); si falla, la app no arranca. Nada del release corre como root: `deploy` controla `/opt/tiendas`, pero lo que hay ahí solo corre como `tiendas` o `tiendas-migrate`. El respaldo (root) usa la copia instalada en `/usr/local/sbin/tiendas-backup`; si cambias `deploy/backup.sh`, reinstálala con el comando de arriba. systemd limita filesystem, capacidades y llamadas al sistema de ambos servicios.
 
 ## 6. Crea el primer superadmin y verifica
 
@@ -268,7 +269,9 @@ Requiere además verificar en el firewall del proveedor que los puertos de Postg
 
 ## Límites conocidos de esta entrega
 
-- `clientIP` de la app lee `RemoteAddr`. Caddy conoce el cliente mediante `trusted_proxies` y envía `X-Real-IP`/`X-Forwarded-For`, pero la app aún no confía en esos headers; rate limiting y log de IP verán loopback hasta un cambio posterior en Go.
+- `clientIP` de la app usa `X-Real-IP` solo si la conexión viene de loopback (Caddy). Caddy lo llena con `CF-Connecting-IP` y solo para conexiones de Cloudflare. Los límites de intentos cuentan IPv6 por bloque /64.
+- Los límites de intentos viven en memoria de un proceso (un solo VPS). Con varias réplicas hay que moverlos a Postgres.
+- Alerta de logins fallidos: más de 30 en 10 minutos deja `"event":"login_alert"` (nivel ERROR) en `journalctl -u tiendas`. Para que avise, conecta ese evento a tu monitoreo (p. ej. un monitor de palabra clave o un `journalctl -f | grep` que mande WhatsApp/correo).
 - `ADDR` permite fijar el bind y el servicio establece `127.0.0.1:8080`; su valor por defecto en la app es `:8080`.
 - `R2_PUBLIC_URL` debe apuntar al dominio público real del bucket de imágenes. El bucket de respaldo permanece privado.
 - `deploy/backup.sh` guarda un dump temporal solo durante el proceso y lo borra al salir; el cifrado ocurre antes de subirlo.

@@ -381,7 +381,7 @@ func addPhoto(ctx context.Context, q *db.Queries, st storage.Storage, storeID, p
 			return err
 		}
 		if img, err = images.Decode(data); err != nil {
-			// La que no pasa la validación (p. ej. más de 40 MP) se quita y se usa la siguiente.
+			// La que no pasa la validación (p. ej. más de 24 MP) se quita y se usa la siguiente.
 			fmt.Fprintf(os.Stderr, "se omite %s: %v\n", f, err)
 			realPhotos = slices.Delete(realPhotos, (photoN-1)%len(realPhotos), (photoN-1)%len(realPhotos)+1)
 			photoN--

@@ -1,0 +1,24 @@
+[Unit]
+Description=Migraciones de base de datos de Tiendas
+After=postgresql.service
+Requires=postgresql.service
+
+# Corre goose del release actual con el rol tiendas_migrator. El usuario tiendas-migrate no es root ni la app:
+# solo él lee la clave de migración, y quien sube releases (deploy) no gana root por esta vía.
+[Service]
+Type=oneshot
+User=tiendas-migrate
+Group=tiendas-migrate
+Environment=PGPASSFILE=/etc/tiendas-migrate/pgpass
+Environment=MIGRATIONS_URL=postgres://tiendas_migrator@127.0.0.1:5432/tiendas?sslmode=disable
+ExecStart=/opt/tiendas/current/bin/goose -dir /opt/tiendas/current/migrations postgres ${MIGRATIONS_URL} up
+UMask=0077
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
