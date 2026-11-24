@@ -163,6 +163,10 @@ func (a *app) renderAdminStore(w http.ResponseWriter, r *http.Request, status in
 	if s.PaidUntil.Valid {
 		v.PaidUntil = billing.Date(s.PaidUntil.Time)
 	}
+	if v.Products, err = a.q.ListPanelProducts(ctx, id); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	renderStatus(w, r, status, views.AdminStore(v))
 }
 
@@ -171,6 +175,7 @@ var adminOK = map[string]string{
 	"pausada":    "Tienda pausada.",
 	"reactivada": "Tienda reactivada.",
 	"plan":       "Plan guardado.",
+	"precio":     "Precio guardado.",
 }
 
 func (a *app) adminPayment(w http.ResponseWriter, r *http.Request) {
@@ -303,6 +308,43 @@ func (a *app) adminPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back(w, r, "/tiendas/"+strconv.FormatInt(id, 10)+"?ok=plan")
+}
+
+// adminProductPrice: el precio normal de un producto ya creado solo lo cambia el superadmin, y queda en la bitácora.
+func (a *app) adminProductPrice(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	pid, err := strconv.ParseInt(r.PathValue("pid"), 10, 64)
+	if err != nil || pid <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	price, err := parsePrice(r.PostFormValue("price"))
+	if err != nil {
+		a.renderAdminStore(w, r, http.StatusUnprocessableEntity, "Precio: "+err.Error()+".", "")
+		return
+	}
+	err = a.tx(ctx, func(q db.Querier) error {
+		if _, err := q.GetStoreAdmin(ctx, id); err != nil {
+			return err
+		}
+		p, err := q.SetProductPrice(ctx, db.SetProductPriceParams{StoreID: id, ID: pid, PriceCents: price})
+		if err != nil {
+			return err
+		}
+		if p.OldPriceCents == price {
+			return nil
+		}
+		return a.audit(ctx, q, id, "precio cambiado", p.Name+": "+views.Money(p.OldPriceCents)+" → "+views.Money(price))
+	})
+	if err != nil {
+		a.notFoundOr500(w, r, err)
+		return
+	}
+	back(w, r, "/tiendas/"+strconv.FormatInt(id, 10)+"?ok=precio#precios")
 }
 
 func (a *app) adminAudit(w http.ResponseWriter, r *http.Request) {

@@ -442,6 +442,36 @@ func (q *Queries) ReorderCategories(ctx context.Context, arg ReorderCategoriesPa
 	return err
 }
 
+const setProductPrice = `-- name: SetProductPrice :one
+UPDATE products p
+SET price_cents = $3,
+    sale_price_cents = CASE WHEN p.sale_price_cents < $3 THEN p.sale_price_cents END,
+    on_sale = p.on_sale AND coalesce(p.sale_price_cents < $3, false),
+    updated_at = now()
+FROM products old
+WHERE p.store_id = $1 AND p.id = $2 AND old.store_id = p.store_id AND old.id = p.id
+RETURNING p.name, old.price_cents AS old_price_cents
+`
+
+type SetProductPriceParams struct {
+	StoreID    int64
+	ID         int64
+	PriceCents int32
+}
+
+type SetProductPriceRow struct {
+	Name          string
+	OldPriceCents int32
+}
+
+// Solo superadmin. Quita la oferta si ya no queda abajo del precio nuevo.
+func (q *Queries) SetProductPrice(ctx context.Context, arg SetProductPriceParams) (SetProductPriceRow, error) {
+	row := q.db.QueryRow(ctx, setProductPrice, arg.StoreID, arg.ID, arg.PriceCents)
+	var i SetProductPriceRow
+	err := row.Scan(&i.Name, &i.OldPriceCents)
+	return i, err
+}
+
 const setProductStock = `-- name: SetProductStock :execrows
 UPDATE products SET stock = $3, sold_out = $4, updated_at = now() WHERE store_id = $1 AND id = $2
 `
@@ -519,9 +549,9 @@ func (q *Queries) ToggleProductFlag(ctx context.Context, arg ToggleProductFlagPa
 
 const updateProduct = `-- name: UpdateProduct :execrows
 UPDATE products
-SET category_id = $3, name = $4, description = $5, price_cents = $6, sale_price_cents = $7,
-    is_new = $8, on_sale = $9, sold_out = $10, unit = $11, step = $12, stock = $13, updated_at = now()
-WHERE store_id = $1 AND id = $2
+SET category_id = $3, name = $4, description = $5, sale_price_cents = $6,
+    is_new = $7, on_sale = $8, sold_out = $9, unit = $10, step = $11, stock = $12, updated_at = now()
+WHERE store_id = $1 AND id = $2 AND ($6::int IS NULL OR $6::int < price_cents)
 `
 
 type UpdateProductParams struct {
@@ -530,7 +560,6 @@ type UpdateProductParams struct {
 	CategoryID     pgtype.Int8
 	Name           string
 	Description    string
-	PriceCents     int32
 	SalePriceCents pgtype.Int4
 	IsNew          bool
 	OnSale         bool
@@ -540,6 +569,8 @@ type UpdateProductParams struct {
 	Stock          pgtype.Int4
 }
 
+// Sin price_cents: después de crear, el precio normal solo lo cambia el superadmin (SetProductPrice).
+// La oferta debe quedar abajo del precio guardado aunque el superadmin lo haya bajado mientras tanto.
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateProduct,
 		arg.StoreID,
@@ -547,7 +578,6 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (i
 		arg.CategoryID,
 		arg.Name,
 		arg.Description,
-		arg.PriceCents,
 		arg.SalePriceCents,
 		arg.IsNew,
 		arg.OnSale,

@@ -53,10 +53,23 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id;
 
 -- name: UpdateProduct :execrows
+-- Sin price_cents: después de crear, el precio normal solo lo cambia el superadmin (SetProductPrice).
+-- La oferta debe quedar abajo del precio guardado aunque el superadmin lo haya bajado mientras tanto.
 UPDATE products
-SET category_id = $3, name = $4, description = $5, price_cents = $6, sale_price_cents = $7,
-    is_new = $8, on_sale = $9, sold_out = $10, unit = $11, step = $12, stock = $13, updated_at = now()
-WHERE store_id = $1 AND id = $2;
+SET category_id = $3, name = $4, description = $5, sale_price_cents = $6,
+    is_new = $7, on_sale = $8, sold_out = $9, unit = $10, step = $11, stock = $12, updated_at = now()
+WHERE store_id = $1 AND id = $2 AND ($6::int IS NULL OR $6::int < price_cents);
+
+-- name: SetProductPrice :one
+-- Solo superadmin. Quita la oferta si ya no queda abajo del precio nuevo.
+UPDATE products p
+SET price_cents = $3,
+    sale_price_cents = CASE WHEN p.sale_price_cents < $3 THEN p.sale_price_cents END,
+    on_sale = p.on_sale AND coalesce(p.sale_price_cents < $3, false),
+    updated_at = now()
+FROM products old
+WHERE p.store_id = $1 AND p.id = $2 AND old.store_id = p.store_id AND old.id = p.id
+RETURNING p.name, old.price_cents AS old_price_cents;
 
 -- name: SetProductStock :execrows
 UPDATE products SET stock = $3, sold_out = $4, updated_at = now() WHERE store_id = $1 AND id = $2;

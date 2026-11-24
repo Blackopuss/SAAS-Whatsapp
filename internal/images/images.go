@@ -23,6 +23,10 @@ const MaxBytes = 10 << 20 // 10 MB por foto
 // 24 MP cubre la cámara de cualquier celular (el panel además las reduce a 1600 px antes de subir).
 var maxPixels = 24_000_000
 
+// maxScans: Go recorre la imagen completa por cada scan de un JPEG progresivo; uno normal trae unos 10.
+// Miles de scans vacíos caben en pocos KB y tardarían minutos con un cupo de photoSlots tomado.
+const maxScans = 64
+
 var Widths = []int{400, 800, 1200}
 
 var allowed = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true}
@@ -42,7 +46,12 @@ func Decode(data []byte) (image.Image, error) {
 	if len(data) == 0 || len(data) > MaxBytes {
 		return nil, fmt.Errorf("la foto debe pesar menos de 10 MB")
 	}
-	if !allowed[http.DetectContentType(data)] {
+	ct := http.DetectContentType(data)
+	if !allowed[ct] {
+		return nil, ErrInvalid
+	}
+	// FF DA solo aparece como marcador: dentro de los datos comprimidos todo FF va seguido de 00.
+	if ct == "image/jpeg" && bytes.Count(data, []byte{0xFF, 0xDA}) > maxScans {
 		return nil, ErrInvalid
 	}
 	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))

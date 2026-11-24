@@ -154,16 +154,17 @@ function StoreNew(f: NewStore) {
   );
 }
 
+type Product = { id: number; name: string; price: string; priceInput: string; sale: string };
 type Payment = { amount: string; months: number; paidOn: string; onTime: boolean; covers: string; note: string };
 type StoreView = {
   id: number; name: string; shopURL: string; active: boolean; status: string; paidUntil: string; overdue: boolean; streak: number;
-  price: string; priceInput: string; founder: boolean; notice: string; error: string; ok: string; today: string; payments: Payment[];
+  price: string; priceInput: string; founder: boolean; notice: string; error: string; ok: string; today: string; payments: Payment[]; products: Product[];
 };
 
 function StoreDetail(v: StoreView) {
   const [paying, setPaying] = useState(false);
   const [pausing, setPausing] = useState(false);
-  const [tab, setTab] = useState("datos");
+  const [tab, setTab] = useState(location.hash === "#precios" ? "precios" : "datos");
   const base = `/tiendas/${v.id}`;
   return (
     <AdminShell title={v.name} current="/" back={{ href: "/", label: "Tiendas" }}
@@ -184,7 +185,32 @@ function StoreDetail(v: StoreView) {
       <TabList value={tab} onChange={setTab} hasDivider role="tablist">
         <Tab value="datos" label="Plan y acceso" panelId="t-datos" />
         <Tab value="pagos" label="Pagos" panelId="t-pagos" endContent={<Badge label={v.payments.length} />} />
+        <Tab value="precios" label="Precios" panelId="t-precios" endContent={<Badge label={v.products.length} />} />
       </TabList>
+
+      <section hidden={tab !== "precios"} id="t-precios" role="tabpanel" aria-label="Precios">
+        <Card padding={0}>
+          {v.products.length === 0 ? (
+            <EmptyState title="Esta tienda aún no tiene productos" isCompact headingLevel={2} />
+          ) : (
+            <List hasDividers>
+              {v.products.map((p) => (
+                <ListItem key={p.id} label={p.name}
+                  description={`Precio actual ${p.price}${p.sale ? ` · en oferta a ${p.sale}` : ""}`}
+                  endContent={
+                    <Form action={`${base}/productos/${p.id}/precio`} gap={2}>
+                      <HStack gap={2} vAlign="end">
+                        <Txt name="price" label={`Nuevo precio de ${p.name}`} isLabelHidden initial={p.priceInput} inputMode="decimal" width={110} />
+                        <Button type="submit" label="Guardar" />
+                      </HStack>
+                    </Form>
+                  } />
+              ))}
+            </List>
+          )}
+        </Card>
+        <Text color="secondary">Cada cambio queda en la bitácora. Si la oferta ya no queda abajo del precio nuevo, se quita.</Text>
+      </section>
 
       <section hidden={tab !== "pagos"} id="t-pagos" role="tabpanel" aria-label="Pagos">
         <Card padding={0}>

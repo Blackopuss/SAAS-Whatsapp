@@ -99,6 +99,15 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // chain aplica los middlewares en el orden dado (el primero es el más externo).
+// noStore: nada del panel ni del admin se guarda en un caché compartido (Cloudflare guarda .csv y .png por
+// extensión), tampoco el 303 a /panel/login de una visita sin sesión.
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store, private")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(mws) - 1; i >= 0; i-- {
 		h = mws[i](h)

@@ -65,6 +65,7 @@ func (a *app) loginPost(w http.ResponseWriter, r *http.Request) {
 
 	tooMany := func() {
 		Log(ctx).Warn("login bloqueado por límite", "event", "login_limited", "ip", clientIP(r), "email_tag", emailTag(email))
+		w.Header().Set("Retry-After", "900")
 		renderStatus(w, r, http.StatusTooManyRequests, views.Login(s.Name, email, "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
 	}
 	// La IP cuenta cada intento; si ya está bloqueada no se toca nada más (ni se crean llaves de email).

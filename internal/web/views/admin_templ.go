@@ -171,6 +171,7 @@ func AdminStoreNew(f NewStoreForm) templ.Component {
 type AdminStoreView struct {
 	Store                                        db.GetStoreAdminRow
 	Payments                                     []db.Payment
+	Products                                     []db.ListPanelProductsRow
 	Today, ShopURL, PaidUntil, Notice, Error, OK string
 }
 
@@ -193,8 +194,28 @@ func adminStoreData(v AdminStoreView) map[string]any {
 		"id": s.ID, "name": s.Name, "shopURL": v.ShopURL, "active": s.Status == "active", "status": statusLabel(s.Status),
 		"paidUntil": v.PaidUntil, "overdue": overdue(s.PaidUntil), "streak": s.StreakMonths, "price": money(s.PriceCents),
 		"priceInput": pesos(s.PriceCents), "founder": s.IsFounder, "notice": v.Notice, "error": v.Error, "ok": v.OK,
-		"today": v.Today, "payments": ps,
+		"today": v.Today, "payments": ps, "products": adminProducts(v.Products),
 	}
+}
+
+type adminProduct struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Price      string `json:"price"`
+	PriceInput string `json:"priceInput"`
+	Sale       string `json:"sale"`
+}
+
+func adminProducts(rows []db.ListPanelProductsRow) []adminProduct {
+	out := make([]adminProduct, 0, len(rows))
+	for _, p := range rows {
+		x := adminProduct{ID: p.ID, Name: p.Name, Price: money(p.PriceCents), PriceInput: pesos(p.PriceCents)}
+		if p.OnSale && p.SalePriceCents.Valid {
+			x.Sale = money(p.SalePriceCents.Int32)
+		}
+		out = append(out, x)
+	}
+	return out
 }
 
 func AdminStore(v AdminStoreView) templ.Component {

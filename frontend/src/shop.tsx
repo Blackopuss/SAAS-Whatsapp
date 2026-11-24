@@ -609,12 +609,15 @@ function sizesText(s: string[]) {
   return `Tallas ${s.join(", ")}`;
 }
 
-// Existencia real: "Quedan 2" si va por acabarse (3 pasos o menos), "8 disponibles" si hay; nada si no lleva inventario.
+// Existencia real: "Quedan 2" si va por acabarse (3 pasos o menos), "8 disponibles" si hay, "99 o más" arriba del tope;
+// nada si no lleva inventario.
 function stockText(c: CardData): { text: string; low: boolean } | null {
   const left = c.left ?? -1;
   if (left < 0 || c.soldOut) return null;
   const amount = c.unit && c.unit !== "pza" ? qtyLabel(left, c.unit) : qtyNum(left);
-  return left <= c.step * 3 ? { text: `Quedan ${amount}`, low: true } : { text: `${amount} disponibles`, low: false };
+  if (left <= c.step * 3) return { text: `Quedan ${amount}`, low: true };
+  // El servidor recorta a 99 pasos (no publica el inventario real).
+  return { text: left >= c.step * MAX_UNITS ? `${amount} o más disponibles` : `${amount} disponibles`, low: false };
 }
 
 function Card({ c, eager }: { c: CardData; eager?: boolean }) {

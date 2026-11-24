@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"testing"
 
@@ -61,5 +62,27 @@ func TestRenditions(t *testing.T) {
 	}
 	if got := DominantColor(img); got != "#c81e5a" {
 		t.Errorf("DominantColor = %s", got)
+	}
+}
+
+// Un JPEG válido con más marcadores de scan (FF DA) que maxScans se rechaza antes de decodificar.
+func TestDecodeRejectsManyScans(t *testing.T) {
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, image.NewGray(image.Rect(0, 0, 16, 16)), nil); err != nil {
+		t.Fatal(err)
+	}
+	ok := buf.Bytes()
+	if _, err := Decode(ok); err != nil {
+		t.Fatalf("rechazó un JPEG normal: %v", err)
+	}
+	// Segmento de comentario (FF FE) con muchos FF DA: el decodificador lo salta, el conteo no.
+	payload := bytes.Repeat([]byte{0xFF, 0xDA}, maxScans)
+	com := append([]byte{0xFF, 0xFE, byte((len(payload) + 2) >> 8), byte(len(payload) + 2)}, payload...)
+	bad := append(append(append([]byte{}, ok[:2]...), com...), ok[2:]...)
+	if _, _, err := image.Decode(bytes.NewReader(bad)); err != nil {
+		t.Fatalf("el JPEG de prueba debe seguir siendo válido: %v", err)
+	}
+	if _, err := Decode(bad); err == nil {
+		t.Fatal("aceptó un JPEG con más scans que el límite")
 	}
 }

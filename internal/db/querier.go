@@ -101,11 +101,14 @@ type Querier interface {
 	SetOrderItemQty(ctx context.Context, arg SetOrderItemQtyParams) (int64, error)
 	SetOrderStatus(ctx context.Context, arg SetOrderStatusParams) error
 	SetOrderTotal(ctx context.Context, arg SetOrderTotalParams) error
+	// Solo superadmin. Quita la oferta si ya no queda abajo del precio nuevo.
+	SetProductPrice(ctx context.Context, arg SetProductPriceParams) (SetProductPriceRow, error)
 	SetProductStock(ctx context.Context, arg SetProductStockParams) (int64, error)
 	// Devuelve el logo anterior para borrar sus archivos.
 	SetStoreLogo(ctx context.Context, arg SetStoreLogoParams) (SetStoreLogoRow, error)
 	SetStoreStatus(ctx context.Context, arg SetStoreStatusParams) (int64, error)
-	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
+	// Devuelve el email para recordar el navegador que terminó la recuperación (cookie de dispositivo).
+	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (string, error)
 	SetVariantStock(ctx context.Context, arg SetVariantStockParams) error
 	// Día 5 de atraso: se pausa. Solo tiendas activas con fecha de pago; las recién dadas de alta (NULL) no.
 	SuspendOverdue(ctx context.Context) ([]SuspendOverdueRow, error)
@@ -116,6 +119,8 @@ type Querier interface {
 	Today(ctx context.Context) (pgtype.Date, error)
 	// @flag ya viene validado por el handler (active, sold_out, is_new, on_sale).
 	ToggleProductFlag(ctx context.Context, arg ToggleProductFlagParams) (int64, error)
+	// Sin price_cents: después de crear, el precio normal solo lo cambia el superadmin (SetProductPrice).
+	// La oferta debe quedar abajo del precio guardado aunque el superadmin lo haya bajado mientras tanto.
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (int64, error)
 	UpdateStoreSettings(ctx context.Context, arg UpdateStoreSettingsParams) error
 	UpdateStoreWhatsapp(ctx context.Context, arg UpdateStoreWhatsappParams) error

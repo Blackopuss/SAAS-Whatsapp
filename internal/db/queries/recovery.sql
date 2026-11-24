@@ -18,8 +18,10 @@ RETURNING user_id;
 -- Tras recuperar la contraseña, los demás enlaces pendientes de esa cuenta ya no sirven.
 UPDATE password_resets SET used_at = now() WHERE store_id = $1 AND user_id = $2 AND used_at IS NULL;
 
--- name: SetUserPassword :exec
-UPDATE users SET password_hash = $3, password_changed_at = now() WHERE store_id = $1 AND id = $2;
+-- name: SetUserPassword :one
+-- Devuelve el email para recordar el navegador que terminó la recuperación (cookie de dispositivo).
+UPDATE users SET password_hash = $3, password_changed_at = now() WHERE store_id = $1 AND id = $2
+RETURNING email::text;
 
 -- name: GetUserPasswordChangedAt :one
 SELECT password_changed_at FROM users WHERE store_id = $1 AND id = $2;

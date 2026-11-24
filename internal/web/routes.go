@@ -153,7 +153,7 @@ func Routes(d Deps) http.Handler {
 	}
 	// Único POST de la tienda pública: mismo filtro de origen que el panel.
 	store.Handle("POST /pedido", a.requireOpen(http.NewCrossOriginProtection().Handler(http.HandlerFunc(a.shopOrder))))
-	store.Handle("/panel/", chain(panel, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
+	store.Handle("/panel/", chain(panel, noStore, a.sessions.LoadAndSave, http.NewCrossOriginProtection().Handler))
 
 	top := http.NewServeMux()
 	top.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(noDirs{http.Dir("web/static")})))

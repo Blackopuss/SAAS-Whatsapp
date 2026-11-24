@@ -39,19 +39,20 @@ func (a *app) adminRoutes(store scs.Store, secure bool) http.Handler {
 	})
 	mux.Handle("GET /{$}", a.requireAdmin(http.HandlerFunc(a.adminStores)))
 	for pattern, h := range map[string]http.HandlerFunc{
-		"POST /tiendas/{id}/recuperar": a.adminReset,
-		"GET /tiendas/nueva":           a.adminStoreNew,
-		"POST /tiendas":                a.adminStoreCreate,
-		"GET /tiendas/{id}":            a.adminStore,
-		"POST /tiendas/{id}/pagos":     a.adminPayment,
-		"POST /tiendas/{id}/pausar":    a.adminSetStatus("paused", "pausada", "pausada"),
-		"POST /tiendas/{id}/reactivar": a.adminSetStatus("active", "reactivada", "reactivada"),
-		"POST /tiendas/{id}/plan":      a.adminPlan,
-		"GET /bitacora":                a.adminAudit,
+		"POST /tiendas/{id}/recuperar":              a.adminReset,
+		"GET /tiendas/nueva":                        a.adminStoreNew,
+		"POST /tiendas":                             a.adminStoreCreate,
+		"GET /tiendas/{id}":                         a.adminStore,
+		"POST /tiendas/{id}/pagos":                  a.adminPayment,
+		"POST /tiendas/{id}/pausar":                 a.adminSetStatus("paused", "pausada", "pausada"),
+		"POST /tiendas/{id}/reactivar":              a.adminSetStatus("active", "reactivada", "reactivada"),
+		"POST /tiendas/{id}/plan":                   a.adminPlan,
+		"POST /tiendas/{id}/productos/{pid}/precio": a.adminProductPrice,
+		"GET /bitacora":                             a.adminAudit,
 	} {
 		mux.Handle(pattern, a.requireAdmin(h))
 	}
-	return chain(mux, sm.LoadAndSave, http.NewCrossOriginProtection().Handler)
+	return chain(mux, noStore, sm.LoadAndSave, http.NewCrossOriginProtection().Handler)
 }
 
 func (a *app) requireAdmin(next http.Handler) http.Handler {
@@ -95,6 +96,7 @@ func (a *app) adminLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 	tooMany := func() {
 		Log(ctx).Warn("admin: login bloqueado por límite", "event", "admin_login_limited", "ip", clientIP(r), "email_tag", emailTag(email))
+		w.Header().Set("Retry-After", "900")
 		renderStatus(w, r, http.StatusTooManyRequests, views.AdminLogin(email, "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
 	}
 	if len(email) > 254 || len(pass) > 1024 || len(code) != 6 {

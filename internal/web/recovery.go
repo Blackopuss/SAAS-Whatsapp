@@ -68,6 +68,7 @@ func (a *app) forgotPost(w http.ResponseWriter, r *http.Request) {
 	}
 	email := strings.ToLower(strings.TrimSpace(r.PostFormValue("email")))
 	if !a.limit.allow("reset-ip:"+limitIP(r)) || !a.limit.allow("reset-email:"+strconv.FormatInt(s.ID, 10)+":"+email) {
+		w.Header().Set("Retry-After", "900")
 		renderStatus(w, r, http.StatusTooManyRequests, views.Forgot(s.Name, true, "", "Demasiados intentos. Espera 15 minutos y vuelve a intentar."))
 		return
 	}
@@ -133,12 +134,13 @@ func (a *app) resetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var uid int64
+	var email string
 	err = a.tx(ctx, func(q db.Querier) error {
 		var err error
 		if uid, err = q.UsePasswordReset(ctx, db.UsePasswordResetParams{TokenHash: hashToken(raw), StoreID: s.ID}); err != nil {
 			return err
 		}
-		if err := q.SetUserPassword(ctx, db.SetUserPasswordParams{StoreID: s.ID, ID: uid, PasswordHash: hash}); err != nil {
+		if email, err = q.SetUserPassword(ctx, db.SetUserPasswordParams{StoreID: s.ID, ID: uid, PasswordHash: hash}); err != nil {
 			return err
 		}
 		return q.RevokePasswordResets(ctx, db.RevokePasswordResetsParams{StoreID: s.ID, UserID: uid})
@@ -147,6 +149,9 @@ func (a *app) resetPost(w http.ResponseWriter, r *http.Request) {
 		a.resetInvalid(w, r, err)
 		return
 	}
+	// El hash nuevo invalida las cookies de dispositivo; este navegador demostró tener el enlace, así que queda
+	// recordado y entra aunque alguien tenga bloqueado el email con intentos fallidos.
+	a.rememberDevice(w, deviceCookie, "/panel", hash, strconv.FormatInt(s.ID, 10)+":"+strings.ToLower(email))
 	Log(ctx).Info("contraseña cambiada por recuperación", "user_id", uid)
 	renderStatus(w, r, http.StatusOK, views.ResetDone(s.Name))
 }

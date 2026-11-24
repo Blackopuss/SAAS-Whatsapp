@@ -437,7 +437,12 @@ function ProductEdit({ form: f, category, categories, ...b }: Base & { form: Pro
                   description={unit === "pieza" ? "Normalmente 1." : "Ej. 0.25 para vender de cuarto en cuarto."} />
               </Grid>
               <Grid columns={{ minWidth: 200, repeat: "fit" }} gap={4}>
-                <Txt name="price" label={`Precio por ${unit === "pieza" ? "pieza" : short}`} initial={f.Price} inputMode="decimal" placeholder="289" />
+                {isNew ? (
+                  <Txt name="price" label={`Precio por ${unit === "pieza" ? "pieza" : short}`} initial={f.Price} inputMode="decimal" placeholder="289" />
+                ) : (
+                  <TextInput label={`Precio por ${unit === "pieza" ? "pieza" : short}`} value={f.Price} onChange={() => {}} isReadOnly
+                    description="Para cambiarlo, pídeselo al administrador. Para vender más barato usa el precio de oferta." />
+                )}
                 <Txt name="sale_price" label="Precio de oferta" isOptional initial={f.SalePrice} inputMode="decimal" placeholder="249"
                   description="Si lo llenas, sale tachado el precio normal." />
               </Grid>

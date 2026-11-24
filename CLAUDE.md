@@ -43,6 +43,8 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - Admin: `admin.<dominio>`, cookie `tiendas_admin` SameSite=Strict, 30 min de inactividad, TOTP RFC 6238 con secreto cifrado AES-GCM y sin reuso de código.
 - argon2id; límite 5 intentos / 15 min por IP (IPv6 por /64) y 5 fallos / 15 min por cuenta; con la cuenta bloqueada entra solo un navegador donde ya había entrado (cookie `tiendas_disp`/`tiendas_admin_disp`, HMAC de `TOTP_KEY` + hash de la contraseña, en `guard.go`); mismo mensaje exista o no la cuenta. Límites en memoria con tope de 50 000 llaves; el de cuentas (`accounts`) nunca suelta un bloqueo vivo. Más de 30 fallos en 10 min: `event=login_alert` en el log.
 - `createadmin -reset` cierra las sesiones del admin (`admins.credentials_changed_at`); recuperar la contraseña revoca los otros enlaces. La app solo puede INSERT en `admin_audit` (migración 00010).
+- Precio normal: la vendedora lo pone al crear el producto; después solo lo cambia el superadmin (`POST /tiendas/{id}/productos/{pid}/precio`, pestaña Precios, queda en `admin_audit`). `UpdateProduct` no escribe `price_cents`. La oferta (`sale_price_cents`, `on_sale`) sigue siendo de la vendedora.
+- Auditoría 2026-11-24 (informe fuera del repo, `~/security-audit-skill/Saas-Whatsapp/run-1/`): JPEG con más de 64 scans se rechaza; las tarjetas publican existencias con el mismo tope que `/carrito.json`; recuperar la contraseña recuerda ese navegador; `/panel/*` y admin van con `Cache-Control: no-store`; los 429 llevan `Retry-After`.
 - Estado `paused` (pausa manual del superadmin) distinto de `suspended` (atraso): registrar un pago solo reabre `suspended`.
 - Despliegue: Caddy toma la IP de `CF-Connecting-IP`; migraciones en `tiendas-migrate.service` con su propio usuario; nada del release corre como root. Acciones de CI fijadas por SHA, Dependabot activo.
 - CSRF con `http.NewCrossOriginProtection` (stdlib). CSP con nonce por petición, sin `unsafe-inline` (los colores por producto van en `<style nonce>`); `frame-ancestors 'none'` salvo la vista previa del panel.
@@ -75,6 +77,22 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
 - **Mensajes**: `/panel/mensajes` trae 9 plantillas de WhatsApp (bienvenida a clientas inactivas) para copiar; no se envían solas.
 
 ## Pendientes conocidos
+
+- **De la auditoría del 2026-11-24** (detalle en `~/security-audit-skill/Saas-Whatsapp/run-1/REPORT.md` y `NEEDS-VALIDATION.md`, fuera del repo):
+  - Cloudflare: regla de caché que no guarde `/panel/*` ni `admin.*`. Validar solo con una tienda de prueba: pedir `/panel/ventas/ventas.csv?periodo=zz-audit` dos veces sin cookie y ver `cf-cache-status`.
+  - Revisar en el navegador la pestaña Precios del admin y el precio de solo lectura al editar un producto en el panel (no se vio en pantalla; las pruebas de Go sí pasan). Correr la e2e completa.
+  - Recomendaciones sin aplicar:
+    - `ADDR` por defecto en loopback.
+    - Limitadores en memoria: separar los de tienda y admin; el estricto falla cerrado con 50 000 llaves.
+    - `issueReset` no revoca los enlaces anteriores.
+    - AAD en el cifrado del TOTP.
+    - Authenticated Origin Pulls.
+    - `X-Frame-Options`.
+    - `.env.*`, `*.pem` y `*.key` en `.gitignore`.
+    - Tope de `SetOrderTotal`: desborda int32 con cantidades enormes.
+    - `productDelete` sin transacción: puede dejar fotos huérfanas.
+    - Reparto de `photoSlots` por tienda.
+    - Reintento de `/pedido` ligado al mismo contenido.
 
 - Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
 - Giros nuevos propuestos (panadería, florería, ferretería, antojitos, mascotas): columna `style`, tema, `giros/<giro>.css` y catálogo en `seeddemo`. Hay fotos de pan en `demo/fotos/panaderia/`.

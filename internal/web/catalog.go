@@ -406,7 +406,19 @@ func (a *app) productSave(w http.ResponseWriter, r *http.Request) {
 	}
 	f.CategoryID, _ = strconv.ParseInt(r.PostFormValue("category_id"), 10, 64)
 
-	price, err := parsePrice(f.Price)
+	var price int32
+	var err error
+	if id == 0 {
+		price, err = parsePrice(f.Price)
+	} else {
+		// Al editar, el precio normal sale de la base: después de crear solo lo cambia el superadmin.
+		p, gerr := a.q.GetProduct(r.Context(), db.GetProductParams{StoreID: StoreFrom(r.Context()).ID, ID: id})
+		if gerr != nil {
+			a.notFoundOr500(w, r, gerr)
+			return
+		}
+		price, f.Price = p.PriceCents, formatPrice(p.PriceCents)
+	}
 	var sale pgtype.Int4
 	step, _, stepErr := parseQty(cmp.Or(strings.TrimSpace(f.Step), "1"))
 	switch {
@@ -482,7 +494,7 @@ func (a *app) productSave(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 		} else {
-			n, err := q.UpdateProduct(r.Context(), db.UpdateProductParams{StoreID: s.ID, ID: id, CategoryID: cat, Name: f.Name, Description: f.Description, PriceCents: price, SalePriceCents: sale,
+			n, err := q.UpdateProduct(r.Context(), db.UpdateProductParams{StoreID: s.ID, ID: id, CategoryID: cat, Name: f.Name, Description: f.Description, SalePriceCents: sale,
 				IsNew: f.IsNew, OnSale: f.OnSale, SoldOut: f.SoldOut && !f.Track, Unit: f.Unit, Step: step, Stock: stock})
 			if err != nil {
 				return err

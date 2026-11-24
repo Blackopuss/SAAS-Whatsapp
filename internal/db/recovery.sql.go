@@ -257,8 +257,9 @@ func (q *Queries) RevokePasswordResets(ctx context.Context, arg RevokePasswordRe
 	return err
 }
 
-const setUserPassword = `-- name: SetUserPassword :exec
+const setUserPassword = `-- name: SetUserPassword :one
 UPDATE users SET password_hash = $3, password_changed_at = now() WHERE store_id = $1 AND id = $2
+RETURNING email::text
 `
 
 type SetUserPasswordParams struct {
@@ -267,9 +268,12 @@ type SetUserPasswordParams struct {
 	PasswordHash string
 }
 
-func (q *Queries) SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error {
-	_, err := q.db.Exec(ctx, setUserPassword, arg.StoreID, arg.ID, arg.PasswordHash)
-	return err
+// Devuelve el email para recordar el navegador que terminó la recuperación (cookie de dispositivo).
+func (q *Queries) SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (string, error) {
+	row := q.db.QueryRow(ctx, setUserPassword, arg.StoreID, arg.ID, arg.PasswordHash)
+	var email string
+	err := row.Scan(&email)
+	return email, err
 }
 
 const usePasswordReset = `-- name: UsePasswordReset :one

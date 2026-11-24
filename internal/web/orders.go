@@ -92,6 +92,7 @@ func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 	s := StoreFrom(ctx)
 	if !a.orderLimit.allow(strconv.FormatInt(s.ID, 10) + "|" + limitIP(r)) {
 		Log(ctx).Warn("pedido frenado por límite", "event", "order_limited", "ip", clientIP(r))
+		w.Header().Set("Retry-After", "3600")
 		http.Error(w, "Demasiados pedidos seguidos. Intenta más tarde.", http.StatusTooManyRequests)
 		return
 	}
