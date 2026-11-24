@@ -86,7 +86,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
     - Limitadores en memoria: separar los de tienda y admin; el estricto falla cerrado con 50 000 llaves.
     - `issueReset` no revoca los enlaces anteriores.
     - AAD en el cifrado del TOTP.
-    - Authenticated Origin Pulls.
+    -
     - `X-Frame-Options`.
     - `.env.*`, `*.pem` y `*.key` en `.gitignore`.
     - Tope de `SetOrderTotal`: desborda int32 con cantidades enormes.
@@ -94,7 +94,7 @@ Ramas: se trabaja en `desarrollo`; pasa a `main` solo con CI verde. El repo es p
     - Reparto de `photoSlots` por tienda.
     - Reintento de `/pedido` ligado al mismo contenido.
 
-- Rentar VPS y seguir `docs/PRODUCCION.md`. Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
+- Rentar VPS (contratado: 2 vCPU, 8 GB, 100 GB NVMe) y seguir `docs/PRODUCCION.md`, incluida la sección 10 (2FA en cuentas, Cloudflare Access y regla WAF para `admin.`, Authenticated Origin Pulls con certificado propio, SSH solo por Tailscale). Tras cambiar el estado de una tienda, otras réplicas tardan hasta 60 s en verlo (caché de tiendas).
 - Giros nuevos propuestos (panadería, florería, ferretería, antojitos, mascotas): columna `style`, tema, `giros/<giro>.css` y catálogo en `seeddemo`. Hay fotos de pan en `demo/fotos/panaderia/`.
 - Antes de pasar a `main`: dejar que CI corra la e2e completa con Lighthouse (el rediseño del 2026-11-23 solo se revisó con axe y capturas a 360 y 1280–1366 px; `check.mjs` ya apunta a `/panel/productos`).
 - SECURITY.md A09/A10: alerta automática de logins fallidos y prueba con R2 caído.

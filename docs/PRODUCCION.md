@@ -4,6 +4,8 @@ Esta guía instala una instancia en Ubuntu 24.04 LTS, con PostgreSQL local, Cadd
 
 ## 1. Contrata el VPS y prepara DNS
 
+Antes de crear nada, activa 2FA en todas las cuentas de la sección 10.1: quien entre a tu Cloudflare o al panel del VPS se queda con el sitio aunque el servidor esté bien configurado.
+
 1. Renta un VPS Ubuntu 24.04 LTS con al menos 2 GB de RAM y una IPv4 pública. Conserva su IP.
 2. En Cloudflare, crea `A` para el dominio raíz hacia la IP y activa el proxy naranja. Crea `A` para `*` hacia la misma IP y activa también el proxy. El proxy DNS de Cloudflare debe estar activo para ambos.
 3. Antes de cerrar la sesión root, añade la llave pública SSH que usarás para administrar el servidor en `/root/.ssh/authorized_keys`. Comprueba que puedes entrar con ella.
@@ -255,7 +257,7 @@ Ejecuta desde un equipo externo una vez que DNS/TLS estén activos. Registra fec
 | Control | Verificación concreta |
 | --- | --- |
 | A01 Control de acceso | `go test ./internal/web -run 'Isolation|Recovery' -count=1` con `TEST_DATABASE_URL` de una base de pruebas; en producción revisa por separado las queries SQL con `rg -n 'store_id|WHERE' internal/db` y confirma acceso al admin con TOTP. |
-| A02 Configuración | `curl -fsSI https://ejemplo.mx/` y `curl -fsSI https://ana.ejemplo.mx/`; `nmap -Pn -sV -p- IP_DEL_VPS` desde fuera (el IP de origen debe mostrar SSH y filtrar 80/443 para una IP que no sea de Cloudflare; los dominios sí deben responder por HTTPS). |
+| A02 Configuración | `curl -fsSI https://ejemplo.mx/` y `curl -fsSI https://ana.ejemplo.mx/`; `nmap -Pn -sV -p- IP_DEL_VPS` desde fuera (el IP de origen debe filtrar 80/443 para una IP que no sea de Cloudflare y, con Tailscale (10.5), no mostrar SSH; los dominios sí deben responder por HTTPS). `https://admin.ejemplo.mx/` debe pedir primero el código de Cloudflare Access (10.2). |
 | A03 Cadena de suministro | `govulncheck ./...`; `go list -m all`; revisa versiones fijadas y SRI/localidad de JS con `rg -n 'htmx|alpine|integrity=' web`. |
 | A04 Criptografía | `testssl.sh --fast ejemplo.mx`; `sudo stat -c '%a %U:%G %n' /etc/tiendas/env /etc/tiendas/backup.env /etc/tiendas/pgpass /etc/tiendas/backup.pub /etc/caddy/caddy.env`; confirma que solo la clave pública age está en el VPS. |
 | A05 Inyección | `gosec -exclude-generated ./...`; `rg -n 'templ\.Raw|fmt\.Sprintf.*(SELECT|INSERT|UPDATE|DELETE)' internal cmd`. Revisa cada coincidencia manualmente. |
@@ -266,6 +268,146 @@ Ejecuta desde un equipo externo una vez que DNS/TLS estén activos. Registra fec
 | A10 Excepciones | `go test ./...`; prueba Postgres/R2 no disponibles en staging, carga superior al límite, timeout y healthcheck. No ejecutes fallas destructivas en producción. |
 
 Requiere además verificar en el firewall del proveedor que los puertos de Postgres (5432) y Uptime Kuma (si está instalado) no estén publicados. `nmap` externo debe confirmar la exposición real, no solo la configuración local. Corrige hallazgos antes de poner tiendas reales.
+
+## 10. Endurecimiento: cuentas, superadmin y acceso al VPS
+
+La app ya protege el superadmin con contraseña, TOTP, límite de intentos y sesión de 30 minutos. `setup-vps.sh` deja SSH solo con llave, sin root, con fail2ban y con actualizaciones automáticas. Estas capas obligan a un atacante a robar varias cosas a la vez, pero ninguna lo vuelve imposible.
+
+### 10.1 2FA en tus cuentas (lo primero)
+
+Activa 2FA con app de autenticación o llave física (no SMS) en:
+
+- **Cloudflare** y el **registrador del dominio**: con ellas se secuestra el dominio.
+- **Proveedor del VPS**: su consola web entra al servidor sin SSH.
+- **GitHub**: de ahí sale el código que despliegas.
+- **Tu correo**: con él se recuperan todas las anteriores.
+
+Guarda los códigos de recuperación de cada cuenta en un gestor de contraseñas. Usa una contraseña única para el superadmin y guarda en el mismo gestor el código de configuración del TOTP, que imprime `createadmin`. Si pierdes el celular, `createadmin -reset` lo regenera, pero necesita SSH.
+
+### 10.2 Cloudflare Access delante de `admin.`
+
+Así nadie ve el login del superadmin sin pasar antes por Cloudflare. Es gratis hasta 50 usuarios.
+
+1. Entra a Cloudflare → **Zero Trust**. La primera vez elige el plan Free y un nombre de equipo.
+2. En **Settings → Authentication → Login methods**, deja **One-time PIN** (código al correo).
+3. En **Access → Applications → Add an application → Self-hosted**, configura:
+   - Domain: `admin.ejemplo.mx` (todas las rutas).
+   - Session duration: 24 h.
+   - Policy: **Allow**, regla **Emails** = tu correo (solo el tuyo).
+4. Prueba en una ventana privada:
+   - `https://admin.ejemplo.mx/` debe pedir el código antes de mostrar el login de la app.
+   - `https://ana.ejemplo.mx/` no debe cambiar.
+
+La contraseña y el TOTP de la app siguen como segunda y tercera barrera; no los quites.
+
+### 10.3 Regla del WAF para `admin.`
+
+En Cloudflare → tu dominio → **Security → WAF → Custom rules → Create rule**:
+
+- Expresión (en el editor de expresiones):
+
+  ```text
+  (http.host eq "admin.ejemplo.mx" and ip.src.country ne "MX")
+  ```
+
+- Acción: **Block**.
+
+Corta casi todo el escaneo automático antes de que llegue a Access. Si viajas, desactívala o agrega el país mientras tanto.
+
+### 10.4 Authenticated Origin Pulls (solo tu zona de Cloudflare llega a Caddy)
+
+UFW acepta 80/443 de cualquier IP de Cloudflare, y cualquier cliente de Cloudflare podría apuntar su dominio a tu IP. Con un certificado de cliente propio, Caddy solo acepta las conexiones que Cloudflare hace **para tu zona**. Con el certificado compartido de Cloudflare solo se prueba que la conexión viene de Cloudflare, no de tu zona; por eso aquí se usa uno propio. Referencia: [Authenticated Origin Pulls](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/).
+
+1. En tu computadora, genera el certificado. La llave privada queda solo en tu computadora y en Cloudflare, nunca en el VPS:
+
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=origin-pull-ejemplo.mx" \
+     -keyout origin-pull.key -out origin-pull.pem
+   ```
+
+2. Súbelo a la zona con la API. Haz este paso **antes** del 3: si Caddy exige el certificado y Cloudflare aún no lo manda, la tienda responde con error.
+   1. Crea un token con permiso **Zone / SSL and Certificates / Edit**, solo para esta zona.
+   2. Sigue la sección *Zone-level, custom certificate* de la referencia: `POST /zones/{zone_id}/origin_tls_client_auth` con `certificate` y `private_key`.
+   3. Espera a que el certificado quede `active`.
+   4. Activa la opción con `PUT /zones/{zone_id}/origin_tls_client_auth/settings` (`enabled: true`).
+   5. Borra el token al terminar.
+3. Copia solo el certificado público al VPS:
+
+   ```bash
+   scp origin-pull.pem deploy@VPS:/tmp/origin-pull.pem
+   ssh deploy@VPS 'sudo install -o root -g caddy -m 0644 /tmp/origin-pull.pem /etc/caddy/origin-pull.pem'
+   ```
+
+   En `/etc/caddy/Caddyfile`, dentro del bloque `tls` del sitio, agrega `client_auth` para exigirlo:
+
+   ```caddyfile
+   tls {
+   	dns cloudflare {env.CF_API_TOKEN}
+   	client_auth {
+   		mode require_and_verify
+   		trust_pool file /etc/caddy/origin-pull.pem
+   	}
+   }
+   ```
+
+   Aplica el cambio con `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`.
+4. Comprueba desde fuera del VPS:
+   - `curl -sk --resolve ejemplo.mx:443:IP_DEL_VPS https://ejemplo.mx/healthz` debe fallar en el TLS.
+   - `https://ejemplo.mx/healthz` vía Cloudflare debe responder `ok`.
+
+### 10.5 SSH solo por Tailscale, desde tu computadora de casa
+
+Con esto el puerto 22 deja de estar abierto a Internet. Solo entran los dispositivos que agregues a tu red de Tailscale (el plan gratis alcanza). Tailscale filtra por **dispositivo**, no por red: "solo desde casa" significa solo desde la computadora de casa que autorices, aunque cambie la IP que te da tu proveedor de Internet.
+
+1. Crea la cuenta de Tailscale con tu correo (con 2FA) e instala la app en tu computadora de casa.
+2. En el VPS, desde la sesión SSH actual (no la cierres en ninguno de los pasos siguientes), instala Tailscale:
+
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up --hostname tiendas-vps
+   ```
+
+   Abre el enlace que imprime y autoriza el VPS en tu cuenta. Después, en la consola de Tailscale, desactiva **Key expiry** para el VPS; si no, se desconecta cada 180 días y te quedas fuera.
+3. Limita quién puede entrar. En la consola, en **Access controls**, deja una regla que solo permita a tu computadora de casa llegar al puerto 22 del VPS:
+
+   ```json
+   {
+     "acls": [
+       { "action": "accept", "src": ["100.A.B.C"], "dst": ["100.X.Y.Z:22"] }
+     ]
+   }
+   ```
+
+   `100.A.B.C` es la IP de Tailscale de tu computadora de casa y `100.X.Y.Z` la del VPS; las dos aparecen en la consola. Activa también **Device approval**, para que ningún dispositivo nuevo entre sin que lo apruebes.
+4. Abre SSH en la interfaz de Tailscale y **prueba en otra terminal** antes de cerrar nada:
+
+   ```bash
+   sudo ufw allow in on tailscale0 to any port 22 proto tcp comment 'SSH por Tailscale'
+   # en otra terminal de tu computadora de casa:
+   ssh deploy@tiendas-vps
+   ```
+
+5. Solo si el paso anterior funcionó, cierra el puerto 22 público:
+
+   ```bash
+   sudo ufw delete limit 22/tcp
+   sudo ufw status numbered
+   ```
+
+6. A partir de ahora:
+   - Para `make deploy`, usa `export DEPLOY_HOST=deploy@tiendas-vps`.
+   - El túnel de Uptime Kuma es `ssh -L 3001:127.0.0.1:3001 deploy@tiendas-vps`.
+
+Si Tailscale falla, entra por la **consola web del proveedor del VPS** (por eso esa cuenta lleva 2FA) y reabre el puerto temporalmente con `sudo ufw limit 22/tcp`.
+
+Protege además tu llave SSH con contraseña (`ssh-keygen -p -f ~/.ssh/id_ed25519`) y no la copies a otros equipos.
+
+### 10.6 Enterarte si te atacan
+
+La app escribe `"event":"login_alert"` cuando hay más de 30 inicios de sesión fallidos en 10 minutos. Conéctalo a un aviso (ver *Límites conocidos*). Además, revisa cada semana:
+
+- `sudo journalctl -u tiendas --since -7d | grep -E 'login_alert|admin_login_limited'`
+- `sudo fail2ban-client status sshd`
 
 ## Límites conocidos de esta entrega
 
