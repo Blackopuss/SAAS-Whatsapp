@@ -3,10 +3,12 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const barberiaPaletteRefs = {
-  accent: {
-    light: {35: '#a10e20', 40: '#b3202a', 85: '#ecccc9'},
-    dark: {30: '#82171d', 70: '#f7857f', 80: '#f4b4af'},
+  neutral: {
+    light: {0: '#000000', 5: '#13100e', 10: '#1e1b17', 30: '#4b463f', 45: '#6e665f', 60: '#958d86', 85: '#d7d4d0', 95: '#f2f0ef', 100: '#ffffff'},
+    dark: {5: '#13100e', 10: '#1e1b18', 15: '#292521', 35: '#56504a', 65: '#a19c94', 75: '#bcb8b3', 80: '#c9c6c2', 95: '#f1f0ef', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {40: '#9c3616', 50: '#b4532a', 85: '#e7cfc6'},
+    dark: {30: '#7d2306', 50: '#b4532a', 75: '#fb9e79'},
+  },
 };

@@ -40,6 +40,8 @@ type Card struct {
 	CategoryID int64
 	Unit       string // abreviatura: pza, kg, g, L, m
 	Step       int32  // milésimas
+	Available  int32  // milésimas disponibles; -1 = no lleva inventario
+	Colors     []Opt  // colores con existencia (nombre y muestra)
 }
 
 type Opt struct {
@@ -131,6 +133,8 @@ type shopCard struct {
 	Cat     int64     `json:"cat"`
 	Unit    string    `json:"unit"`
 	Step    int32     `json:"step"`
+	Left    int32     `json:"left"`
+	Colors  []shopOpt `json:"colors"`
 }
 
 func shopCardOf(c Card) shopCard {
@@ -146,7 +150,7 @@ func shopCardOf(c Card) shopCard {
 	if step <= 0 {
 		step = 1000
 	}
-	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID, c.Unit, step}
+	return shopCard{c.ID, c.Name, c.Price, c.Was, c.SoldOut, c.New, shopPhoto{c.Photo.Src, c.Photo.SrcSet}, color, sizes, c.CategoryID, c.Unit, step, c.Available, shopOpts(c.Colors)}
 }
 
 func shopCards(cs []Card) []shopCard {
@@ -263,7 +267,7 @@ func productData(sh Shop, p ProductPage) map[string]any {
 			"categoryID": p.CategoryID, "categoryName": p.CategoryName,
 			"sizes": shopOpts(p.Sizes), "colors": shopOpts(p.Colors), "soldOutCombos": combos,
 			"related": shopCards(p.Related),
-			"share": "https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL),
+			"share":   "https://wa.me/?text=" + url.QueryEscape(p.Name+" "+sh.URL),
 		},
 	}
 }

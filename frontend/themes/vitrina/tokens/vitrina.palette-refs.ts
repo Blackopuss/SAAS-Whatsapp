@@ -3,10 +3,12 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const vitrinaPaletteRefs = {
-  accent: {
-    light: {40: '#b1004f', 45: '#c2185b', 85: '#edcad0'},
-    dark: {30: '#81113b', 70: '#f7819e', 80: '#f8afbe'},
+  neutral: {
+    light: {0: '#000000', 5: '#14100d', 10: '#201a16', 30: '#4e453e', 45: '#72665e', 60: '#978b82', 85: '#d8d3cf', 95: '#f2f0ef', 100: '#ffffff'},
+    dark: {5: '#14100e', 10: '#201a17', 15: '#2b2420', 35: '#59504a', 65: '#a49a91', 75: '#beb7b2', 80: '#cbc5c1', 95: '#f2f0ef', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {40: '#a91a39', 50: '#c8394f', 85: '#eccbcc'},
+    dark: {30: '#82132a', 50: '#c8394f', 75: '#ff969c'},
+  },
 };

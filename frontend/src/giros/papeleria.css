@@ -1,78 +1,57 @@
 @import "../themes/papeleria/papeleria.css";
 
-/* Papelería: escritorio de trabajo, papel cuadriculado y fichas de cartulina. */
-:root .cover { border-block-end: 2px solid var(--color-border-emphasized); }
-:root .cover::before { border-radius: 2px; opacity: 0.18; }
-:root .cover h1 { max-inline-size: 15ch; }
-:root .cover .kicker { display: inline-block; padding: 0.2rem 0.55rem; border: 1px solid var(--color-border-emphasized); border-radius: 2px; }
-
-
-:root .tiles { gap: 1rem; }
-:root .tile {
-  display: grid; grid-template-columns: minmax(0, 1fr); align-content: end; min-block-size: 9.5rem;
-  padding: 1.75rem 1rem 0.875rem; border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-element);
-  box-shadow: var(--shadow-low); overflow: visible;
+/* Papelería — cuaderno y carpetas. Portada en hoja cuadriculada con etiquetas de categoría y mosaico de fotos
+   con cinta; catálogo por carpeta (pestaña de color); tarjetas redondeadas con muestras de color. */
+[data-astryx-theme="papeleria"] {
+  --grid-line: color-mix(in oklch, var(--color-icon-accent) 13%, transparent);
+  & body, & .top { background: var(--paper); }
+  & :is(.sec-head h2, .page-head h1, .info h1, .closing h2, .p-tab) { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; }
+  & .p-hero {
+    display: grid; gap: 1.75rem; padding: 1.5rem 1.25rem 1.75rem; border-radius: 1.5rem; border: 1px solid var(--line);
+    background-color: var(--bg);
+    background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem; background-position: -1px -1px;
+  }
+  & .p-hero-text { display: grid; gap: 1rem; align-content: center; justify-items: start; }
+  & .p-hero h1 { font-weight: 600; letter-spacing: -0.02em; }
+  & .p-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; margin-block-start: 0.5rem; }
+  & .p-tags a { display: inline-flex; align-items: center; gap: 0.5rem; min-block-size: 2.75rem; padding-inline: 0.875rem; border-radius: 0.5rem 0.5rem 0.5rem 0; font-weight: 600; text-decoration: none; box-shadow: 0 1px 0 var(--line); }
+  & .p-tags li:nth-child(3n + 1) a { background: var(--color-warning-muted); }
+  & .p-tags li:nth-child(3n + 2) a { background: var(--decor-soft); }
+  & .p-tags li:nth-child(3n) a { background: var(--color-error-muted); }
+  & .p-tags span { font-size: 0.8125rem; color: var(--ink-2); }
+  & .p-tags a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  & .p-mosaic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  & .p-mosaic a { position: relative; display: block; aspect-ratio: 1; border-radius: 1rem; overflow: hidden; background: var(--surface); border: 3px solid var(--bg); box-shadow: 0 2px 8px -4px rgb(0 0 0 / 0.3); }
+  & .p-mosaic.n1 { grid-template-columns: 1fr; }
+  & .p-mosaic.n3 a:first-child { grid-column: 1 / -1; aspect-ratio: 2 / 1; }
+  & .p-mosaic img { inline-size: 100%; block-size: 100%; object-fit: cover; opacity: 1; }
+  /* Cinta adhesiva: decoración sobre el borde de la foto, no sobre el producto. */
+  & .p-mosaic { padding-block-start: 0.5rem; }
+  & .p-mosaic a:first-child { overflow: visible; }
+  & .p-mosaic a:first-child img { border-radius: calc(1rem - 3px); }
+  & .p-mosaic a:first-child::after { content: ""; position: absolute; inset-block-start: -0.625rem; inset-inline-start: 50%; inline-size: 4.5rem; block-size: 1.25rem; translate: -50% 0; rotate: -3deg; background: color-mix(in oklch, var(--color-warning) 70%, transparent); }
+  & .p-folder { --tab: var(--decor-soft); --edge: var(--decor); display: grid; margin-block-end: 2.25rem; }
+  & .p-folder.c1 { --tab: var(--color-warning-muted); --edge: var(--color-warning); }
+  & .p-folder.c2 { --tab: var(--color-error-muted); --edge: var(--color-error); }
+  & .p-tab { justify-self: start; display: inline-flex; align-items: baseline; gap: 0.5rem; padding: 0.5rem 1.25rem 0.375rem; border-radius: 0.875rem 0.875rem 0 0; background: var(--tab); border: 2px solid var(--edge); border-block-end: 0; font-size: 1.375rem; }
+  & .p-tab a { text-decoration: none; }
+  & .p-tab a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  & .p-tab span { font-family: var(--sans); font-size: 0.8125rem; color: var(--ink-2); }
+  & .p-folder > .grid { padding: 1rem; border: 2px solid var(--edge); border-radius: 0 1rem 1rem 1rem; background: var(--bg); }
+  & .pcard { padding: 0.375rem 0.375rem 0.75rem; border-radius: 1rem; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+  & .p-folder .pcard { box-shadow: none; padding: 0; }
+  & .ph { aspect-ratio: 1; border-radius: 0.75rem; }
+  & .quick { inset-block-start: calc(100cqi - 3.25rem); }
+  & .card-body { padding-inline: 0.25rem; }
+  & .flag.sale { background: var(--color-error); color: var(--ink); }
+  & .card-sw i { inline-size: 1rem; block-size: 1rem; }
+  & .opt > span { border-radius: 0.75rem; min-block-size: 3rem; }
+  & .sw { inline-size: 1.25rem; block-size: 1.25rem; }
+  & .desc p { line-height: 1.75rem; background-image: linear-gradient(transparent calc(1.75rem - 1px), var(--grid-line) 0); background-size: 100% 1.75rem; }
+  & .closing { background: var(--color-warning-muted); border-radius: 1.5rem; }
+  @media (min-width: 900px) {
+    & .p-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; padding: 3rem; }
+    & .p-folder > .grid { padding: 1.5rem; }
+  }
 }
-:root .tile::before {
-  content: ""; position: absolute; inset-block-start: -0.65rem; inset-inline-start: 0.75rem;
-  inline-size: min(65%, 8rem); block-size: 1.25rem; border: 1px solid var(--color-border-emphasized);
-  border-block-end: 0; border-radius: var(--radius-element) var(--radius-element) 0 0;
-  background: inherit;
-}
-:root .tile.t0 { background: var(--color-background-muted); color: var(--color-text-primary); }
-:root .tile.t1 { background: color-mix(in oklch, var(--color-accent) 18%, var(--color-background-body)); color: var(--color-text-primary); }
-:root .tile.t2 { background: var(--color-text-primary); color: var(--color-background-body); }
-:root .tile.t3 { background: color-mix(in oklch, var(--color-accent) 30%, var(--color-background-body)); color: var(--color-text-primary); }
-:root .tile :is(strong, span) { color: inherit; }
-:root .tile-text strong { font-size: 1.375rem; overflow-wrap: anywhere; }
-:root .tile-shots { justify-self: end; margin-block-start: -2.5rem; opacity: 0.9; }
-:root .tshot { inline-size: 3rem; aspect-ratio: 1; border: 2px solid var(--color-background-body); border-radius: 2px; box-shadow: none; }
-
-:root .spot { border: 1px solid var(--color-border); border-radius: var(--radius-element); }
-:root .spot :is(h2, p) { color: inherit; }
-:root .spot .muted, :root .spot .kicker { color: var(--color-text-primary); }
-:root .spot .ptag.big { border: 2px solid var(--color-border-emphasized); border-radius: 2px; box-shadow: none; }
-
-:root .all {
-  padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-element);
-  background-color: var(--color-background-body);
-  background-image: linear-gradient(to right, color-mix(in oklch, var(--color-border) 45%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--color-border) 45%, transparent) 1px, transparent 1px);
-  background-size: 1.25rem 1.25rem;
-}
-:root .all .sec-head { padding: 0.5rem; background: var(--color-background-body); }
-:root .all .grid { gap: 1rem; }
-:root .pcard { min-inline-size: 0; padding: 0.625rem; border: 1px solid var(--color-border-emphasized); border-radius: 2px; background: var(--color-background-body); box-shadow: var(--shadow-low); }
-:root .pcard::before { content: ""; position: absolute; inset-block: 0.5rem 0.5rem; inset-inline-start: 0.35rem; inline-size: 1px; background: var(--color-accent); }
-:root .pcard .card { gap: 0.5rem; border-radius: 2px; }
-:root .pcard .ph { aspect-ratio: 1; border-radius: 2px; background: var(--color-background-muted); }
-:root .pcard .card-body { gap: 0.25rem; padding-inline-start: 0.25rem; }
-:root .pcard .card-name { font-family: var(--font-family-heading); overflow-wrap: anywhere; }
-:root .pcard .sizes { gap: 0.25rem; }
-:root .pcard .sizes i { border-radius: 2px; }
-:root .pcard .ptag {
-  padding: 0.25rem 0.4rem; border: 1px solid var(--color-border-emphasized); border-radius: 2px;
-  background: var(--color-background-body); color: var(--color-text-primary); box-shadow: var(--shadow-low);
-}
-:root .pcard .ptag.sale { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-border-emphasized); }
-:root .pcard .ptag.sold { background: var(--color-text-primary); color: var(--color-background-body); }
-:root .pcard .ptag-off { background: var(--color-on-accent); color: var(--color-accent); }
-:root .quick { inline-size: 2.75rem; block-size: 2.75rem; border-radius: 2px; border: 1px solid var(--color-border-emphasized); box-shadow: none; }
-:root .pcard:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-:root .rail .pcard { padding: 0.5rem; }
-:root .closing :is(h2, h3, p) { color: inherit; }
-:root .cat-banner :is(h1, h2, h3, p) { color: inherit; }
-
-@media (min-width: 640px) {
-  :root .all { padding: 1.25rem; }
-}
-@media (max-width: 380px) {
-  :root .all { padding: 0.625rem; }
-  :root .all .grid { gap: 0.625rem; }
-  :root .pcard { padding: 0.4rem; }
-  :root .pcard .ptag { font-size: 0.75rem; }
-}
-@media (prefers-reduced-motion: reduce) {
-  :root .tile, :root .pcard, :root .pcard .ph img { animation: none; transition: none; }
-}
-

@@ -3,10 +3,12 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const boutiquePaletteRefs = {
-  accent: {
-    light: {25: '#553249', 85: '#e3cdda'},
-    dark: {30: '#6b2b58', 70: '#da90c0', 80: '#f1aed9'},
+  neutral: {
+    light: {0: '#000000', 5: '#160f0b', 10: '#231914', 30: '#52433a', 45: '#746358', 60: '#99887c', 85: '#dad3ce', 95: '#f3f0ee', 100: '#ffffff'},
+    dark: {5: '#150f0c', 10: '#221a15', 15: '#2d231e', 35: '#5d4e46', 65: '#a6968c', 75: '#c1b5ae', 80: '#cdc5bf', 95: '#f3f0ee', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {25: '#6d1f33', 85: '#e3cfd1'},
+    dark: {30: '#792239', 70: '#ec899b', 80: '#f2b3bc'},
+  },
 };

@@ -107,7 +107,8 @@ func Routes(d Deps) http.Handler {
 		a.forgotPost(w, r)
 	})
 	for pattern, h := range map[string]http.HandlerFunc{
-		"GET /panel/{$}":                           a.products,
+		"GET /panel/{$}":                           a.home,
+		"GET /panel/productos":                     a.products,
 		"GET /panel/productos/nuevo":               a.productNew,
 		"POST /panel/productos":                    a.productSave,
 		"GET /panel/productos/{id}":                a.productEdit,

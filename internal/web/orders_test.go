@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -64,6 +65,7 @@ func TestOrders(t *testing.T) {
 	h := Routes(Deps{BaseDomain: "tiendas.test", DB: pool, Q: q, MediaURL: "/media/",
 		Tx: func(ctx context.Context, fn func(db.Querier) error) error { return db.InTx(ctx, pool, fn) }})
 	aHost, bHost := "http://"+a.Slug+".tiendas.test", "http://"+b.Slug+".tiendas.test"
+	var lastBody string
 	order := func(host, ip, body string, headers ...string) int {
 		r := httptest.NewRequest("POST", host+"/pedido", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
@@ -73,6 +75,7 @@ func TestOrders(t *testing.T) {
 		r.RemoteAddr = ip + ":5555"
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, r)
+		lastBody = rec.Body.String()
 		return rec.Code
 	}
 	item := func(id int64, size string, qty int) string {
@@ -84,36 +87,56 @@ func TestOrders(t *testing.T) {
 		body string
 		want int
 	}{
-		"fuera de paso":     {`{"code":"AAAAA2","items":[` + item(churros, "", 300) + `]}`, 422},
-		"sin existencia":    {`{"code":"AAAAA3","items":[` + item(churros, "", 1250) + `]}`, 409},
-		"talla inexistente": {`{"code":"AAAAA4","items":[` + item(blusa, "XL", 1000) + `]}`, 422},
-		"código malo":       {`{"code":"aaa","items":[` + item(churros, "", 250) + `]}`, 400},
+		"fuera de paso":     {`{"name":"Ana","code":"AAAAA2","items":[` + item(churros, "", 300) + `]}`, 422},
+		"sin existencia":    {`{"name":"Ana","code":"AAAAA3","items":[` + item(churros, "", 1250) + `]}`, 409},
+		"talla inexistente": {`{"name":"Ana","code":"AAAAA4","items":[` + item(blusa, "XL", 1000) + `]}`, 422},
+		"código malo":       {`{"name":"Ana","code":"aaa","items":[` + item(churros, "", 250) + `]}`, 400},
+		"sin nombre":        {`{"code":"AAAAA7","items":[` + item(churros, "", 250) + `]}`, 422},
+		"nombre en blanco":  {`{"name":"   ","code":"AAAAA8","items":[` + item(churros, "", 250) + `]}`, 422},
+		"nombre de 1 letra": {`{"name":"A","code":"AAAAA9","items":[` + item(churros, "", 250) + `]}`, 422},
+		"nombre largo":      {`{"name":"` + strings.Repeat("a", 61) + `","code":"AAAAB2","items":[` + item(churros, "", 250) + `]}`, 422},
+		"nombre fórmula":    {`{"name":"=HYPERLINK(1)","code":"AAAAB3","items":[` + item(churros, "", 250) + `]}`, 422},
+		"nombre con *":      {`{"name":"*Ana*","code":"AAAAB4","items":[` + item(churros, "", 250) + `]}`, 422},
 	} {
 		if got := order(aHost, "198.51.100.1", c.body); got != c.want {
 			t.Errorf("%s: status %d, quiero %d", name, got, c.want)
 		}
 	}
-	if got := order(bHost, "198.51.100.1", `{"code":"AAAAA5","items":[`+item(churros, "", 250)+`]}`); got != 422 {
+	if got := order(bHost, "198.51.100.1", `{"name":"Ana","code":"AAAAA5","items":[`+item(churros, "", 250)+`]}`); got != 422 {
 		t.Errorf("producto de A pedido en B: status %d, quiero 422", got)
 	}
-	if got := order(aHost, "198.51.100.1", `{"code":"AAAAA6","items":[`+item(churros, "", 250)+`]}`, "Sec-Fetch-Site", "cross-site"); got != http.StatusForbidden {
+	if got := order(aHost, "198.51.100.1", `{"name":"Ana","code":"AAAAA6","items":[`+item(churros, "", 250)+`]}`, "Sec-Fetch-Site", "cross-site"); got != http.StatusForbidden {
 		t.Errorf("pedido desde otro sitio: status %d, quiero 403", got)
 	}
 
 	// Pedido válido: 0.75 kg de churros + 2 blusas M. El precio que mande el celular no importa.
-	body := `{"code":"PEDXD2","items":[` + item(churros, "", 750) + `,` + item(blusa, "M", 2000) + `]}`
-	if got := order(aHost, "198.51.100.2", body); got != http.StatusNoContent {
-		t.Fatalf("pedido válido: status %d", got)
+	// El nombre se guarda sin espacios de sobra; la respuesta trae lo registrado para armar el mensaje.
+	body := `{"name":"  María   José  O'Neil ","code":"PEDXD2","items":[` + item(churros, "", 750) + `,` + item(blusa, "M", 2000) + `]}`
+	if got := order(aHost, "198.51.100.2", body); got != http.StatusOK {
+		t.Fatalf("pedido válido: status %d %s", got, lastBody)
 	}
-	if got := order(aHost, "198.51.100.2", body); got != http.StatusNoContent { // reintento: no duplica
+	var placed orderOut
+	if err := json.Unmarshal([]byte(lastBody), &placed); err != nil {
+		t.Fatal(err)
+	}
+	if placed.Name != "María José O'Neil" || placed.Code != "PEDXD2" || placed.Total != 69000 || len(placed.Items) != 2 ||
+		placed.Items[0].Subtotal != 9000 || placed.Items[0].Unit != "kg" || placed.Items[1].Subtotal != 60000 || placed.Items[1].Size != "M" {
+		t.Errorf("respuesta del pedido = %+v", placed)
+	}
+	if got := order(aHost, "198.51.100.2", strings.Replace(body, "María", "Otra", 1)); got != http.StatusOK { // reintento: no duplica
 		t.Fatalf("reintento: status %d", got)
+	}
+	var again orderOut
+	_ = json.Unmarshal([]byte(lastBody), &again)
+	if again.Name != placed.Name || again.Total != placed.Total || len(again.Items) != 2 {
+		t.Errorf("el reintento debe responder lo ya guardado: %+v", again)
 	}
 	os, err := q.ListOrders(ctx, db.ListOrdersParams{StoreID: a.ID, Status: orderPending})
 	if err != nil || len(os) != 1 {
 		t.Fatalf("pendientes = %d, %v; quiero 1", len(os), err)
 	}
-	if want := int32(9000 + 60000); os[0].TotalCents != want {
-		t.Errorf("total = %d, quiero %d", os[0].TotalCents, want)
+	if want := int32(9000 + 60000); os[0].TotalCents != want || os[0].Customer != "María José O'Neil" || os[0].Status != orderPending {
+		t.Errorf("guardado: total %d, nombre %q, estado %d", os[0].TotalCents, os[0].Customer, os[0].Status)
 	}
 	oid := strconv.FormatInt(os[0].ID, 10)
 
@@ -131,8 +154,21 @@ func TestOrders(t *testing.T) {
 	}
 
 	aCookie := login(t, h, a.Slug+".tiendas.test", a.Slug+"@x.mx")
-	if rec := do(h, "GET", aHost+"/panel/ventas", nil, aCookie); rec.Code != 200 || !strings.Contains(rec.Body.String(), "PEDXD2") {
+	if rec := do(h, "GET", aHost+"/panel/ventas", nil, aCookie); rec.Code != 200 || !strings.Contains(rec.Body.String(), "PEDXD2") || !strings.Contains(rec.Body.String(), `"customer":"María José O'Neil"`) {
 		t.Errorf("lista de ventas: %d", rec.Code)
+	}
+	// Pedido de antes de pedir el nombre (sin customer): sale como "Cliente sin nombre registrado".
+	if _, err := pool.Exec(ctx, "INSERT INTO orders (store_id, code, total_cents) VALUES ($1, 'VXEJA2', 100)", a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if rec := do(h, "GET", aHost+"/panel/ventas", nil, aCookie); !strings.Contains(rec.Body.String(), `"code":"VXEJA2","customer":""`) {
+		t.Errorf("pedido viejo en ventas: falta con customer vacío")
+	}
+	if rec := do(h, "GET", aHost+"/panel/ventas/ventas.csv", nil, aCookie); !strings.Contains(rec.Body.String(), "PEDXD2,María José O'Neil,") {
+		t.Errorf("CSV sin el nombre: %s", rec.Body.String())
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM orders WHERE store_id = $1 AND code = 'VXEJA2'", a.ID); err != nil {
+		t.Fatal(err)
 	}
 	if rec := do(h, "POST", aHost+"/panel/ventas/"+oid+"/vender", url.Values{}, aCookie); rec.Code != http.StatusSeeOther {
 		t.Fatalf("vender: status %d %s", rec.Code, rec.Body.String())
@@ -193,7 +229,7 @@ func TestOrders(t *testing.T) {
 	// Límite: 10 pedidos por hora por tienda e IP.
 	codes := 0
 	for i := range 12 {
-		if order(aHost, "198.51.100.9", `{"code":"LMN`+string("ABCDEFGHJKLM"[i])+`22","items":[`+item(churros, "", 250)+`]}`) == http.StatusTooManyRequests {
+		if order(aHost, "198.51.100.9", `{"name":"Ana","code":"LMN`+string("ABCDEFGHJKLM"[i])+`22","items":[`+item(churros, "", 250)+`]}`) == http.StatusTooManyRequests {
 			codes++
 		}
 	}

@@ -40,6 +40,8 @@ type Querier interface {
 	GetAdmin(ctx context.Context, id int64) (Admin, error)
 	GetAdminByEmail(ctx context.Context, email string) (Admin, error)
 	GetAdminCredentialsChangedAt(ctx context.Context, id int64) (pgtype.Timestamptz, error)
+	// Para responder el reintento de un pedido ya registrado con lo que quedó guardado.
+	GetOrderByCode(ctx context.Context, arg GetOrderByCodeParams) (Order, error)
 	GetOrderForUpdate(ctx context.Context, arg GetOrderForUpdateParams) (Order, error)
 	GetProduct(ctx context.Context, arg GetProductParams) (Product, error)
 	GetStoreAdmin(ctx context.Context, id int64) (GetStoreAdminRow, error)
@@ -90,6 +92,7 @@ type Querier interface {
 	RevokePasswordResets(ctx context.Context, arg RevokePasswordResetsParams) error
 	SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVRow, error)
 	// Por producto + talla + color y estado; el handler arma lo más vendido, lo perdido y las categorías.
+	// orders: en cuántos pedidos salió; "lo más vendido" se ordena por eso, no por dinero.
 	SalesItems(ctx context.Context, arg SalesItemsParams) ([]SalesItemsRow, error)
 	// @bucket: 'day' o 'month', en hora de la Ciudad de México.
 	SalesSeries(ctx context.Context, arg SalesSeriesParams) ([]SalesSeriesRow, error)

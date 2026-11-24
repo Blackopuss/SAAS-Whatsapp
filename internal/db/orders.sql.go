@@ -58,7 +58,7 @@ func (q *Queries) CountPendingOrders(ctx context.Context, storeID int64) (int64,
 
 const createOrder = `-- name: CreateOrder :one
 
-INSERT INTO orders (store_id, code, total_cents) VALUES ($1, $2, $3)
+INSERT INTO orders (store_id, code, total_cents, customer) VALUES ($1, $2, $3, $4)
 ON CONFLICT (store_id, code) DO NOTHING
 RETURNING id
 `
@@ -67,12 +67,18 @@ type CreateOrderParams struct {
 	StoreID    int64
 	Code       string
 	TotalCents int32
+	Customer   string
 }
 
 // Pedidos. Toda query lleva store_id del Host. Cantidades en milésimas (1 pieza = 1000).
 // Si el celular reintenta con el mismo código no se duplica: no devuelve filas.
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createOrder, arg.StoreID, arg.Code, arg.TotalCents)
+	row := q.db.QueryRow(ctx, createOrder,
+		arg.StoreID,
+		arg.Code,
+		arg.TotalCents,
+		arg.Customer,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -109,8 +115,35 @@ func (q *Queries) ExpireOrders(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const getOrderByCode = `-- name: GetOrderByCode :one
+SELECT id, store_id, code, status, reason, total_cents, created_at, decided_at, customer FROM orders WHERE store_id = $1 AND code = $2
+`
+
+type GetOrderByCodeParams struct {
+	StoreID int64
+	Code    string
+}
+
+// Para responder el reintento de un pedido ya registrado con lo que quedó guardado.
+func (q *Queries) GetOrderByCode(ctx context.Context, arg GetOrderByCodeParams) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrderByCode, arg.StoreID, arg.Code)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.StoreID,
+		&i.Code,
+		&i.Status,
+		&i.Reason,
+		&i.TotalCents,
+		&i.CreatedAt,
+		&i.DecidedAt,
+		&i.Customer,
+	)
+	return i, err
+}
+
 const getOrderForUpdate = `-- name: GetOrderForUpdate :one
-SELECT id, store_id, code, status, reason, total_cents, created_at, decided_at FROM orders WHERE store_id = $1 AND id = $2 FOR UPDATE
+SELECT id, store_id, code, status, reason, total_cents, created_at, decided_at, customer FROM orders WHERE store_id = $1 AND id = $2 FOR UPDATE
 `
 
 type GetOrderForUpdateParams struct {
@@ -130,6 +163,7 @@ func (q *Queries) GetOrderForUpdate(ctx context.Context, arg GetOrderForUpdatePa
 		&i.TotalCents,
 		&i.CreatedAt,
 		&i.DecidedAt,
+		&i.Customer,
 	)
 	return i, err
 }
@@ -202,7 +236,7 @@ func (q *Queries) ListOrderItems(ctx context.Context, arg ListOrderItemsParams) 
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT id, store_id, code, status, reason, total_cents, created_at, decided_at FROM orders WHERE store_id = $1 AND status = $2 ORDER BY created_at DESC, id DESC LIMIT 200
+SELECT id, store_id, code, status, reason, total_cents, created_at, decided_at, customer FROM orders WHERE store_id = $1 AND status = $2 ORDER BY created_at DESC, id DESC LIMIT 200
 `
 
 type ListOrdersParams struct {
@@ -229,6 +263,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.TotalCents,
 			&i.CreatedAt,
 			&i.DecidedAt,
+			&i.Customer,
 		); err != nil {
 			return nil, err
 		}
@@ -430,7 +465,7 @@ func (q *Queries) ReturnVariantStock(ctx context.Context, arg ReturnVariantStock
 }
 
 const salesCSV = `-- name: SalesCSV :many
-SELECT o.code, o.status, o.reason, o.created_at, i.name, i.category, i.size, i.color, i.unit, i.qty, i.price_cents
+SELECT o.code, o.customer, o.status, o.reason, o.created_at, i.name, i.category, i.size, i.color, i.unit, i.qty, i.price_cents
 FROM order_items i JOIN orders o ON o.store_id = i.store_id AND o.id = i.order_id
 WHERE o.store_id = $1 AND o.created_at >= $2 AND o.created_at < $3
 ORDER BY o.created_at, o.id, i.id
@@ -444,6 +479,7 @@ type SalesCSVParams struct {
 
 type SalesCSVRow struct {
 	Code       string
+	Customer   string
 	Status     int16
 	Reason     int16
 	CreatedAt  pgtype.Timestamptz
@@ -467,6 +503,7 @@ func (q *Queries) SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVR
 		var i SalesCSVRow
 		if err := rows.Scan(
 			&i.Code,
+			&i.Customer,
 			&i.Status,
 			&i.Reason,
 			&i.CreatedAt,
@@ -490,6 +527,7 @@ func (q *Queries) SalesCSV(ctx context.Context, arg SalesCSVParams) ([]SalesCSVR
 
 const salesItems = `-- name: SalesItems :many
 SELECT i.name, i.category, i.size, i.color, i.unit, o.status,
+    count(DISTINCT o.id)::int AS orders,
     sum(i.qty)::bigint AS qty, sum((i.qty::bigint * i.price_cents + 500) / 1000)::bigint AS cents
 FROM order_items i JOIN orders o ON o.store_id = i.store_id AND o.id = i.order_id
 WHERE o.store_id = $1 AND o.created_at >= $2 AND o.created_at < $3 AND o.status > 0
@@ -509,11 +547,13 @@ type SalesItemsRow struct {
 	Color    string
 	Unit     string
 	Status   int16
+	Orders   int32
 	Qty      int64
 	Cents    int64
 }
 
 // Por producto + talla + color y estado; el handler arma lo más vendido, lo perdido y las categorías.
+// orders: en cuántos pedidos salió; "lo más vendido" se ordena por eso, no por dinero.
 func (q *Queries) SalesItems(ctx context.Context, arg SalesItemsParams) ([]SalesItemsRow, error) {
 	rows, err := q.db.Query(ctx, salesItems, arg.StoreID, arg.Since, arg.Until)
 	if err != nil {
@@ -530,6 +570,7 @@ func (q *Queries) SalesItems(ctx context.Context, arg SalesItemsParams) ([]Sales
 			&i.Color,
 			&i.Unit,
 			&i.Status,
+			&i.Orders,
 			&i.Qty,
 			&i.Cents,
 		); err != nil {

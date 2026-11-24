@@ -1,2 +1,2 @@
 /* Written by `astryx experimental theme editor show barberia` after every build of themes/barberia/; do not edit it here. Change the theme with the editor. */
-@import "@astryxdesign/theme-neutral/fonts.css";
+/* No font stylesheets: no installed package loads the theme's fonts. A font the system does not have shows only once its package is installed (experimental theme editor show barberia names it). */

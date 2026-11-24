@@ -1,0 +1,30 @@
+{
+  "name": "panel",
+  "like": "neutral",
+  "mode": "both",
+  "settings": [
+    {
+      "thing": "accent",
+      "value": "#0f7a4a",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#78716c",
+      "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "large",
+      "source": "dial"
+    },
+    {
+      "thing": "corners",
+      "value": "pill",
+      "source": "dial",
+      "on": "button"
+    }
+  ],
+  "lifted": [],
+  "palette": "7e9b0fe2c2a036ff9f7474aa09e5efa6d1cf6d7c4eb121c8e96b1f11d71103ba"
+}

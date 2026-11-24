@@ -11,4 +11,4 @@ import type { DefinedTheme } from '@astryxdesign/core/theme';
 import type { IconRegistry } from '@astryxdesign/core/Icon';
 export declare const themeIcons: IconRegistry;
 export declare const barberiaTheme: DefinedTheme;
-export declare const colorModes: readonly ["dark"];
+export declare const colorModes: readonly ["light"];

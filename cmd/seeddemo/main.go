@@ -2,6 +2,7 @@
 //
 //	go run ./cmd/seeddemo -slug ana
 //	go run ./cmd/seeddemo -slug luz -giro carniceria   (catálogo de ese giro y la tienda queda con ese estilo)
+//	go run ./cmd/seeddemo -slug ana -catalogo fotos   (ropa, pan y carne; cada producto con su foto de demo/fotos)
 //
 // Solo para desarrollo: guarda las fotos en uploads/ y borra antes el catálogo de esa tienda.
 // Si pones fotos en demo/fotos/ (JPG, PNG o WebP) las usa en orden; si no, genera siluetas.
@@ -61,6 +62,56 @@ var ropa = []item{
 	{"Accesorios", "Rebozo de algodón", "Rebozo tradicional, 2 m.", 65000, 59000, "", "Turquesa,Coral", 170, false, "", 0},
 	{"Accesorios", "Sombrero de ala ancha", "Para el sol, ajustable.", 29000, 0, "", "Camel", 35, false, "", 0},
 	{"Accesorios", "Collar de plata", "Plata .925 de Taxco.", 54000, 0, "", "Plateado", 250, false, "", 0},
+}
+
+// fotosCat: un producto por foto de demo/fotos (ropa en la raíz, panaderia/ y carniceria/), con datos que corresponden a lo que se ve.
+var fotosCat = []item{
+	{"Camisas", "Camisa de lino amarilla", "Lino ligero con dos bolsas al pecho. Fresca para el calor.", 54900, 0, "M,L,XL", "Amarillo", 0, true, "", 0},
+	{"Camisas", "Camisa hawaiana de hojas", "Estampado de hojas en blanco y negro, manga corta.", 42900, 36900, "S,M,L,XL", "Negro", 0, false, "", 0},
+	{"Camisas", "Camisa vaquera bordada", "Gabardina color arena con bordado en el pecho.", 69900, 0, "M,L,XL", "Arena", 0, false, "", 0},
+	{"Camisas", "Camisa de vestir rosa", "Algodón planchado fácil, cuello italiano.", 49900, 0, "S,M,L,XL", "Rosa", 0, false, "", 0},
+	{"Camisas", "Camisa de nopales", "Negra con estampado de nopales, manga corta.", 45900, 0, "M,L", "Negro", 0, true, "", 0},
+	{"Camisas", "Camisa blanca de rayas", "Rayas finas, corte holgado. Se usa abierta o abotonada.", 47900, 0, "CH,M,G", "Blanco", 0, false, "", 0},
+	{"Playeras", "Playera oversize", "Algodón grueso, corte amplio.", 29900, 0, "CH,M,G,EG", "Menta,Blanco", 0, true, "", 0},
+	{"Playeras", "Playera estampada", "Algodón con estampado al frente.", 24900, 19900, "CH,M,G", "Rosa", 0, false, "", 0},
+	{"Vestidos y faldas", "Falda larga blanca", "Falda de tubo a los tobillos con aplicaciones; se combina con top de olanes.", 89900, 0, "S,M", "Blanco", 0, true, "", 0},
+	{"Chamarras y sacos", "Chaqueta con flecos de colores", "Negra con flecos y cordones tejidos a mano.", 129900, 0, "S,M,L", "Negro", 0, false, "", 0},
+	{"Chamarras y sacos", "Saco casual", "Corte recto, forro completo.", 149900, 119900, "38,40,42,44", "Gris,Beige", 0, false, "", 0},
+	{"Pan", "Pan de caja artesanal", "Masa madre, horneado cada mañana. Pieza de 700 g.", 8500, 0, "", "", 0, true, "", 0},
+	{"Pan", "Pan de ajonjolí", "Redondo, suave por dentro, con ajonjolí tostado.", 1800, 0, "", "", 0, false, "", 0},
+	{"Pan", "Panqué de elote", "Hecho con elote fresco. Rebanada gruesa.", 3500, 0, "", "", 0, false, "", 0},
+	{"Pan", "Canasta de pan surtido", "Baguette, bolillo y pan de centeno para la mesa.", 12000, 0, "", "", 0, false, "", 0},
+	{"Carnes para asar", "Rib eye", "Corte grueso con hueso, marmoleado.", 62000, 0, "", "", 0, true, "kg", 500},
+	{"Carnes para asar", "Arrachera marinada", "Marinada de la casa, lista para el asador.", 34000, 31000, "", "", 0, false, "kg", 250},
+	{"Carnes para asar", "Chorizo argentino", "Para la parrillada, receta de la casa.", 18900, 0, "", "", 0, false, "kg", 250},
+	{"Carnes para asar", "Hamburguesa de res 150 g", "Carne de res molida, lista para la plancha.", 3200, 0, "", "", 0, false, "", 0},
+	{"Carnes para asar", "Brochetas de res", "Con pimiento, cebolla y calabaza.", 4500, 0, "", "", 0, false, "", 0},
+	{"Carnes para asar", "Pollo adobado en piezas", "Pierna y muslo en adobo, para el carbón.", 12900, 0, "", "", 0, false, "kg", 500},
+}
+
+// fotosFile: la foto de cada producto de fotosCat.
+var fotosFile = map[string]string{
+	"Camisa de lino amarilla":        "pexels-moises-ribeiro-121009898-11030686.jpg",
+	"Camisa hawaiana de hojas":       "pexels-moises-ribeiro-121009898-11030442.jpg",
+	"Camisa vaquera bordada":         "pexels-eduardo199o9-178988127-17354012.jpg",
+	"Camisa de vestir rosa":          "chicas/pexels-miltonphotography-35415004.jpg",
+	"Camisa de nopales":              "pexels-felipebalduino-18154546.jpg",
+	"Camisa blanca de rayas":         "pexels-cottonbro-6069563.jpg",
+	"Playera oversize":               "pexels-wesleydavi-9225880.jpg",
+	"Playera estampada":              "pexels-allanglezg-36115548.jpg",
+	"Falda larga blanca":             "pexels-enrique-yllpa-341168228-24246724.jpg",
+	"Chaqueta con flecos de colores": "pexels-enrique-yllpa-341168228-24246718.jpg",
+	"Saco casual":                    "chicas/pexels-fizaguirre-29920855.jpg",
+	"Pan de caja artesanal":          "panaderia/pexels-gladys-teheran-215978-20336250.jpg",
+	"Pan de ajonjolí":                "panaderia/pexels-luian-c-1229000-39942748.jpg",
+	"Panqué de elote":                "panaderia/pexels-luian-c-1229000-39942768.jpg",
+	"Canasta de pan surtido":         "panaderia/pexels-rodrigo-ortega-2044210904-30273276.jpg",
+	"Rib eye":                        "carniceria/pexels-shots2go-30520200.jpg",
+	"Arrachera marinada":             "carniceria/pexels-clarissa-schwarz-17624123.jpg",
+	"Chorizo argentino":              "carniceria/pexels-ariel-marcon-2163931462-39965692.jpg",
+	"Hamburguesa de res 150 g":       "carniceria/pexels-islam-desouki-222332649-12134192.jpg",
+	"Brochetas de res":               "carniceria/pexels-boris-ivas-28180462-18823998.jpg",
+	"Pollo adobado en piezas":        "carniceria/pexels-gmyuruten01-11566065.jpg",
 }
 
 // Catálogos por giro: productos y precios típicos (en centavos); kg con su paso en milésimas.
@@ -139,8 +190,14 @@ func main() {
 	slug := flag.String("slug", "ana", "tienda a llenar")
 	dir := flag.String("fotos", "demo/fotos", "carpeta con fotos (vacío = siluetas generadas)")
 	giro := flag.String("giro", "", "catálogo y estilo: carniceria, abarrotes, papeleria, barberia, boutique, vitrina (vacío = ropa, sin cambiar el estilo)")
+	cat := flag.String("catalogo", "", "fotos = un producto por foto de demo/fotos (ropa, pan y carne), sin cambiar el estilo")
 	flag.Parse()
 	catalog = ropa
+	if *cat == "fotos" {
+		root := *dir
+		catalog, photoFor = fotosCat, func(name string) string { return filepath.Join(root, fotosFile[name]) }
+		*dir = "" // no se usan en ciclo
+	}
 	if *giro != "" {
 		if catalog = catalogs[*giro]; catalog == nil {
 			fmt.Fprintln(os.Stderr, "error: giro desconocido:", *giro)
@@ -267,8 +324,13 @@ func run(slug, giro string) error {
 			}
 		}
 		photos := 1 + i%3
-		if catalog[0].name != ropa[0].name {
+		if photoFor != nil {
+			photos = 1
+		} else if catalog[0].name != ropa[0].name {
 			photos = 1 - i%3/2 // en carnes, abarrotes, etc. muchas tiendas no ponen foto: uno de cada tres va sin
+		}
+		if photoFor != nil {
+			realPhotos, photoN = []string{photoFor(it.name)}, 0
 		}
 		for n := range photos {
 			if err := addPhoto(ctx, q, disk, s.ID, pid, it.hue+float64(n)*25); err != nil {
@@ -280,6 +342,9 @@ func run(slug, giro string) error {
 	fmt.Fprintf(os.Stderr, "\n%d productos en %s\n", len(catalog), slug)
 	return seedOrders(ctx, pool, q, s.ID)
 }
+
+// demoNames: nombres de ejemplo para los pedidos sembrados (inventados; la tienda real los recibe del carrito).
+var demoNames = []string{"María Fernanda", "Lupita Ramírez", "Sofía", "Carmen Ortiz", "Daniela", "Rosa Elena", "Ximena López"}
 
 // seedOrders llena 90 días de pedidos de ejemplo para ver las gráficas de Ventas. No toca existencias.
 func seedOrders(ctx context.Context, pool *pgxpool.Pool, q *db.Queries, storeID int64) error {
@@ -323,7 +388,7 @@ func seedOrders(ctx context.Context, pool *pgxpool.Pool, q *db.Queries, storeID 
 			total += (int64(it.PriceCents)*int64(it.Qty) + 500) / 1000
 			items = append(items, it)
 		}
-		id, err := q.CreateOrder(ctx, db.CreateOrderParams{StoreID: storeID, Code: string(code), TotalCents: int32(total)}) // #nosec G115 -- montos chicos
+		id, err := q.CreateOrder(ctx, db.CreateOrderParams{StoreID: storeID, Code: string(code), TotalCents: int32(total), Customer: demoNames[n%len(demoNames)]}) // #nosec G115 -- montos chicos
 		if err != nil {
 			continue // código repetido: se salta
 		}
@@ -365,6 +430,9 @@ func split(s string) []string {
 	}
 	return strings.Split(s, ",")
 }
+
+// photoFor: con -catalogo fotos, la foto propia de cada producto.
+var photoFor func(name string) string
 
 // realPhotos: si hay fotos en -fotos se usan en orden (una por producto, en ciclo) en vez de las generadas.
 var realPhotos []string

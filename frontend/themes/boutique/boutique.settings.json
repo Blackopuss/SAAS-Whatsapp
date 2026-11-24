@@ -15,11 +15,6 @@
       "source": "dial"
     },
     {
-      "thing": "accent",
-      "value": "#553249",
-      "source": "dial"
-    },
-    {
       "thing": "headings",
       "value": "semibold",
       "source": "dial",
@@ -30,8 +25,36 @@
       "value": "tighter",
       "source": "dial",
       "axis": "tracking"
+    },
+    {
+      "thing": "accent",
+      "value": "#6d1f33",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#8b7a6e",
+      "source": "dial"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#f7f2ea",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "--color-text-primary",
+      "value": "#2b1d16",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "font",
+      "value": "Bricolage, system-ui, sans-serif",
+      "source": "dial",
+      "on": "body"
     }
   ],
   "lifted": [],
-  "palette": "edb063ebadffbea0648f91adff11fcc803336e7fe8c68512f546ee337b0516ab"
+  "palette": "202760e0d166857fdec78344d150f762960fad876e10f1848515dd1301419790"
 }

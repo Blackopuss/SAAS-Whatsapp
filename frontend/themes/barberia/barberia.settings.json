@@ -1,7 +1,7 @@
 {
   "name": "barberia",
   "like": "neutral",
-  "mode": "dark-only",
+  "mode": "light-only",
   "settings": [
     {
       "thing": "font",
@@ -15,11 +15,6 @@
       "source": "dial"
     },
     {
-      "thing": "accent",
-      "value": "#b3202a",
-      "source": "dial"
-    },
-    {
       "thing": "headings",
       "value": "heavy",
       "source": "dial",
@@ -30,8 +25,36 @@
       "value": "wide",
       "source": "dial",
       "axis": "tracking"
+    },
+    {
+      "thing": "accent",
+      "value": "#b4532a",
+      "source": "dial"
+    },
+    {
+      "thing": "neutral",
+      "value": "#7a736b",
+      "source": "dial"
+    },
+    {
+      "thing": "--color-background-body",
+      "value": "#efe9df",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "--color-text-primary",
+      "value": "#1c1b1a",
+      "source": "token",
+      "mode": "light"
+    },
+    {
+      "thing": "font",
+      "value": "Bricolage, system-ui, sans-serif",
+      "source": "dial",
+      "on": "body"
     }
   ],
   "lifted": [],
-  "palette": "5ade14b334bf2e76ba1dca19565c728d1a8c607c2740aeb225125eec27fea8c4"
+  "palette": "1271cca76b11b6952a9ef2c0e6f148f2153c4bca186407fd8d33202636fe5704"
 }

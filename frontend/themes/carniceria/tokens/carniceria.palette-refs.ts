@@ -3,10 +3,16 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const carniceriaPaletteRefs = {
-  accent: {
-    light: {35: '#8e1b1b', 85: '#e8cdca'},
-    dark: {30: '#7f1e1c', 70: '#f3887e', 80: '#f1b5ae'},
+  neutral: {
+    light: {0: '#000000', 5: '#15100a', 10: '#211a12', 30: '#4f4537', 45: '#716654', 60: '#978a79', 85: '#d9d4cc', 95: '#f2f0ed', 100: '#ffffff'},
+    dark: {5: '#14100b', 10: '#201b13', 15: '#2b251c', 35: '#5a5143', 65: '#a69988', 75: '#bfb7ac', 80: '#ccc6bd', 95: '#f2f0ee', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {35: '#8c1c1c', 85: '#e8cdca'},
+    dark: {30: '#7f1e1d', 70: '#f3887e', 80: '#f1b6ae'},
+  },
+  success: {
+    light: {25: '#11480d', 35: '#276122', 45: '#3f7a3a', 80: '#a8d5a3', 85: '#bbe1b7'},
+    dark: {65: '#7aae75', 70: '#8aba85', 75: '#9cc697', 80: '#add3a9'},
+  },
 };

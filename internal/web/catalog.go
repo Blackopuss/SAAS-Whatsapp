@@ -245,7 +245,7 @@ func (a *app) productStock(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		a.fail(w, r, err)
 	default:
-		back(w, r, "/panel/?existencia="+strconv.FormatInt(id, 10))
+		back(w, r, "/panel/productos?existencia="+strconv.FormatInt(id, 10))
 	}
 }
 
@@ -296,7 +296,7 @@ func (a *app) productDelete(w http.ResponseWriter, r *http.Request) {
 	for _, im := range imgs { // las filas se borran en cascada; los archivos, aquí
 		a.cleanup(r.Context(), photoKeys(im.R2Key, im.Widths))
 	}
-	back(w, r, "/panel/")
+	back(w, r, "/panel/productos")
 }
 
 func (a *app) productNew(w http.ResponseWriter, r *http.Request) {

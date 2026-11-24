@@ -94,6 +94,14 @@ func TestStoreIsolation(t *testing.T) {
 		}
 	}
 
+	// Inicio y lista del panel de A: no cuentan ni muestran nada de B (A no tiene productos ni categorías).
+	if rec := do(h, "GET", aHost+"/panel/", nil, cookie); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"products":0`) || !strings.Contains(rec.Body.String(), `"categories":0`) {
+		t.Errorf("inicio de A: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(h, "GET", aHost+"/panel/productos", nil, cookie); rec.Code != 200 || strings.Contains(rec.Body.String(), "Producto de B") {
+		t.Errorf("productos de A: %d", rec.Code)
+	}
+
 	// Tienda pública: el producto de B no se ve desde el subdominio de A, ni en su carrito.json.
 	if rec := do(h, "GET", aHost+"/p/"+pid, nil, nil); rec.Code != http.StatusNotFound {
 		t.Errorf("producto de B en tienda A: status %d", rec.Code)

@@ -44,6 +44,7 @@ type Order struct {
 	TotalCents int32
 	CreatedAt  pgtype.Timestamptz
 	DecidedAt  pgtype.Timestamptz
+	Customer   string
 }
 
 type OrderItem struct {

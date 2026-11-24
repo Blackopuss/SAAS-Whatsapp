@@ -1,57 +1,52 @@
 @import "../themes/carniceria/carniceria.css";
 
-/* ——— Carnicería: letrero de mostrador, pizarrón de precios y etiqueta de báscula ———
-   Va después de shop.css en importancia por :root (los temas cargan antes que shop.css). */
-
-/* Toldo a rayas sobre la portada. */
-:root .cover::before {
-  inset: 0 0 auto; inline-size: auto; aspect-ratio: auto; block-size: 0.875rem; border: 0; border-radius: 0; z-index: 0;
-  background: repeating-linear-gradient(90deg, var(--color-accent) 0 1.5rem, var(--color-background-body) 1.5rem 3rem);
-}
-:root .cover { padding-block-start: 2.25rem; }
-:root .cover h1 { text-transform: uppercase; letter-spacing: 0.01em; --wfit: 0.95; } /* Alfa Slab en mayúsculas es ancha */
-:root .cover .kicker { padding: 0.125rem 0.5rem; background: var(--color-text-primary); color: var(--color-background-body); }
-
-/* El toldo se desenrolla al cargar. */
-:root .cover::before { transform-origin: top; animation: awning 600ms var(--ease-enter) backwards; }
-@keyframes awning { from { transform: scaleY(0); } }
-
-
-/* El pizarrón: cada categoría es una pizarra oscura con renglones gis. */
-:root .board-sec {
-  padding: 1.25rem 1rem 0.5rem; border-radius: var(--radius-element);
-  background: var(--color-text-primary); color: var(--color-background-body);
-  border: 0.5rem solid color-mix(in oklch, var(--color-accent) 70%, var(--color-text-primary));
-}
-:root .board-title {
-  color: inherit; text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.5rem;
-  padding-block-end: 0.5rem; border-block-end: 4px double color-mix(in oklch, var(--color-background-body) 55%, transparent);
-}
-:root .board .brow { border-block-end: 1px dashed color-mix(in oklch, var(--color-background-body) 35%, transparent); }
-:root .board .brow:last-child { border-block-end: 0; }
-:root .board .brow-name small { color: color-mix(in oklch, var(--color-background-body) 80%, var(--color-text-primary)); }
-:root .board .brow-dots { border-color: color-mix(in oklch, var(--color-background-body) 45%, transparent); }
-:root .board .quick { background: var(--color-background-body); color: var(--color-text-primary); box-shadow: none; }
-
-/* Etiqueta de báscula: blanca, recta, cifras tabulares y la unidad separada. */
-:root .brow .ptag, :root .ptag.big {
-  border-radius: 2px; padding: 0.25rem 0.5rem; background: var(--color-background-body); color: var(--color-text-primary);
-  border: 2px solid var(--color-text-primary); font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
-}
-:root .brow .ptag.sale, :root .ptag.big.sale { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
-:root .brow .ptag strong { font-size: 1.0625rem; }
-
-/* Fuera del pizarrón (búsqueda y página de categoría) los renglones van sobre papel de envoltura. */
-:root .rows { padding: 0.25rem 1rem; border-radius: var(--radius-element); background: var(--color-background-muted); }
-:root .board .rows { padding: 0; background: none; }
-
-/* Tarjetas de los carriles con el mismo sello de báscula. */
-:root .ph .ptag { border-radius: 2px; font-family: ui-monospace, "Cascadia Mono", Menlo, monospace; }
-:root .card .ph { border-radius: var(--radius-element); }
-
-/* Producto: precio como etiqueta de báscula grande. */
-:root .ptag.big strong { font-family: inherit; }
-
-@media (min-width: 900px) {
-  :root .board { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+/* Carnicería — mostrador contemporáneo. Papel de carnicería; pizarra carbón con "Precios de hoy";
+   catálogo en banda blanca, por corte, con tarjetas en renglón que dicen "Por kg" o "Por pieza". */
+[data-astryx-theme="carniceria"] {
+  & body, & .top { background: var(--paper); }
+  & :is(.sec-head h2, .page-head h1, .info h1, .m-board h2, .m-cut h3, .closing h2) { font-family: var(--display); font-weight: 400; letter-spacing: 0; }
+  & .m-hero { display: grid; gap: 1.75rem; }
+  & .m-hero-text { display: grid; gap: 1rem; align-content: start; }
+  & .m-hero h1 { font-weight: 400; letter-spacing: -0.01em; font-size: clamp(2.5rem, 11vw, 4.75rem); }
+  & .kicker { color: var(--decor); }
+  & .m-lead { grid-template-columns: 5.5rem minmax(0, 1fr); align-items: center; gap: 1rem; padding: 0.625rem; border-radius: var(--r); background: var(--bg); border: 1px solid var(--line); margin-block-start: 0.5rem; }
+  & .m-lead .feature-ph { aspect-ratio: 1; border-radius: var(--r-sm); }
+  & .m-board { align-self: start; padding: 1.5rem 1.25rem; border-radius: var(--r); background: var(--ink); color: var(--paper); border-block-start: 0.5rem solid var(--decor); }
+  & .m-board h2 { font-size: clamp(1.75rem, 6vw, 2.25rem); margin-block-end: 0.75rem; }
+  & .m-board ul { list-style: none; }
+  & .m-board a { display: flex; align-items: baseline; gap: 0.5rem; min-block-size: 2.75rem; padding-block: 0.5rem; text-decoration: none; border-block-end: 1px solid color-mix(in oklch, var(--paper) 15%, transparent); }
+  & .m-board a:hover .m-board-name { text-decoration: underline; text-underline-offset: 3px; }
+  & .m-board-name { font-weight: 600; }
+  & .m-dots { flex: 1; min-inline-size: 1rem; border-block-end: 2px dotted color-mix(in oklch, var(--paper) 35%, transparent); }
+  & .m-board-price { font-weight: 800; font-size: 1.125rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  & .m-board-price small { font-weight: 500; font-size: 0.8125rem; color: inherit; }
+  & .cat-ph { border-radius: var(--r-sm); }
+  & .cat-name { font-family: var(--display); font-weight: 400; font-size: 1.125rem; padding-inline-start: 0.5rem; border-inline-start: 4px solid var(--decor); }
+  & .catalog { --band: var(--bg); background: var(--band); box-shadow: 0 0 0 100vmax var(--band); clip-path: inset(0 -100vmax); padding-block: 2.5rem; }
+  & .m-cut { display: grid; gap: 1rem; margin-block-end: 2rem; }
+  & .m-cut h3 { display: flex; align-items: baseline; gap: 0.75rem; font-size: 1.5rem; padding-block: 0.375rem; border-block-end: 3px solid var(--decor); }
+  & .m-cut h3 a { text-decoration: none; }
+  & .m-cut h3 .muted { font-family: var(--sans); font-size: 0.875rem; }
+  /* Tarjeta en renglón: foto cuadrada, unidad, nombre y precio por unidad grande. */
+  & .grid { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+  & .grid .card { grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: 1rem; padding: 0.5rem 3.75rem 0.5rem 0.5rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
+  & .grid .ph { aspect-ratio: 1; border-radius: var(--r-sm); }
+  & .grid .quick { inset-block-start: auto; inset-block-end: 0.625rem; inset-inline-end: 0.625rem; background: var(--decor); color: var(--color-on-dark); }
+  & .grid .flag { inset-block-start: 0.375rem; inset-inline-start: 0.375rem; font-size: 0.6875rem; }
+  & .card-price strong { font-size: 1.375rem; }
+  & .rail .ph { aspect-ratio: 1; }
+  & .rail .quick { inset-block-start: calc(100cqi - 3.25rem); }
+  & .flag.sale { background: var(--decor); color: var(--color-on-dark); }
+  & .calc { border: 2px solid var(--decor); background: var(--bg); }
+  & .specs { border-block-start: 3px solid var(--decor); }
+  & .closing { background: var(--ink); color: var(--paper); }
+  & .closing p { color: color-mix(in oklch, var(--paper) 82%, transparent); }
+  & .closing .btn.secondary { color: var(--paper); border-color: color-mix(in oklch, var(--paper) 40%, transparent); }
+  @media (min-width: 760px) { & .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; } }
+  @media (min-width: 900px) {
+    & .m-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3.5rem; }
+    & .m-lead { max-inline-size: 26rem; }
+    & .m-board { padding: 2rem; }
+  }
+  @media (min-width: 1200px) { & .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 }

@@ -81,7 +81,7 @@ if (!(await page.getByRole("textbox", { name: "Nombre de la categoría" }).count
     await page.getByRole("button", { name: "Agregar" }).click();
   }
 }
-await page.goto(`${BASE}/panel/`);
+await page.goto(`${BASE}/panel/productos`);
 if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
   await page.getByRole("link", { name: "Agregar producto" }).click();
   await page.getByLabel("Nombre").fill("Blusa lino");
@@ -97,7 +97,7 @@ if (!(await page.getByRole("link", { name: "Blusa lino" }).count())) {
   await page.getByRole("button", { name: "Guardar producto" }).click();
   await page.getByRole("status").filter({ hasText: "Producto guardado" }).waitFor();
 }
-await page.goto(`${BASE}/panel/`);
+await page.goto(`${BASE}/panel/productos`);
 const editURL = await page.getByRole("link", { name: "Blusa lino" }).getAttribute("href");
 
 // Subir una foto (generada en el navegador) si el producto no tiene; pasa por la compresión de fotos.js.
@@ -119,7 +119,8 @@ if (!(await page.getByRole("img", { name: /Foto 1 de/ }).count())) {
   await page.getByRole("status").filter({ hasText: "Foto agregada" }).waitFor({ timeout: 60_000 });
 }
 
-await audit("productos", `${BASE}/panel/`);
+await audit("inicio-panel", `${BASE}/panel/`);
+await audit("productos", `${BASE}/panel/productos`);
 await audit("producto-editar", `${BASE}${editURL}`);
 await audit("producto-nuevo", `${BASE}/panel/productos/nuevo`);
 await audit("categorias", `${BASE}/panel/categorias`);
@@ -182,17 +183,31 @@ for (const group of ["Talla", "Color"]) {
 await page.getByRole("button", { name: "Agregar al carrito" }).click();
 const dialog = page.getByRole("dialog", { name: "Tu carrito" });
 await dialog.waitFor();
+// El nombre se pide al preparar el pedido: sin nombre avisa y no registra nada.
+const prep = dialog.getByRole("button", { name: "Preparar pedido para WhatsApp" });
+await prep.waitFor();
+await dialog.getByLabel("Tu nombre para el pedido").fill("");
+await prep.click();
+if (!(await dialog.getByText("Escribe tu nombre").count())) {
+  failed = true;
+  console.log("  carrito: sin nombre no avisó");
+}
+await page.waitForTimeout(400); // deja terminar la animación del cajón
+await page.screenshot({ path: "out/carrito.png" });
+const customer = "Prueba E2E";
+await dialog.getByLabel("Tu nombre para el pedido").fill(`  ${customer} `);
+const placedRes = page.waitForResponse((r) => r.url().endsWith("/pedido") && r.request().method() === "POST");
+await prep.click();
+const orderStatus = (await placedRes).status();
 const wa = dialog.getByRole("link", { name: "Enviar pedido por WhatsApp" });
 await wa.waitFor();
 const href = await wa.getAttribute("href");
 const msg = decodeURIComponent(href.split("?text=")[1]);
 console.log(`Mensaje de WhatsApp:\n${msg}`);
-if (!href.startsWith("https://wa.me/525500000000?text=") || !msg.includes(name) || !msg.includes("Total: $") || !msg.includes(`${BASE}/p/`)) {
+if (!href.startsWith("https://wa.me/525500000000?text=") || !msg.includes(`*${customer}*`) || !msg.includes(name) || !msg.includes("Total: $") || /https?:\/\//.test(msg)) {
   failed = true;
-  console.log("  carrito: mensaje de WhatsApp mal formado");
+  console.log("  carrito: mensaje de WhatsApp mal formado (nombre, producto, total y sin enlaces)");
 }
-await page.waitForTimeout(400); // deja terminar la animación del cajón
-await page.screenshot({ path: "out/carrito.png" });
 const axeCart = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
 for (const v of axeCart.violations) {
   failed = true;
@@ -200,22 +215,20 @@ for (const v of axeCart.violations) {
 }
 results.push({ página: "carrito (abierto)", axe: axeCart.violations.length });
 
-// Pedido: al tocar WhatsApp se crea pendiente en el panel; la vendedora lo marca vendido.
-const code = msg.match(/\(pedido ([A-Z0-9]{6})\)/)?.[1];
-const sent = page.waitForResponse((r) => r.url().endsWith("/pedido") && r.request().method() === "POST");
+// Pedido: al prepararlo queda pendiente en el panel con el nombre; la vendedora lo marca vendido.
+const code = msg.match(/\*Pedido ([A-Z0-9]{6})\*/)?.[1];
 await page.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: true })); // no abrir wa.me
 await wa.click();
-const orderStatus = (await sent).status();
 await page.goto(`${BASE}/panel/ventas`);
-const card = page.locator("article").filter({ has: page.getByRole("heading", { name: `Pedido ${code}` }) });
-if (!code || orderStatus !== 204 || !(await card.count())) {
+const card = page.locator("article").filter({ hasText: `Pedido ${code}` }).filter({ has: page.getByRole("heading", { name: customer }) });
+if (!code || orderStatus !== 200 || !(await card.count())) {
   failed = true;
   console.log(`  pedido: no llegó al panel (código ${code}, respuesta ${orderStatus})`);
 } else {
   await audit("ventas", `${BASE}/panel/ventas`);
   await card.getByRole("button", { name: "Marcar como vendido" }).click();
   await page.waitForURL(/estado=vendidos/);
-  if (!(await page.getByRole("heading", { name: `Pedido ${code}` }).count())) {
+  if (!(await page.locator("article").filter({ hasText: `Pedido ${code}` }).count())) {
     failed = true;
     console.log("  pedido: no quedó en Vendidos");
   }
@@ -223,7 +236,7 @@ if (!code || orderStatus !== 204 || !(await card.count())) {
 await audit("ventas-resumen", `${BASE}/panel/ventas/resumen`);
 
 // Granel: "Churros" por kilo de 0.25 en 0.25 con 5 kg; se piden 0.5 kg, se vende y quedan 4.5 kg.
-await page.goto(`${BASE}/panel/`);
+await page.goto(`${BASE}/panel/productos`);
 const churros = page.getByRole("link", { name: "Churros", exact: true });
 await page.goto((await churros.count()) ? `${BASE}${await churros.first().getAttribute("href")}` : `${BASE}/panel/productos/nuevo`);
 if (!(await page.getByLabel("Nombre").inputValue())) await page.getByLabel("Nombre").fill("Churros");
@@ -243,28 +256,29 @@ await fillSure("Existencia (kg)", "5");
 await page.getByRole("button", { name: "Guardar producto" }).click();
 await page.getByRole("status").filter({ hasText: "Producto guardado" }).waitFor({ timeout: 10_000 })
   .catch(async (e) => { await page.screenshot({ path: "out/granel-error.png", fullPage: true }); throw e; });
-await page.goto(`${BASE}/panel/`);
+await page.goto(`${BASE}/panel/productos`);
 const churrosId = (await churros.first().getAttribute("href")).split("/").pop();
 await page.evaluate(() => localStorage.removeItem("carrito-2"));
 await page.goto(`${BASE}/p/${churrosId}`);
 await page.getByLabel("Cantidad (kg)").fill("0.5");
 await page.getByRole("button", { name: "Agregar al carrito" }).click();
-const waKg = page.getByRole("dialog", { name: "Tu carrito" }).getByRole("link", { name: "Enviar pedido por WhatsApp" });
+const cartKg = page.getByRole("dialog", { name: "Tu carrito" });
+await cartKg.getByLabel("Tu nombre para el pedido").fill(customer);
+await cartKg.getByRole("button", { name: "Preparar pedido para WhatsApp" }).click();
+const waKg = cartKg.getByRole("link", { name: "Enviar pedido por WhatsApp" });
 await waKg.waitFor();
 await page.waitForTimeout(400);
 await page.screenshot({ path: "out/carrito-granel.png" });
 const msgKg = decodeURIComponent((await waKg.getAttribute("href")).split("?text=")[1]);
-const codeKg = msgKg.match(/\(pedido ([A-Z0-9]{6})\)/)?.[1];
+const codeKg = msgKg.match(/\*Pedido ([A-Z0-9]{6})\*/)?.[1];
 if (!msgKg.includes("0.5 kg") || !msgKg.includes("Total: $60.00")) {
   failed = true;
   console.log(`  granel: mensaje sin "0.5 kg" o total distinto de $60:\n${msgKg}`);
 }
-const sentKg = page.waitForResponse((r) => r.url().endsWith("/pedido") && r.request().method() === "POST");
 await page.evaluate(() => document.addEventListener("click", (e) => e.preventDefault(), { once: true }));
 await waKg.click();
-await sentKg;
 await page.goto(`${BASE}/panel/ventas`);
-await page.locator("article").filter({ has: page.getByRole("heading", { name: `Pedido ${codeKg}` }) }).getByRole("button", { name: "Marcar como vendido" }).click();
+await page.locator("article").filter({ hasText: `Pedido ${codeKg}` }).getByRole("button", { name: "Marcar como vendido" }).click();
 await page.waitForURL(/estado=vendidos/);
 const left = await page.evaluate(async (id) => (await (await fetch("/carrito.json")).json())[id]?.s, churrosId); // Node no resuelve *.localhost
 if (left !== 4500) {
@@ -278,7 +292,7 @@ await audit("tienda-producto-granel", `${BASE}/p/${churrosId}`, { auth: false, l
 const dark = await browser.newContext({ ...devices["Pixel 7"], viewport: { width: 360, height: 800 }, locale: "es-MX", colorScheme: "dark" });
 await dark.addCookies(await ctx.cookies());
 const darkPage = await dark.newPage();
-for (const [name, url] of [["productos", "/panel/"], ["producto-editar", `/panel/productos/${churrosId}`], ["ventas", "/panel/ventas"], ["ventas-resumen", "/panel/ventas/resumen?periodo=3-meses"], ["tienda", "/"], ["tienda-producto", `/p/${churrosId}`]]) {
+for (const [name, url] of [["inicio-panel", "/panel/"], ["productos", "/panel/productos"], ["producto-editar", `/panel/productos/${churrosId}`], ["ventas", "/panel/ventas"], ["ventas-resumen", "/panel/ventas/resumen?periodo=3-meses"], ["tienda", "/"], ["tienda-producto", `/p/${churrosId}`]]) {
   await darkPage.goto(`${BASE}${url}`);
   await darkPage.waitForFunction(() => document.getElementById("root")?.childElementCount > 0, null, { timeout: 10_000 }).catch(() => {});
   await darkPage.evaluate(() => Promise.race([Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))), new Promise((r) => setTimeout(r, 3000))]));

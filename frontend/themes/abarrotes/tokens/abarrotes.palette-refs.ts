@@ -3,10 +3,16 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const abarrotesPaletteRefs = {
-  accent: {
-    light: {35: '#285b35', 85: '#b7e1be'},
-    dark: {30: '#1b542c', 70: '#85bb8f', 80: '#a9d3b0'},
+  neutral: {
+    light: {0: '#000000', 5: '#13110a', 10: '#1f1b13', 30: '#4c4638', 45: '#706959', 60: '#978f7d', 85: '#d7d4cd', 95: '#f2f1ee', 100: '#ffffff'},
+    dark: {5: '#13110b', 10: '#1e1b14', 15: '#29251d', 35: '#585245', 65: '#a49c8c', 75: '#bdb8ad', 80: '#cac6be', 95: '#f2f1ee', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {35: '#246030', 40: '#2f6b3a', 85: '#b8e1bc'},
+    dark: {30: '#1c5428', 70: '#86bb8c', 80: '#aad3ae'},
+  },
+  warning: {
+    light: {25: '#6e1800', 40: '#a92d02', 55: '#e0552d', 80: '#e8bbae', 85: '#ecccc3'},
+    dark: {55: '#e0552d', 65: '#f67653', 75: '#ff9b7f', 80: '#f6b5a2'},
+  },
 };

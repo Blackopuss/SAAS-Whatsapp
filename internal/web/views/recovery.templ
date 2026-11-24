@@ -1,7 +1,6 @@
 package views
 
 // Recuperar contraseña: las pinta frontend/src/panel.tsx.
-
 templ Forgot(store string, enabled bool, sent, errMsg string) {
 	@reactPage("Recuperar contraseña · "+store, "", "panel", "forgot", map[string]any{"store": store, "enabled": enabled, "sent": sent, "error": errMsg})
 }

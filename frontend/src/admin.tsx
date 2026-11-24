@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Store, Plus, ScrollText, Copy } from "lucide-react";
 import { mount } from "./boot";
-import { neutralTheme } from "@astryxdesign/theme-neutral/built";
+import { panelTheme } from "./themes/panel/panel.js";
 import { Shell, AuthCard, type NavLink } from "./shell";
 import { Txt, Check, Pick, Msg, PostButton, Form, useWide } from "./ui";
 import { Button } from "@astryxdesign/core/Button";
@@ -313,4 +313,4 @@ function Audit({ rows }: { rows: AuditRow[] }) {
   );
 }
 
-mount({ login: Login, stores: Stores, storeNew: StoreNew, store: StoreDetail, resetLink: ResetLink, audit: Audit }, neutralTheme);
+mount({ login: Login, stores: Stores, storeNew: StoreNew, store: StoreDetail, resetLink: ResetLink, audit: Audit }, panelTheme);

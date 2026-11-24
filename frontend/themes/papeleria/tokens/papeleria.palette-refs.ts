@@ -3,10 +3,20 @@
 // theme ships no shade it does not use.
 // prettier-ignore
 export const papeleriaPaletteRefs = {
-  accent: {
-    light: {30: '#244c86', 85: '#ccd5e2'},
-    dark: {30: '#164586', 70: '#7badf6', 80: '#b8c8df'},
+  neutral: {
+    light: {0: '#000000', 5: '#0f1018', 10: '#191b25', 30: '#424656', 45: '#64697c', 60: '#8a8fa3', 85: '#d2d4dd', 95: '#f0f0f4', 100: '#ffffff'},
+    dark: {5: '#0f1117', 10: '#191b23', 15: '#23252f', 35: '#4e5261', 65: '#989caf', 75: '#b5b8c4', 80: '#c3c6d0', 95: '#f0f1f4', 100: '#ffffff'},
   },
-  white: '#ffffff',
-  black: '#000000',
+  accent: {
+    light: {40: '#1556ba', 50: '#2f6fd6', 85: '#c8d5ea'},
+    dark: {30: '#0f4190', 50: '#2f6fd6', 75: '#95baf6'},
+  },
+  warning: {
+    light: {25: '#4c3800', 40: '#765a00', 80: '#f5c542', 85: '#fed467'},
+    dark: {65: '#c59800', 75: '#e7b626', 80: '#f5c542'},
+  },
+  danger: {
+    light: {25: '#6e1700', 40: '#a72b00', 65: '#ef7a5a', 80: '#e3beb4', 85: '#e8cfc7'},
+    dark: {65: '#ef7a5a', 75: '#ff9d81', 80: '#f8b5a3'},
+  },
 };

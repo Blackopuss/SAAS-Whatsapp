@@ -2,9 +2,13 @@
 
 -- name: CreateOrder :one
 -- Si el celular reintenta con el mismo código no se duplica: no devuelve filas.
-INSERT INTO orders (store_id, code, total_cents) VALUES ($1, $2, $3)
+INSERT INTO orders (store_id, code, total_cents, customer) VALUES ($1, $2, $3, $4)
 ON CONFLICT (store_id, code) DO NOTHING
 RETURNING id;
+
+-- name: GetOrderByCode :one
+-- Para responder el reintento de un pedido ya registrado con lo que quedó guardado.
+SELECT * FROM orders WHERE store_id = $1 AND code = $2;
 
 -- name: AddOrderItem :exec
 INSERT INTO order_items (store_id, order_id, product_id, name, category, size, color, unit, qty, price_cents)
@@ -83,14 +87,16 @@ GROUP BY 1 ORDER BY 1;
 
 -- name: SalesItems :many
 -- Por producto + talla + color y estado; el handler arma lo más vendido, lo perdido y las categorías.
+-- orders: en cuántos pedidos salió; "lo más vendido" se ordena por eso, no por dinero.
 SELECT i.name, i.category, i.size, i.color, i.unit, o.status,
+    count(DISTINCT o.id)::int AS orders,
     sum(i.qty)::bigint AS qty, sum((i.qty::bigint * i.price_cents + 500) / 1000)::bigint AS cents
 FROM order_items i JOIN orders o ON o.store_id = i.store_id AND o.id = i.order_id
 WHERE o.store_id = @store_id AND o.created_at >= @since AND o.created_at < @until AND o.status > 0
 GROUP BY 1, 2, 3, 4, 5, 6;
 
 -- name: SalesCSV :many
-SELECT o.code, o.status, o.reason, o.created_at, i.name, i.category, i.size, i.color, i.unit, i.qty, i.price_cents
+SELECT o.code, o.customer, o.status, o.reason, o.created_at, i.name, i.category, i.size, i.color, i.unit, i.qty, i.price_cents
 FROM order_items i JOIN orders o ON o.store_id = i.store_id AND o.id = i.order_id
 WHERE o.store_id = @store_id AND o.created_at >= @since AND o.created_at < @until
 ORDER BY o.created_at, o.id, i.id;

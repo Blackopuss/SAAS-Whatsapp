@@ -5,12 +5,45 @@
     {
       "id": "accent",
       "name": "Accent",
-      "seed": "#8e1b1b",
+      "seed": "#8c1c1c",
       "anchors": [
         {
           "mode": "light",
           "stop": 35,
-          "color": "#8e1b1b",
+          "color": "#8c1c1c",
+          "policy": "exact"
+        }
+      ]
+    },
+    {
+      "id": "neutral",
+      "name": "Neutral",
+      "seed": "#8a7d6b",
+      "kind": "neutral",
+      "anchors": [
+        {
+          "mode": "light",
+          "stop": 55,
+          "color": "#8a7d6b",
+          "policy": "exact"
+        },
+        {
+          "mode": "dark",
+          "stop": 55,
+          "color": "#8a7d6b",
+          "policy": "exact"
+        }
+      ]
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "seed": "#3f7a3a",
+      "anchors": [
+        {
+          "mode": "light",
+          "stop": 45,
+          "color": "#3f7a3a",
           "policy": "exact"
         }
       ]

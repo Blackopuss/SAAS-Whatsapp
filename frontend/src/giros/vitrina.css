@@ -1,1 +1,28 @@
 @import "../themes/vitrina/vitrina.css";
+
+/* Vitrina — almacén general claro. Portada: buscador grande y colección destacada (una grande y dos chicas)
+   sobre porcelana; categorías redondas; bandas porcelana y blanco alternadas. Las reglas se limitan al tema. */
+[data-astryx-theme="vitrina"] {
+  & body { background: var(--bg); }
+  & .v-hero { display: grid; gap: 2rem; padding-block: 2rem 2.5rem; margin-block-start: -1.5rem; }
+  & .v-hero-text { display: grid; gap: 1rem; align-content: center; }
+  & .v-hero h1 { font-weight: 800; letter-spacing: -0.035em; }
+  & .v-feat { display: grid; gap: 0.75rem; }
+  & .v-feat-label { font-weight: 700; color: var(--decor); }
+  & .v-feat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  & .v-feat-grid .feature:first-child { grid-column: 1 / -1; }
+  & .v-feat-grid .feature:first-child .feature-ph { aspect-ratio: 4 / 3; }
+  & .v-feat-grid.n2 .feature:first-child { grid-column: auto; }
+  & .v-feat-grid.n2 .feature:first-child .feature-ph { aspect-ratio: 4 / 5; }
+  & .v-feat .feature { padding: 0.5rem 0.5rem 0.75rem; border-radius: calc(var(--r) + 0.5rem); background: var(--bg); }
+  & .v-feat .feature-txt { padding-inline: 0.25rem; }
+  & .trust { margin-block-start: -1.5rem; }
+  & .flag.sale { background: var(--decor); color: var(--color-on-dark); }
+  @media (min-width: 900px) {
+    & .v-hero { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 3rem; align-items: center; padding-block: 3rem; margin-block-start: -2.5rem; }
+    & .v-feat-grid.n3 { grid-template-columns: 3fr 2fr; grid-template-rows: auto auto; }
+    & .v-feat-grid.n3 .feature:first-child { grid-column: 1; grid-row: span 2; }
+    & .v-feat-grid.n3 .feature:first-child .feature-ph { aspect-ratio: 4 / 5; }
+    & .v-feat-grid.n3 .feature:not(:first-child) .feature-ph { aspect-ratio: 4 / 3; }
+  }
+}

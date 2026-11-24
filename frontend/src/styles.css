@@ -1,7 +1,7 @@
 @import "@astryxdesign/core/reset.css";
 @import "@astryxdesign/core/astryx.css";
-@import "@astryxdesign/theme-neutral/fonts.css";
-@import "@astryxdesign/theme-neutral/theme.css";
+@import "./themes/panel/panel.fonts.css";
+@import "./themes/panel/panel.css";
 
 /* Transición suave entre páginas (cada URL es una carga completa). */
 @view-transition {
@@ -135,8 +135,8 @@ form.grow-form {
 .ranking li {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  gap: var(--spacing-3);
+  flex-direction: column; /* nombre arriba, cifras abajo: en columnas angostas no se aprietan */
+  gap: 0;
   padding: var(--spacing-1) var(--spacing-2);
   border-radius: var(--radius-element);
   isolation: isolate;
@@ -153,6 +153,11 @@ form.grow-form {
 }
 .ranking-name { min-inline-size: 0; overflow-wrap: anywhere; }
 .ranking-sub { color: var(--color-text-secondary); }
-.ranking-val { flex: none; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.ranking-val { font-size: var(--text-supporting-size, 0.8125rem); font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+.ranking-val strong { color: var(--color-text-primary); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .chart-bar { transition: none; } }
 .chart-box { margin: 0; }
+
+/* Inicio: pasos hechos y por hacer. */
+.step-done { color: var(--color-icon-success, var(--color-text-success)); flex: none; }
+.step-todo { color: var(--color-border-emphasized); flex: none; }

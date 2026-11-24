@@ -79,7 +79,7 @@ func (a *app) cards(ps []db.ListStoreProductsRow, category int64) []views.Card {
 		out = append(out, views.Card{
 			ID: p.ID, Name: p.Name, Price: now, Was: was, SoldOut: p.SoldOut, New: p.IsNew,
 			Photo: a.photo(p.ImageKey, p.ImageWidths), Color: p.ImageColor, Sizes: p.Sizes, CategoryID: p.CategoryID.Int64,
-			Unit: units[p.Unit], Step: p.Step,
+			Unit: units[p.Unit], Step: p.Step, Available: p.Available, Colors: colorOpts(p.Colors),
 		})
 	}
 	return out
@@ -236,7 +236,7 @@ var swatches = map[string]string{
 	"rosa": "#f472b6", "fucsia": "#d946ef", "morado": "#7e22ce", "lila": "#c4b5fd", "azul": "#2563eb",
 	"marino": "#1e3a8a", "azul marino": "#1e3a8a", "celeste": "#7dd3fc", "verde": "#16a34a", "olivo": "#65a30d",
 	"amarillo": "#facc15", "mostaza": "#ca8a04", "naranja": "#f97316", "café": "#78350f", "cafe": "#78350f",
-	"beige": "#e7d8c0", "crema": "#f5efe0", "arena": "#d6c3a1", "dorado": "#d4a017", "plateado": "#c0c0c0",
+	"beige": "#e7d8c0", "menta": "#a8dcc7", "crema": "#f5efe0", "arena": "#d6c3a1", "dorado": "#d4a017", "plateado": "#c0c0c0",
 	"mezclilla": "#3b5b8a", "coral": "#fb7185", "turquesa": "#14b8a6", "camel": "#c19a6b",
 }
 
@@ -341,3 +341,12 @@ func publicStock(avail, step int32) int32 {
 }
 
 const maxUnits = 99 // igual que MAX_UNITS en shop.tsx
+
+// colorOpts: los colores de una tarjeta con su muestra (si el nombre es uno conocido).
+func colorOpts(names []string) []views.Opt {
+	out := make([]views.Opt, 0, len(names))
+	for _, n := range names {
+		out = append(out, views.Opt{Name: n, Swatch: swatches[strings.ToLower(n)]})
+	}
+	return out
+}

@@ -1,57 +1,43 @@
 @import "../themes/abarrotes/abarrotes.css";
 
-/* ——— Abarrotes: rótulo pintado a mano, pasillos con repisa y etiquetas amarillas de precio ———
-   Reglas con :root para ganarle a shop.css (los temas cargan antes). */
-
-/* Amarillo de etiqueta de precio (no está en el tema; texto oscuro encima, contraste > 10:1). */
-:root { --tag: oklch(0.91 0.16 96); --tag-ink: oklch(0.22 0.02 96); }
-
-/* Portada como rótulo de fachada: franja de color con el nombre en letra de pintor y borde de marco. */
-:root .cover {
-  background: var(--color-accent); color: var(--color-on-accent);
-  border: 0.375rem solid color-mix(in oklch, var(--color-accent) 60%, var(--color-text-primary));
-  box-shadow: inset 0 0 0 0.25rem var(--color-on-accent);
+/* Abarrotes — pasillos. Encontrar rápido: banda verde con buscador grande y accesos a cada pasillo;
+   un riel por pasillo; tarjetas compactas con el precio primero y botón "Agregar" a lo ancho. */
+[data-astryx-theme="abarrotes"] {
+  & body, & .top { background: var(--paper); }
+  & .main { gap: 2.5rem; }
+  & :is(.sec-head h2, .sec-head h3, .page-head h1, .closing h2) { font-family: var(--display); font-weight: 400; letter-spacing: 0; }
+  & .a-hero { --band: var(--decor); display: grid; gap: 1rem; justify-items: start; color: var(--color-on-dark); margin-block-start: -1.5rem; padding-block: 1.75rem 2rem; }
+  & .a-hero h1 { font-weight: 400; letter-spacing: 0; font-size: clamp(2.25rem, 9vw, 3.75rem); line-height: 1; }
+  & .a-hero .hero-sub { color: color-mix(in oklch, var(--color-on-dark) 88%, transparent); }
+  & .a-hero .search.big { box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.4); border: 0; color: var(--ink-2); }
+  & .a-aisles { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  & .a-aisle { display: inline-flex; align-items: center; gap: 0.5rem; min-block-size: 2.75rem; padding-inline: 1rem; border-radius: var(--radius-full); background: color-mix(in oklch, var(--color-on-dark) 14%, transparent); font-weight: 600; text-decoration: none; }
+  & .a-aisle span { font-size: 0.8125rem; opacity: 0.85; }
+  & .a-aisle:hover { background: color-mix(in oklch, var(--color-on-dark) 24%, transparent); }
+  & .band.hot { --band: var(--color-warning-muted); }
+  & .flag.sale { background: var(--color-warning); color: var(--color-on-warning); border-radius: var(--r-sm); font-size: 0.8125rem; }
+  & .a-row { display: grid; gap: 0.75rem; padding-block: 1.25rem; border-block-start: 1px solid var(--line); }
+  & .a-row h3 { font-size: clamp(1.375rem, 5vw, 1.75rem); }
+  & .more { color: var(--decor); }
+  & .reorder { background: var(--decor-soft); border: 2px solid var(--decor); }
+  /* Tarjeta compacta: foto cuadrada, precio arriba del nombre, botón Agregar debajo. */
+  & .pcard { display: grid; align-content: start; padding: 0.5rem; border-radius: var(--r); background: var(--bg); }
+  & .card { gap: 0.5rem; }
+  & .ph { aspect-ratio: 1; background: var(--bg); }
+  & .card-price { order: -1; }
+  & .card-body .card-tags { order: -2; }
+  & .card-price strong { font-size: 1.3125rem; }
+  & .card-name { font-size: 0.875rem; }
+  & .quick.wide { background: var(--decor); color: var(--color-on-dark); border-color: var(--decor); }
+  & .quick.wide:hover { background: var(--ink); border-color: var(--ink); }
+  & .grid { gap: 0.625rem; }
+  & .rail { grid-auto-columns: minmax(9.5rem, 42%); gap: 0.625rem; }
+  & .stepper.big button { inline-size: 3.25rem; block-size: 3.25rem; }
+  & .stepper.big input { inline-size: 3.5rem; font-size: 1.25rem; }
+  @media (min-width: 640px) { & .rail { grid-auto-columns: 11.5rem; } }
+  @media (min-width: 900px) {
+    & .a-hero { padding-block: 2.5rem; margin-block-start: -2.5rem; }
+    & .rail { grid-auto-columns: calc((100% - 4rem - 4 * 0.625rem) / 5); }
+  }
+  @media (min-width: 1024px) { & .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 }
-:root .cover::before { display: none; }
-:root .cover :is(h1, p) { color: inherit; }
-:root .cover h1 { text-shadow: 0.2rem 0.2rem 0 color-mix(in oklch, var(--color-text-primary) 45%, transparent); }
-:root .cover-sub { color: inherit; opacity: 0.95; }
-:root .cover .kicker { color: var(--tag-ink); background: var(--tag); padding: 0.125rem 0.5rem; border-radius: var(--radius-element); }
-:root .cover .btn.primary { background: var(--tag); color: var(--tag-ink); border-color: var(--tag); }
-:root .cover .btn.secondary { background: transparent; color: inherit; border-color: currentColor; }
-
-
-/* Etiqueta de precio amarilla, recta, con el precio grande. */
-:root .ptag { background: var(--tag); color: var(--tag-ink); border-radius: 2px; box-shadow: 0 1px 0 var(--tag-ink); }
-:root .ptag.sale { background: var(--tag); color: var(--tag-ink); outline: 2px solid var(--tag-ink); outline-offset: -2px; }
-:root .ptag-off { background: var(--tag-ink); color: var(--tag); }
-:root .ptag.big { box-shadow: none; }
-
-/* Productos de anaquel: foto cuadrada sobre fondo claro, nombre corto. */
-:root .ph { aspect-ratio: 1; border-radius: var(--radius-element); background-color: var(--color-background-body); border: 1px solid var(--color-border); }
-:root .ph img { object-fit: cover; }
-:root .card-name { font-weight: 700; font-size: 0.9375rem; }
-
-/* Pasillos: letrero colgante con el número y una repisa de madera bajo los productos. */
-:root .aisle .kicker {
-  justify-self: start; padding: 0.125rem 0.625rem; border-radius: var(--radius-element);
-  background: var(--color-accent); color: var(--color-on-accent); letter-spacing: 0.08em;
-}
-:root .aisle .sec-head > div { display: grid; gap: 0.375rem; justify-items: start; }
-:root .shelf {
-  grid-auto-columns: minmax(8.25rem, 36%); align-items: end; padding-block-end: 0.75rem;
-  border-block-end: 0.75rem solid color-mix(in oklch, var(--color-accent) 40%, oklch(0.55 0.08 60));
-  box-shadow: 0 0.625rem 0.75rem -0.5rem color-mix(in oklch, var(--color-text-primary) 45%, transparent);
-}
-@media (min-width: 640px) { :root .shelf { grid-auto-columns: 10.5rem; } }
-
-/* Búsqueda y catálogo: tres por renglón en el celular, como anaquel lleno. */
-:root .all .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem 0.5rem; }
-:root .all .grid .card-name { font-size: 0.8125rem; }
-:root .all .grid .ptag strong { font-size: 0.875rem; }
-:root .all .grid .quick { inline-size: 2.75rem; block-size: 2.75rem; inset-block-start: 0.25rem; inset-inline-end: 0.25rem; }
-@media (min-width: 640px) { :root .all .grid { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); } }
-
-/* Cierre como pizarrón de avisos de la tiendita. */
-:root .closing { background: var(--color-accent); color: var(--color-on-accent); }
-:root .closing .btn.on-dark { color: var(--color-on-accent); }

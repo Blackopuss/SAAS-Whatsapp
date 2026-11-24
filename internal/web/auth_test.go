@@ -175,6 +175,10 @@ func (f *fakeQ) ListAllVariants(context.Context, int64) ([]db.ListAllVariantsRow
 
 func (f *fakeQ) CountPendingOrders(context.Context, int64) (int64, error) { return 0, nil }
 
+func (f *fakeQ) SalesTotals(context.Context, db.SalesTotalsParams) ([]db.SalesTotalsRow, error) {
+	return nil, nil
+}
+
 func (f *fakeQ) GetUserPasswordChangedAt(context.Context, db.GetUserPasswordChangedAtParams) (pgtype.Timestamptz, error) {
 	return pgtype.Timestamptz{Valid: true}, nil
 }

@@ -3,7 +3,7 @@
   "recipe": "astryx-oklch-v2",
   "generatorVersion": "palette-generator-v1",
   "candidateFormatVersion": "palette-typescript-v1",
-  "candidateSha256": "511f222dca036a5e48b64275b74a8eb2f394749d60f2342a5b3708566bb59ef6",
+  "candidateSha256": "52209ad42a0f1dbdbd1943eca1c26dae4e54b0a11fdfb281ae21effddf74e55f",
   "request": {
     "recipe": "astryx-oklch-v2",
     "vibrancy": 50,
@@ -36,13 +36,39 @@
       {
         "id": "accent",
         "name": "Accent",
-        "seed": "#b3202a",
+        "seed": "#b4532a",
         "kind": "chromatic",
         "anchors": [
           {
             "mode": "light",
-            "stop": 40,
-            "color": "#b3202a",
+            "stop": 50,
+            "color": "#b4532a",
+            "policy": "exact"
+          },
+          {
+            "mode": "dark",
+            "stop": 50,
+            "color": "#b4532a",
+            "policy": "exact"
+          }
+        ]
+      },
+      {
+        "id": "neutral",
+        "name": "Neutral",
+        "seed": "#7a736b",
+        "kind": "neutral",
+        "anchors": [
+          {
+            "mode": "light",
+            "stop": 50,
+            "color": "#7a736b",
+            "policy": "exact"
+          },
+          {
+            "mode": "dark",
+            "stop": 50,
+            "color": "#7a736b",
             "policy": "exact"
           }
         ]
@@ -54,39 +80,91 @@
       "accent": {
         "light": {
           "monotonic": true,
-          "minimumAdjacentDeltaE": 3.824416886970721,
-          "maximumAdjacentDeltaE": 19.90911398371274,
-          "maximumHueDrift": 3.1528563077596914,
+          "minimumAdjacentDeltaE": 4.006057545865022,
+          "maximumAdjacentDeltaE": 19.896679473359143,
+          "maximumHueDrift": 12.595788758624963,
           "hueIdentityRisk": null,
           "gamutMappedStops": [
-            5,
             10,
             15,
             20,
             25,
-            30
+            30,
+            35,
+            40
           ],
           "anchors": [
             {
               "mode": "light",
-              "stop": 40,
-              "color": "#b3202a",
+              "stop": 50,
+              "color": "#b4532a",
               "policy": "exact",
-              "generatedColor": "#b3202a",
+              "generatedColor": "#b4532a",
               "deltaE": 0
             }
           ]
         },
         "dark": {
           "monotonic": true,
-          "minimumAdjacentDeltaE": 4.236422280231437,
-          "maximumAdjacentDeltaE": 19.359457004368,
-          "maximumHueDrift": 2.670497698301233,
+          "minimumAdjacentDeltaE": 3.928608756919526,
+          "maximumAdjacentDeltaE": 19.194850528640305,
+          "maximumHueDrift": 11.745042615260274,
           "hueIdentityRisk": null,
           "gamutMappedStops": [
-            10
+            15
           ],
-          "anchors": []
+          "anchors": [
+            {
+              "mode": "dark",
+              "stop": 50,
+              "color": "#b4532a",
+              "policy": "exact",
+              "generatedColor": "#b4532a",
+              "deltaE": 0
+            }
+          ]
+        }
+      },
+      "neutral": {
+        "light": {
+          "monotonic": true,
+          "minimumAdjacentDeltaE": 3.8373383828410526,
+          "maximumAdjacentDeltaE": 17.60509974041685,
+          "maximumHueDrift": 0,
+          "hueIdentityRisk": null,
+          "gamutMappedStops": [
+            100
+          ],
+          "anchors": [
+            {
+              "mode": "light",
+              "stop": 50,
+              "color": "#7a736b",
+              "policy": "exact",
+              "generatedColor": "#7a736b",
+              "deltaE": 0
+            }
+          ]
+        },
+        "dark": {
+          "monotonic": true,
+          "minimumAdjacentDeltaE": 3.8021289839328203,
+          "maximumAdjacentDeltaE": 17.60509974041685,
+          "maximumHueDrift": 11.665307198303537,
+          "hueIdentityRisk": null,
+          "gamutMappedStops": [
+            100
+          ],
+          "anchors": [
+            {
+              "mode": "dark",
+              "stop": 50,
+              "color": "#7a736b",
+              "policy": "exact",
+              "generatedColor": "#7a736b",
+              "deltaE": 0
+            }
+          ]
         }
       }
     },

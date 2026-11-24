@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -60,7 +61,7 @@ func (a *app) renderSales(w http.ResponseWriter, r *http.Request, status int, er
 	}
 	out := make([]views.OrderView, 0, len(os))
 	for _, o := range os {
-		out = append(out, views.OrderView{ID: o.ID, Code: o.Code, Created: o.CreatedAt.Time.In(mxTime).Format("02/01/2006 15:04"),
+		out = append(out, views.OrderView{ID: o.ID, Code: o.Code, Customer: o.Customer, Created: o.CreatedAt.Time.In(mxTime).Format("02/01/2006 15:04"),
 			Total: views.Money(o.TotalCents), Reason: lostReasons[o.Reason], Items: byOrder[o.ID]})
 	}
 	renderStatus(w, r, status, views.Sales(s.Name, tab, out, errMsg, focus))
@@ -312,9 +313,12 @@ func (a *app) salesSummary(w http.ResponseWriter, r *http.Request) {
 	for _, x := range series {
 		got[x.Day.Time.Format("2006-01-02")] = x
 	}
-	for d := p.since; d.Before(p.till); {
+	v.Range = periodRange(p)
+	// El periodo en curso llega hasta hoy: los días (o meses) que no han pasado no salen como "0 ventas".
+	now := time.Now().In(mxTime)
+	for d := p.since; d.Before(p.till) && !d.After(now); {
 		k := d.Format("2006-01-02")
-		label := strconv.Itoa(d.Day())
+		label := strconv.Itoa(d.Day()) + " " + monthsShort[d.Month()-1]
 		next := d.AddDate(0, 0, 1)
 		if p.bucket == "month" {
 			label, next = monthsShort[d.Month()-1], d.AddDate(0, 1, 0)
@@ -325,7 +329,7 @@ func (a *app) salesSummary(w http.ResponseWriter, r *http.Request) {
 
 	cats := map[string]int64{}
 	for _, it := range items {
-		row := views.ItemRow{Name: it.Name, Variant: variantLabel(it.Size, it.Color), Qty: formatQty(int32(min(it.Qty, maxQty))), Unit: units[it.Unit], Cents: it.Cents} // #nosec G115 -- acotado
+		row := views.ItemRow{Name: it.Name, Variant: variantLabel(it.Size, it.Color), Qty: formatQty(int32(min(it.Qty, maxQty))), Unit: units[it.Unit], Cents: it.Cents, Orders: it.Orders} // #nosec G115 -- acotado
 		if it.Status == orderSold {
 			v.Top = append(v.Top, row)
 			cats[cmp.Or(it.Category, "Sin categoría")] += it.Cents
@@ -334,8 +338,10 @@ func (a *app) salesSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	byCents := func(a, b views.ItemRow) int { return cmp.Compare(b.Cents, a.Cents) }
-	slices.SortFunc(v.Top, byCents)
-	slices.SortFunc(v.TopLost, byCents)
+	// Lo más vendido = lo que más veces se pidió; el dinero solo desempata (uno de $15,000 no le gana a 15 de $100).
+	byOrders := func(a, b views.ItemRow) int { return cmp.Or(cmp.Compare(b.Orders, a.Orders), byCents(a, b)) }
+	slices.SortFunc(v.Top, byOrders)
+	slices.SortFunc(v.TopLost, byOrders)
 	v.Top, v.TopLost = v.Top[:min(10, len(v.Top))], v.TopLost[:min(10, len(v.TopLost))]
 	for name, c := range cats {
 		v.Categories = append(v.Categories, views.ItemRow{Name: name, Cents: c})
@@ -348,6 +354,21 @@ func (a *app) salesSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 var monthsShort = []string{"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"}
+
+var monthsLong = []string{"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"}
+
+// periodRange dice qué meses abarca el periodo: "noviembre de 2026", "septiembre a noviembre de 2026".
+func periodRange(p period) string {
+	first, last := p.since, p.till.AddDate(0, 0, -1)
+	from, to := monthsLong[first.Month()-1], monthsLong[last.Month()-1]
+	switch {
+	case first.Month() == last.Month() && first.Year() == last.Year():
+		return fmt.Sprintf("%s de %d", from, first.Year())
+	case first.Year() == last.Year():
+		return fmt.Sprintf("%s a %s de %d", from, to, first.Year())
+	}
+	return fmt.Sprintf("%s de %d a %s de %d", from, first.Year(), to, last.Year())
+}
 
 var statusNames = map[int16]string{orderPending: "pendiente", orderSold: "vendido", orderLost: "no vendido"}
 
@@ -365,9 +386,9 @@ func (a *app) salesCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", `attachment; filename="ventas-`+p.key+`.csv"`)
 	_, _ = w.Write([]byte("\ufeff")) // BOM: Excel abre bien los acentos
 	cw := csv.NewWriter(w)
-	_ = cw.Write([]string{"Pedido", "Fecha", "Estado", "Motivo", "Producto", "Categoría", "Talla", "Color", "Cantidad", "Unidad", "Precio", "Importe"})
+	_ = cw.Write([]string{"Pedido", "Cliente", "Fecha", "Estado", "Motivo", "Producto", "Categoría", "Talla", "Color", "Cantidad", "Unidad", "Precio", "Importe"})
 	for _, x := range rows {
-		_ = cw.Write([]string{x.Code, x.CreatedAt.Time.In(mxTime).Format("2006-01-02 15:04"), statusNames[x.Status], lostReasons[x.Reason],
+		_ = cw.Write([]string{x.Code, csvSafe(cmp.Or(x.Customer, "Cliente sin nombre registrado")), x.CreatedAt.Time.In(mxTime).Format("2006-01-02 15:04"), statusNames[x.Status], lostReasons[x.Reason],
 			csvSafe(x.Name), csvSafe(x.Category), csvSafe(x.Size), csvSafe(x.Color), formatQty(x.Qty), units[x.Unit],
 			formatPrice(x.PriceCents), formatPrice(int32(lineTotal(x.PriceCents, x.Qty)))}) // #nosec G115 -- acotado al crear el pedido
 	}

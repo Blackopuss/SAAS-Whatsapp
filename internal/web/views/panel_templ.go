@@ -85,6 +85,46 @@ type ProductRow struct {
 	Combos   []StockRow `json:"combos"` // existencia por talla/color, para ajustarla desde la lista
 }
 
+// HomeData: lo que muestra el Inicio del panel.
+type HomeData struct {
+	ShopURL     string `json:"shopURL"`
+	HasLogo     bool   `json:"hasLogo"`
+	HasWhatsapp bool   `json:"hasWhatsapp"`
+	HasPayment  bool   `json:"hasPayment"`
+	Categories  int    `json:"categories"`
+	Products    int    `json:"products"`
+	WithPhoto   int    `json:"withPhoto"`
+	Low         int    `json:"low"`     // poca existencia (3 pasos o menos)
+	SoldOut     int    `json:"soldOut"` // agotados
+	Sold        int32  `json:"sold"`    // pedidos vendidos este mes
+	Revenue     int64  `json:"revenue"` // centavos vendidos este mes
+}
+
+func PanelHome(store string, d HomeData) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = reactPage("Inicio · "+store, "", "panel", "home", panelData(ctx, store, map[string]any{"home": d})).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
 func Products(store string, rows []ProductRow, cats []db.Category) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -307,12 +347,13 @@ type OrderItem struct {
 }
 
 type OrderView struct {
-	ID      int64       `json:"id"`
-	Code    string      `json:"code"`
-	Created string      `json:"created"`
-	Total   string      `json:"total"`
-	Reason  string      `json:"reason"`
-	Items   []OrderItem `json:"items"`
+	ID       int64       `json:"id"`
+	Code     string      `json:"code"`
+	Customer string      `json:"customer"` // "" en pedidos de antes de pedir el nombre
+	Created  string      `json:"created"`
+	Total    string      `json:"total"`
+	Reason   string      `json:"reason"`
+	Items    []OrderItem `json:"items"`
 }
 
 func Sales(store, tab string, orders []OrderView, errMsg string, focus int64) templ.Component {
@@ -359,6 +400,7 @@ type ItemRow struct {
 	Qty     string `json:"qty"`
 	Unit    string `json:"unit"`
 	Cents   int64  `json:"cents"`
+	Orders  int32  `json:"orders,omitempty"` // en cuántos pedidos salió
 }
 
 type SalesSummary struct {
@@ -372,6 +414,7 @@ type SalesSummary struct {
 	Pending    int32         `json:"pending"`
 	Conversion int32         `json:"conversion"` // % de pedidos decididos que se vendieron
 	Series     []SeriesPoint `json:"series"`
+	Range      string        `json:"range"` // "noviembre de 2026", "septiembre a noviembre de 2026"
 	Top        []ItemRow     `json:"top"`
 	TopLost    []ItemRow     `json:"topLost"`
 	Categories []ItemRow     `json:"categories"`

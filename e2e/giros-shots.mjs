@@ -1,5 +1,5 @@
 // Capturas de la tienda de ana con cada giro, sin tocar la base: reescribe el HTML (tema, fuente y "style").
-// Uso: node giros-shots.mjs  → out/giro-<giro>-<ancho>.png y out/giro-<giro>-<ancho>-scroll.png
+// Uso: node giros-shots.mjs  → out/giro-<giro>-<ancho>.png y out/giro-<giro>-<ancho>-{mid,scroll}.png
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE ?? "http://ana.localhost:8080";
@@ -23,21 +23,11 @@ for (const giro of giros) {
     await page.screenshot({ path: `out/giro-${giro}-${w}.png` });
     const wide = await page.evaluate(() => document.documentElement.scrollWidth);
     if (wide > w) console.log(`${giro} ${w}: se desborda (${wide}px)`);
-    // A media página: el enunciado y el destacado ya pasaron por su momento.
-    await page.evaluate(() => document.querySelector(".statement")?.scrollIntoView({ block: "center" }));
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: `out/giro-${giro}-${w}-statement.png` });
-    await page.evaluate(() => (document.querySelector(".spot") ?? document.querySelector(".chapters"))?.scrollIntoView({ block: "start" }));
-    await page.evaluate(() => scrollBy(0, -80));
-    await page.waitForTimeout(1900);
-    await page.screenshot({ path: `out/giro-${giro}-${w}-scroll.png` });
-    // Capítulos (boutique): a la mitad de la subida de la segunda foto y ya en la tercera.
-    if (await page.locator(".chapters.live").count()) {
-      for (const [k, f] of [["a", 0.18], ["b", 0.8]]) {
-        await page.evaluate((f) => { const s = document.querySelector(".chapters"); scrollTo(0, s.getBoundingClientRect().top + scrollY + (s.offsetHeight - innerHeight) * f); }, f);
-        await page.waitForTimeout(700);
-        await page.screenshot({ path: `out/giro-${giro}-${w}-chap-${k}.png` });
-      }
+    // Categorías y ofertas, luego el catálogo.
+    for (const [k, sel] of [["mid", "#cats, #oferta"], ["scroll", "#catalogo"]]) {
+      await page.evaluate((sel) => { document.querySelector(sel)?.scrollIntoView({ block: "start" }); scrollBy(0, -120); }, sel);
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: `out/giro-${giro}-${w}-${k}.png` });
     }
     await ctx.close();
   }

@@ -26,7 +26,15 @@ SELECT p.id, p.category_id, p.name, p.price_cents, p.sale_price_cents, p.is_new,
         SELECT v.size, min(v.id) AS first_id FROM product_variants v
         WHERE v.store_id = p.store_id AND v.product_id = p.id AND v.size <> '' AND NOT v.sold_out
             AND (v.stock IS NULL OR v.stock >= p.step)
-        GROUP BY v.size) s), '{}')::text[] AS sizes
+        GROUP BY v.size) s), '{}')::text[] AS sizes,
+    -- Cuánto hay disponible (milésimas) para decirlo en la tarjeta; -1 = no lleva inventario.
+    coalesce((SELECT CASE WHEN bool_or(v.stock IS NULL) THEN -1 ELSE sum(v.stock) END FROM product_variants v
+        WHERE v.store_id = p.store_id AND v.product_id = p.id AND NOT v.sold_out), p.stock, -1)::int AS available,
+    coalesce((SELECT array_agg(c.color ORDER BY c.first_id) FROM (
+        SELECT v.color, min(v.id) AS first_id FROM product_variants v
+        WHERE v.store_id = p.store_id AND v.product_id = p.id AND v.color <> '' AND NOT v.sold_out
+            AND (v.stock IS NULL OR v.stock >= p.step)
+        GROUP BY v.color) c), '{}')::text[] AS colors
 FROM products p
 LEFT JOIN LATERAL (
     SELECT r2_key, widths, dominant_color FROM product_images
@@ -52,6 +60,8 @@ type ListStoreProductsRow struct {
 	ImageWidths    []int32
 	ImageColor     string
 	Sizes          []string
+	Available      int32
+	Colors         []string
 }
 
 // Tienda pública: solo productos activos, siempre filtrados por store_id del Host.
@@ -81,6 +91,8 @@ func (q *Queries) ListStoreProducts(ctx context.Context, storeID int64) ([]ListS
 			&i.ImageWidths,
 			&i.ImageColor,
 			&i.Sizes,
+			&i.Available,
+			&i.Colors,
 		); err != nil {
 			return nil, err
 		}

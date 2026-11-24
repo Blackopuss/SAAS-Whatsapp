@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -38,8 +40,24 @@ func available(soldOut bool, stock pgtype.Int4) int32 {
 // lineTotal: precio por unidad × cantidad en milésimas, redondeado al centavo.
 func lineTotal(price, qty int32) int64 { return (int64(price)*int64(qty) + 500) / 1000 }
 
+// customerName limpia el nombre que escribe la clienta (sin espacios de sobra) y lo valida:
+// 2 a 60 caracteres, solo letras, números, espacios y ' . -  (sin * _ ~ que WhatsApp toma como formato,
+// ni = + @ que Excel toma como fórmula). Devuelve "" si no sirve.
+var customerChars = regexp.MustCompile(`^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} '.\-]*$`)
+
+const maxCustomer = 60
+
+func customerName(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if n := utf8.RuneCountInString(s); n < 2 || n > maxCustomer || !customerChars.MatchString(s) {
+		return ""
+	}
+	return s
+}
+
 type orderIn struct {
 	Code  string `json:"code"`
+	Name  string `json:"name"` // nombre para el pedido
 	Items []struct {
 		ID    int64  `json:"id"`
 		Size  string `json:"size"`
@@ -48,8 +66,27 @@ type orderIn struct {
 	} `json:"items"`
 }
 
-// shopOrder: la clienta tocó "Enviar pedido por WhatsApp". Precio, nombre y existencia salen de la base;
-// del celular solo se toma qué producto, talla, color y cuánto. No aparta inventario: se descuenta al vender.
+// orderOut: el pedido tal como quedó registrado; con esto arma el celular el mensaje de WhatsApp,
+// así el nombre y los importes del mensaje son los mismos que ve la vendedora en Ventas.
+type orderOut struct {
+	Code  string         `json:"code"`
+	Name  string         `json:"name"`
+	Total int64          `json:"total"` // centavos
+	Items []orderOutItem `json:"items"`
+}
+
+type orderOutItem struct {
+	Name     string `json:"name"`
+	Size     string `json:"size"`
+	Color    string `json:"color"`
+	Qty      int32  `json:"qty"`  // milésimas
+	Unit     string `json:"unit"` // pza, kg…
+	Subtotal int64  `json:"subtotal"`
+}
+
+// shopOrder: la clienta tocó "Preparar pedido" en el carrito. Precio, nombre del producto y existencia salen de la base;
+// del celular solo se toma su nombre y qué producto, talla, color y cuánto. Queda pendiente: no aparta inventario
+// ni se marca vendido; la vendedora lo confirma en Ventas.
 func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	s := StoreFrom(ctx)
@@ -61,6 +98,11 @@ func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 	var in orderIn
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&in); err != nil || !orderCode.MatchString(in.Code) || len(in.Items) == 0 || len(in.Items) > 50 {
 		http.Error(w, "pedido mal formado", http.StatusBadRequest)
+		return
+	}
+	name := customerName(in.Name)
+	if name == "" {
+		http.Error(w, "Escribe tu nombre para el pedido (de 2 a 60 letras).", http.StatusUnprocessableEntity)
 		return
 	}
 	ids := make([]int64, 0, len(in.Items))
@@ -124,19 +166,35 @@ func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "pedido demasiado grande", http.StatusUnprocessableEntity)
 		return
 	}
+	var out orderOut
 	err = a.tx(ctx, func(q db.Querier) error {
-		id, err := q.CreateOrder(ctx, db.CreateOrderParams{StoreID: s.ID, Code: in.Code, TotalCents: int32(total)}) // #nosec G115 -- acotado arriba
+		id, err := q.CreateOrder(ctx, db.CreateOrderParams{StoreID: s.ID, Code: in.Code, TotalCents: int32(total), Customer: name}) // #nosec G115 -- acotado arriba
 		if isNoRows(err) {
-			return nil // reintento del mismo pedido
+			// Reintento del mismo pedido: se responde lo que ya quedó guardado, sin duplicar.
+			o, err := q.GetOrderByCode(ctx, db.GetOrderByCodeParams{StoreID: s.ID, Code: in.Code})
+			if err != nil {
+				return err
+			}
+			saved, err := q.ListOrderItems(ctx, db.ListOrderItemsParams{StoreID: s.ID, OrderIds: []int64{o.ID}})
+			if err != nil {
+				return err
+			}
+			out = orderOut{Code: o.Code, Name: o.Customer, Total: int64(o.TotalCents)}
+			for _, it := range saved {
+				out.Items = append(out.Items, orderOutItem{it.Name, it.Size, it.Color, it.Qty, units[it.Unit], lineTotal(it.PriceCents, it.Qty)})
+			}
+			return nil
 		}
 		if err != nil {
 			return err
 		}
+		out = orderOut{Code: in.Code, Name: name, Total: total}
 		for _, it := range items {
 			it.OrderID = id
 			if err := q.AddOrderItem(ctx, it); err != nil {
 				return err
 			}
+			out.Items = append(out.Items, orderOutItem{it.Name, it.Size, it.Color, it.Qty, units[it.Unit], lineTotal(it.PriceCents, it.Qty)})
 		}
 		return nil
 	})
@@ -144,7 +202,9 @@ func (a *app) shopOrder(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 var errNoStock = errors.New("sin existencia")

@@ -1,8 +1,8 @@
 // Panel de la vendedora (/panel): productos, categorías, mi tienda y acceso. Datos desde views/panel.templ.
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Package, Tags, Store, MessageSquareText, ExternalLink, Plus, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon, Receipt, RotateCcw, Check as Check2, BarChart3 } from "lucide-react";
+import { Package, Tags, Store, MessageSquareText, ExternalLink, Plus, Home as HomeIcon, MoreHorizontal, Copy, Share2, CheckCircle2, Circle, ChevronRight, ArrowUp, ArrowDown, Trash2, Download, Upload as UploadIcon, Receipt, RotateCcw, Check as Check2, BarChart3 } from "lucide-react";
 import { mount } from "./boot";
-import { neutralTheme } from "@astryxdesign/theme-neutral/built";
+import { panelTheme } from "./themes/panel/panel.js";
 import { Shell, AuthCard, type NavLink } from "./shell";
 import { MessagesBody } from "./messages";
 import { Txt, Area, Check, Pick, Msg, PostButton, Form, useWide } from "./ui";
@@ -11,7 +11,7 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Link } from "@astryxdesign/core/Link";
 import { Text } from "@astryxdesign/core/Text";
 import { Heading } from "@astryxdesign/core/Heading";
-import { HStack, VStack } from "@astryxdesign/core/Stack";
+import { HStack, VStack, StackItem } from "@astryxdesign/core/Stack";
 import { Card } from "@astryxdesign/core/Card";
 import { Grid } from "@astryxdesign/core/Grid";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
@@ -28,10 +28,14 @@ import { Table } from "@astryxdesign/core/Table";
 import { TabList, Tab } from "@astryxdesign/core/TabList";
 import { Badge } from "@astryxdesign/core/Badge";
 import { SegmentedControl, SegmentedControlItem } from "@astryxdesign/core/SegmentedControl";
+import { DropdownMenu } from "@astryxdesign/core/DropdownMenu";
+import { IconButton } from "@astryxdesign/core/IconButton";
+import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 
 const NAV: NavLink[] = [
+  { href: "/panel/", label: "Inicio", icon: HomeIcon },
   { href: "/panel/ventas", label: "Ventas", icon: BarChart3 },
-  { href: "/panel/", label: "Productos", icon: Package },
+  { href: "/panel/productos", label: "Productos", icon: Package },
   { href: "/panel/categorias", label: "Categorías", icon: Tags },
   { href: "/panel/tienda", label: "Mi tienda", icon: Store },
   { href: "/panel/mensajes", label: "Mensajes", icon: MessageSquareText },
@@ -41,7 +45,7 @@ const NAV: NavLink[] = [
 // pending: pedidos que esperan respuesta; sale como número junto a "Ventas".
 type Base = { store: string; notice: string; pending: number };
 
-function PanelShell({ store, notice, pending, ...p }: Base & { title: string; current: string; back?: { href: string; label: string }; actions?: ReactNode; width?: number; children: ReactNode }) {
+function PanelShell({ store, notice, pending, ...p }: Base & { title: string; description?: string; current: string; back?: { href: string; label: string }; actions?: ReactNode; width?: number; children: ReactNode }) {
   const banner = notice ? <Banner status="warning" title={notice} container="section" /> : undefined;
   const nav = NAV.map((n) => (n.href === "/panel/ventas" && pending > 0 ? { ...n, badge: pending } : n));
   return <Shell app={store} sub="Tu panel" nav={nav} logout="/panel/logout" banner={banner} {...p} />;
@@ -169,6 +173,99 @@ function StockDialog({ p, onClose }: { p: ProductRow | null; onClose: () => void
   );
 }
 
+// Menú ⋯ de cada producto en el celular: lo que antes iba visible en cada renglón.
+function RowMenu({ p, onAdjust }: { p: ProductRow; onAdjust: () => void }) {
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <>
+      <form ref={form} method="post" action={`/panel/productos/${p.id}/marcar/active`} className="inline-form" />
+      <DropdownMenu
+        renderTrigger={(t) => <IconButton {...t} variant="ghost" label={`Opciones de ${p.name}`} icon={<MoreHorizontal aria-hidden size={18} />} />}
+        items={[
+          { label: "Editar", href: `/panel/productos/${p.id}` },
+          ...(p.stock !== "" ? [{ label: "Ajustar existencias", onClick: onAdjust }] : []),
+          { label: p.active ? "Ocultar de la tienda" : "Mostrar en la tienda", onClick: () => form.current?.requestSubmit() },
+        ]} />
+    </>
+  );
+}
+
+type HomeData = {
+  shopURL: string; hasLogo: boolean; hasWhatsapp: boolean; hasPayment: boolean;
+  categories: number; products: number; withPhoto: number; low: number; soldOut: number; sold: number; revenue: number;
+};
+
+// Inicio: lo que necesita atención hoy y lo que falta para dejar lista la tienda.
+function Home({ home: h, ...b }: Base & { home: HomeData }) {
+  const steps = [
+    { done: h.hasWhatsapp, label: "Pon tu WhatsApp", hint: "Ahí te llegan los pedidos de tus clientas.", href: "/panel/tienda" },
+    { done: h.categories > 0, label: "Crea tus categorías", hint: "Por ejemplo Blusas o Vestidos, para que encuentren rápido.", href: "/panel/categorias" },
+    { done: h.withPhoto >= 3, label: "Sube 3 productos con foto", hint: `Llevas ${Math.min(h.withPhoto, 3)} de 3. Una buena foto vende más que cualquier texto.`, href: h.products ? "/panel/productos" : "/panel/productos/nuevo" },
+    { done: h.hasLogo, label: "Sube tu logo", hint: "Sale arriba en tu tienda y cuando la compartes.", href: "/panel/tienda" },
+    { done: h.hasPayment, label: "Agrega tus datos de pago", hint: "Banco y CLABE, para que te paguen por transferencia.", href: "/panel/tienda" },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  const [copied, setCopied] = useState(false);
+  const copy = () => navigator.clipboard?.writeText(h.shopURL).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }, () => {});
+  const shareWA = `https://wa.me/?text=${encodeURIComponent(`¡Ya tengo tienda en línea! Mira lo que tengo y pídeme por WhatsApp: ${h.shopURL}`)}`;
+  const add = <Button href="/panel/productos/nuevo" variant="primary" label="Agregar producto" icon={<Plus aria-hidden size={16} />} />;
+  const stockHint = [h.soldOut > 0 && `${h.soldOut} ${h.soldOut === 1 ? "agotado" : "agotados"}`, h.low > 0 && `${h.low} con poca existencia`].filter(Boolean).join(" · ");
+
+  return (
+    <PanelShell {...b} title={`Hola, ${b.store}`} description="Lo que necesita tu atención hoy y lo que falta para dejar lista tu tienda." current="/panel/" width={1040} actions={add}>
+      <Grid columns={{ minWidth: 220, repeat: "fit" }} gap={3}>
+        <Kpi label="Pedidos por atender" value={String(b.pending)} hint={b.pending ? "Confírmalos en Ventas" : "Nada pendiente"} href={b.pending ? "/panel/ventas" : undefined} />
+        <Kpi label="Vendido este mes" value={pesos(h.revenue)} hint={`${h.sold} ${h.sold === 1 ? "pedido vendido" : "pedidos vendidos"}`} href="/panel/ventas/resumen" />
+        <Kpi label="Productos" value={String(h.products)} hint={stockHint || "Todo con existencia"} href="/panel/productos" />
+      </Grid>
+
+      {done < steps.length && (
+        <Card padding={5} className="rise">
+          <VStack gap={4}>
+            <VStack gap={1}>
+              <Heading level={2}>Deja lista tu tienda</Heading>
+              <Text color="secondary">Cada paso hace que más clientas se animen a pedirte.</Text>
+            </VStack>
+            <ProgressBar label="Pasos completados" value={done} max={steps.length} hasValueLabel formatValueLabel={(v, m) => `${v} de ${m}`} variant="success" />
+            <List hasDividers edge="flush">
+              {steps.map((s) => (
+                <ListItem key={s.label} href={s.href} label={s.done ? <Text color="secondary" hasStrikethrough>{s.label}</Text> : s.label}
+                  description={s.done ? undefined : <Text type="supporting" color="secondary">{s.hint}</Text>}
+                  startContent={s.done ? <CheckCircle2 aria-label="Hecho" size={22} className="step-done" /> : <Circle aria-label="Pendiente" size={22} className="step-todo" />}
+                  endContent={s.done ? undefined : <ChevronRight aria-hidden size={18} />} />
+              ))}
+            </List>
+          </VStack>
+        </Card>
+      )}
+
+      <Card padding={5} className="rise">
+        <Grid columns={{ minWidth: 260 }} gap={5}>
+          <VStack gap={3}>
+            <VStack gap={1}>
+              <Heading level={2}>Comparte tu tienda</Heading>
+              <Text color="secondary">Ponla en tu estado de WhatsApp, en tu Facebook o mándala a tus clientas.</Text>
+            </VStack>
+            <Link href={h.shopURL} target="_blank" rel="noopener" weight="semibold">{h.shopURL.replace(/^https?:\/\//, "")}</Link>
+            <HStack gap={2} wrap="wrap">
+              <Button variant="primary" label={copied ? "Copiado" : "Copiar enlace"} icon={<Copy aria-hidden size={16} />} onClick={copy} />
+              <Button href={shareWA} target="_blank" rel="noopener" label="Mandar por WhatsApp" icon={<Share2 aria-hidden size={16} />} />
+            </HStack>
+            <Text role="status" type="supporting" color="secondary">{copied ? "Enlace copiado. Pégalo donde quieras." : ""}</Text>
+          </VStack>
+          <HStack gap={4} vAlign="center">
+            <img src="/panel/tienda/qr.png" alt={`Código QR que abre ${h.shopURL}`} width={120} height={120} loading="lazy" className="qr" />
+            <VStack gap={2}>
+              <Text type="supporting" color="secondary">Imprímelo para tu mostrador o tus bolsas.</Text>
+              <HStack><Button href="/panel/tienda/qr.png?descargar" size="sm" label="Descargar QR" icon={<Download aria-hidden size={16} />} /></HStack>
+            </VStack>
+          </HStack>
+        </Grid>
+      </Card>
+    </PanelShell>
+  );
+}
+
 function Products({ products, categories, ...b }: Base & { products: ProductRow[]; categories: Opt[] }) {
   const wide = useWide();
   const [q, setQ] = useState("");
@@ -185,7 +282,7 @@ function Products({ products, categories, ...b }: Base & { products: ProductRow[
   const count = (f: (p: ProductRow) => boolean) => products.filter(f).length;
 
   return (
-    <PanelShell {...b} title="Productos" current="/panel/" width={1040} actions={products.length > 0 ? add : undefined}>
+    <PanelShell {...b} title="Productos" description="Lo que ves aquí es lo que ven tus clientas. Toca un producto para editarlo." current="/panel/productos" width={1040} actions={products.length > 0 ? add : undefined}>
       {saved && <Msg ok="Existencias guardadas." />}
       {products.length === 0 ? (
         <Card className="rise">
@@ -210,19 +307,19 @@ function Products({ products, categories, ...b }: Base & { products: ProductRow[
               emptyState={<EmptyState title="Nada por aquí" description="Prueba con otra búsqueda o filtro." isCompact />}
               columns={!wide ? [
                 { key: "name", header: "Producto", renderCell: (p) => (
-                  <HStack gap={3} vAlign="start">
+                  <HStack gap={3} vAlign="center">
                     {p.thumb ? <img src={p.thumb} alt="" width={44} height={55} className="thumb" loading="lazy" /> : <Package aria-hidden size={24} className="thumb-empty" />}
-                    <VStack gap={1}>
-                      <Link href={`/panel/productos/${p.id}`} weight="semibold">{p.name}</Link>
-                      <HStack gap={2} vAlign="center" wrap="wrap">
-                        <Text hasTabularNumbers type="supporting">{p.price}{p.unit !== "pza" ? ` / ${p.unit}` : ""}</Text>
-                        <StockToken p={p} />
-                      </HStack>
-                      <HStack gap={2} vAlign="center" wrap="wrap">
-                        <VisibleSwitch id={p.id} name={p.name} on={p.active} />
-                        {p.stock !== "" && <Button variant="ghost" size="sm" label="Ajustar existencias" onClick={() => setAdjust(p)} />}
-                      </HStack>
-                    </VStack>
+                    <StackItem size="fill">
+                      <VStack gap={1}>
+                        <Link href={`/panel/productos/${p.id}`} weight="semibold">{p.name}</Link>
+                        <HStack gap={2} vAlign="center" wrap="wrap">
+                          <Text hasTabularNumbers type="supporting">{p.price}{p.unit !== "pza" ? ` / ${p.unit}` : ""}</Text>
+                          <StockToken p={p} />
+                          {!p.active && <Token size="sm" label="Oculto" color="gray" />}
+                        </HStack>
+                      </VStack>
+                    </StackItem>
+                    <RowMenu p={p} onAdjust={() => setAdjust(p)} />
                   </HStack>
                 ) },
               ] : [
@@ -305,7 +402,7 @@ function ProductEdit({ form: f, category, categories, ...b }: Base & { form: Pro
   const ok = f.Saved ? (isNew ? "Producto guardado. Ya puedes agregar el siguiente." : "Producto guardado.") : undefined;
 
   return (
-    <PanelShell {...b} title={isNew ? "Nuevo producto" : f.Name || "Editar producto"} current="/panel/" back={{ href: "/panel/", label: "Productos" }}>
+    <PanelShell {...b} title={isNew ? "Nuevo producto" : f.Name || "Editar producto"} current="/panel/productos" back={{ href: "/panel/productos", label: "Productos" }}>
       <Msg error={f.Error} ok={ok} />
       <TabList value={tab} onChange={setTab} hasDivider role="tablist">
         <Tab value="datos" label="Datos" panelId="p-datos" />
@@ -666,7 +763,7 @@ function Messages({ shopURL, payment, ...b }: Base & { shopURL: string; payment:
 // ——— Ventas ———
 
 type OrderItem = { id: number; name: string; variant: string; qty: string; step: string; unit: string; price: string; line: string; stock: string; short: boolean };
-type OrderView = { id: number; code: string; created: string; total: string; reason: string; items: OrderItem[] | null };
+type OrderView = { id: number; code: string; customer: string; created: string; total: string; reason: string; items: OrderItem[] | null };
 
 const REASONS = [
   { value: "1", label: "Sin existencia", description: "No tenía lo que pidió." },
@@ -719,8 +816,9 @@ function OrderCard({ o, tab, focus, onLose }: { o: OrderView; tab: string; focus
       <VStack gap={3}>
         <HStack gap={3} hAlign="between" vAlign="start" wrap="wrap">
           <VStack gap={0.5}>
-            <Heading level={2} id={`o-${o.id}`}>{`Pedido ${o.code}`}</Heading>
-            <Text type="supporting" color="secondary">{o.created}</Text>
+            {/* El nombre identifica a la clienta; el código es el que llega en su mensaje de WhatsApp. */}
+            <Heading level={2} id={`o-${o.id}`}>{o.customer || "Cliente sin nombre registrado"}</Heading>
+            <Text type="supporting" color="secondary">{`Pedido ${o.code} · ${o.created}`}</Text>
           </VStack>
           <VStack gap={0.5} hAlign="end">
             <Text type="large" weight="semibold" hasTabularNumbers>{o.total}</Text>
@@ -794,30 +892,30 @@ function Sales({ tab, orders, error, focus, pending, ...b }: Base & { tab: strin
   );
 }
 
-type ItemRow = { id?: number; name: string; variant: string; qty: string; unit: string; cents: number };
+type ItemRow = { id?: number; name: string; variant: string; qty: string; unit: string; cents: number; orders?: number };
 type Summary = {
   period: string; periods: Opt[]; revenue: number; lostCents: number; ticket: number; sold: number; lost: number; pending: number; conversion: number;
-  series: { label: string; sold: number; lost: number }[] | null; top: ItemRow[] | null; topLost: ItemRow[] | null; categories: ItemRow[] | null;
+  series: { label: string; sold: number; lost: number }[] | null; range: string; top: ItemRow[] | null; topLost: ItemRow[] | null; categories: ItemRow[] | null;
   reasons: { label: string; orders: number; cents: number }[] | null; lowStock: ItemRow[] | null;
 };
 
 const mxn = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
 const pesos = (cents: number) => mxn.format(Math.round(cents / 100));
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({ label, value, hint, href }: { label: string; value: string; hint?: string; href?: string }) {
   return (
     <Card className="rise">
       <VStack gap={1}>
         <Text type="supporting" color="secondary">{label}</Text>
         <Text type="display-3" hasTabularNumbers>{value}</Text>
-        {hint && <Text type="supporting" color="secondary">{hint}</Text>}
+        {hint && (href ? <Link href={href} type="supporting">{hint}</Link> : <Text type="supporting" color="secondary">{hint}</Text>)}
       </VStack>
     </Card>
   );
 }
 
 // Barras verticales de una sola serie; el valor sale al pasar el dedo o el foco, y hay tabla equivalente.
-function BarChart({ title, points }: { title: string; points: { label: string; value: number }[] }) {
+function BarChart({ title, sub, unit, points }: { title: string; sub?: string; unit: "día" | "mes"; points: { label: string; value: number }[] }) {
   const [hover, setHover] = useState<number | null>(null);
   // El SVG mide lo mismo que su caja: así las letras no se encogen en el celular ni crecen en escritorio.
   const box = useRef<HTMLElement>(null);
@@ -836,11 +934,16 @@ function BarChart({ title, points }: { title: string; points: { label: string; v
   const x0 = (W - (bw * points.length + gap * (points.length - 1))) / 2;
   const every = Math.ceil(points.length / Math.max(1, Math.floor(W / 48))); // etiquetas del eje sin encimarse
   const cur = hover !== null ? points[hover] : null;
+  const best = points.reduce<(typeof points)[number] | null>((b, p) => (p.value > (b?.value ?? 0) ? p : b), null);
+  const idle = best ? `Mejor ${unit}: ${best.label}, ${pesos(best.value)}` : "Sin ventas todavía";
   return (
     <VStack gap={2}>
-      <HStack gap={2} hAlign="between" vAlign="center">
-        <Heading level={2}>{title}</Heading>
-        <Text type="supporting" color="secondary" aria-live="polite">{cur ? `${cur.label}: ${pesos(cur.value)}` : `Máximo ${pesos(max)}`}</Text>
+      <HStack gap={2} hAlign="between" vAlign="end" wrap="wrap">
+        <VStack gap={0.5}>
+          <Heading level={2}>{title}</Heading>
+          {sub && <Text type="supporting" color="secondary">{sub}</Text>}
+        </VStack>
+        <Text type="supporting" color="secondary" aria-live="polite">{cur ? `${cur.label}: ${pesos(cur.value)}` : idle}</Text>
       </HStack>
       <figure ref={box} className="chart-box">
       <svg viewBox={`0 0 ${W} ${H + pad}`} className="chart" role="img" aria-label={`${title}. Detalle en la tabla de abajo.`} onMouseLeave={() => setHover(null)}>
@@ -861,7 +964,7 @@ function BarChart({ title, points }: { title: string; points: { label: string; v
       <details>
         <summary>Ver como tabla</summary>
         <Table data={points.map((p, i) => ({ ...p, i }))} idKey="i" density="compact"
-          columns={[{ key: "label", header: "Periodo" }, { key: "value", header: "Ventas", align: "end", renderCell: (p) => <Text hasTabularNumbers>{pesos(p.value)}</Text> }]} />
+          columns={[{ key: "label", header: unit === "día" ? "Día" : "Mes" }, { key: "value", header: "Ventas", align: "end", renderCell: (p) => <Text hasTabularNumbers>{pesos(p.value)}</Text> }]} />
       </details>
     </VStack>
   );
@@ -874,18 +977,27 @@ function roundTop(x: number, y: number, w: number, h: number, r: number) {
 }
 
 // Barras horizontales: lista ordenada con la barra detrás del texto (se lee igual sin colores).
-function Ranking({ title, rows, empty, money = true }: { title: string; rows: ItemRow[]; empty: string; money?: boolean }) {
-  const max = Math.max(1, ...rows.map((r) => r.cents));
+// Con pedidos (productos) la barra mide cuántas veces se pidió; sin ellos (categorías), el dinero.
+function Ranking({ title, sub, rows, empty, money = true }: { title: string; sub?: string; rows: ItemRow[]; empty: string; money?: boolean }) {
+  const size = (r: ItemRow) => r.orders ?? r.cents;
+  const max = Math.max(1, ...rows.map(size));
   return (
     <Card padding={5} className="rise">
       <VStack gap={3}>
-        <Heading level={2}>{title}</Heading>
+        <VStack gap={0.5}>
+          <Heading level={2}>{title}</Heading>
+          {sub && <Text type="supporting" color="secondary">{sub}</Text>}
+        </VStack>
         {rows.length === 0 ? <Text color="secondary">{empty}</Text> : (
           <ol className="ranking">
             {rows.map((r, i) => (
-              <li key={i} style={{ "--w": `${(r.cents / max) * 100}%` } as React.CSSProperties}>
+              <li key={i} style={{ "--w": `${(size(r) / max) * 100}%` } as React.CSSProperties}>
                 <span className="ranking-name">{r.name}{r.variant && <span className="ranking-sub"> · {r.variant}</span>}</span>
-                <span className="ranking-val">{r.qty && `${r.qty} ${r.unit} · `}{money ? pesos(r.cents) : r.cents}</span>
+                <span className="ranking-val">
+                  {r.orders !== undefined && <strong>{`${r.orders} ${r.orders === 1 ? "pedido" : "pedidos"}`}</strong>}
+                  {r.orders !== undefined && " · "}
+                  {r.qty && `${r.qty} ${r.unit} · `}{money ? pesos(r.cents) : r.cents}
+                </span>
               </li>
             ))}
           </ol>
@@ -930,12 +1042,13 @@ function SalesSummary({ summary: s, pending, ...b }: Base & { summary: Summary }
         {s.pending > 0 && <Kpi label="Pendientes" value={String(s.pending)} hint="Sin marcar todavía" />}
       </Grid>
       <Card padding={5} className="rise">
-        <BarChart title={s.period === "mes" || s.period === "mes-pasado" ? "Ventas por día" : "Ventas por mes"} points={series} />
+        <BarChart title={s.period === "mes" || s.period === "mes-pasado" ? "Ventas por día" : "Ventas por mes"} unit={s.period === "mes" || s.period === "mes-pasado" ? "día" : "mes"}
+          sub={s.range.charAt(0).toUpperCase() + s.range.slice(1)} points={series} />
       </Card>
       <Grid columns={{ minWidth: 300, repeat: "fit" }} gap={4}>
-        <Ranking title="Lo más vendido" rows={s.top ?? []} empty="Aún no hay ventas en este periodo." />
-        <Ranking title="Por categoría" rows={s.categories ?? []} empty="Aún no hay ventas en este periodo." />
-        <Ranking title="Lo que no se vendió" rows={s.topLost ?? []} empty="Ninguna oportunidad perdida en este periodo." />
+        <Ranking title="Lo más vendido" sub="Lo que más veces te pidieron" rows={s.top ?? []} empty="Aún no hay ventas en este periodo." />
+        <Ranking title="Por categoría" sub="Cuánto dinero dejó cada una" rows={s.categories ?? []} empty="Aún no hay ventas en este periodo." />
+        <Ranking title="Lo que no se vendió" sub="Lo que más veces se quedó sin vender" rows={s.topLost ?? []} empty="Ninguna oportunidad perdida en este periodo." />
         <Card padding={5} className="rise">
           <VStack gap={3}>
             <Heading level={2}>Por qué no se vendió</Heading>
@@ -968,4 +1081,4 @@ function SalesSummary({ summary: s, pending, ...b }: Base & { summary: Summary }
   );
 }
 
-mount({ sales: Sales, salesSummary: SalesSummary, messages: Messages, login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, neutralTheme);
+mount({ home: Home, sales: Sales, salesSummary: SalesSummary, messages: Messages, login: Login, forgot: Forgot, reset: Reset, resetDone: ResetDone, resetExpired: ResetExpired, products: Products, productEdit: ProductEdit, categories: Categories, myStore: MyStore }, panelTheme);

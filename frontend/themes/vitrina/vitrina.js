@@ -92,7 +92,7 @@ export const vitrinaTheme = {
     "--_astryx-pre-tempo-duration-slow": "700ms",
     "--_astryx-pre-tempo-duration-slow-max": "935ms",
     "--_astryx-motion-tempo": "1",
-    "--font-family-body": "Figtree, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif",
+    "--font-family-body": "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, system-ui, sans-serif",
     "--font-family-heading": "Bricolage, system-ui, sans-serif",
     "--font-family-code": "ui-monospace, \"SF Mono\", Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
     "--color-syntax-keyword": "light-dark(#6b187c, #efa8ff)",
@@ -114,24 +114,24 @@ export const vitrinaTheme = {
     "--color-syntax-diff-header": "transparent",
     "--color-syntax-added-marker": "var(--color-syntax-punctuation)",
     "--color-syntax-removed-marker": "var(--color-syntax-punctuation)",
-    "--color-background-surface": "light-dark(#ffffff, #262626)",
-    "--color-background-body": "light-dark(#f1f1f1, #1b1b1b)",
-    "--color-background-card": "light-dark(#ffffff, #1b1b1b)",
-    "--color-background-popover": "light-dark(#ffffff, #1b1b1b)",
-    "--color-background-muted": "light-dark(#f1f1f1, #1b1b1b)",
-    "--color-accent": "light-dark(#c2185b, #f7819e)",
-    "--color-accent-muted": "light-dark(#edcad0, #81113b)",
+    "--color-background-surface": "light-dark(#ffffff, #2b2420)",
+    "--color-background-body": "light-dark(#f6f1ec, #201a17)",
+    "--color-background-card": "light-dark(#ffffff, #201a17)",
+    "--color-background-popover": "light-dark(#ffffff, #201a17)",
+    "--color-background-muted": "light-dark(#f2f0ef, #201a17)",
+    "--color-accent": "light-dark(#c8394f, #c8394f)",
+    "--color-accent-muted": "light-dark(#eccbcc, #82132a)",
     "--color-neutral": "light-dark(#0000000F, #ffffff1A)",
     "--color-overlay": "light-dark(#00000080, #000000CC)",
-    "--color-overlay-hover": "light-dark(#0000000D, #ffffff0D)",
-    "--color-overlay-pressed": "light-dark(#0000001A, #ffffff1A)",
-    "--color-text-primary": "light-dark(#000000, #ffffff)",
-    "--color-text-secondary": "light-dark(#474747, #9e9e9e)",
-    "--color-text-disabled": "light-dark(#919191, #525252)",
-    "--color-text-accent": "light-dark(#b1004f, #f8afbe)",
-    "--color-on-dark": "#ffffff",
-    "--color-on-light": "#111111",
-    "--color-on-accent": "light-dark(#ffffff, #000000)",
+    "--color-overlay-hover": "light-dark(#0000000d, #ffffff0d)",
+    "--color-overlay-pressed": "light-dark(#0000001a, #ffffff1a)",
+    "--color-text-primary": "light-dark(#1f1d1b, #ffffff)",
+    "--color-text-secondary": "light-dark(#4e453e, #a49a91)",
+    "--color-text-disabled": "light-dark(#978b82, #59504a)",
+    "--color-text-accent": "light-dark(#a91a39, #ff969c)",
+    "--color-on-dark": "light-dark(#ffffff, #ffffff)",
+    "--color-on-light": "light-dark(#14100d, #14100e)",
+    "--color-on-accent": "light-dark(#ffffff, #ffffff)",
     "--color-on-success": "light-dark(#ffffff, #111111)",
     "--color-on-error": "light-dark(#ffffff, #111111)",
     "--color-on-warning": "#111111",
@@ -146,19 +146,19 @@ export const vitrinaTheme = {
     "--color-on-success-muted": "light-dark(#00490b, #90ca90)",
     "--color-on-warning-muted": "light-dark(#4b3900, #eec448)",
     "--color-on-error-muted": "light-dark(#76000c, #ffaea7)",
-    "--color-icon-accent": "light-dark(#b1004f, #f8afbe)",
+    "--color-icon-accent": "light-dark(#a91a39, #ff969c)",
     "--color-icon-primary": "light-dark(#000000, #ffffff)",
-    "--color-icon-secondary": "light-dark(#6a6a6a, #9e9e9e)",
-    "--color-icon-disabled": "light-dark(#919191, #525252)",
+    "--color-icon-secondary": "light-dark(#72665e, #a49a91)",
+    "--color-icon-disabled": "light-dark(#978b82, #59504a)",
     "--color-success": "light-dark(#198100, #64af4c)",
     "--color-warning": "#ffce2f",
     "--color-error": "light-dark(#c9303a, #ff705d)",
     "--color-success-muted": "light-dark(#bce0bb, #90ca903D)",
     "--color-error-muted": "light-dark(#ffc4be, #ff98903D)",
     "--color-warning-muted": "light-dark(#fae19e, #e2b6233D)",
-    "--color-border": "light-dark(#00000014, #ffffff1A)",
-    "--color-border-emphasized": "light-dark(#d4d4d4, #525252)",
-    "--color-skeleton": "light-dark(#d4d4d4, #525252)",
+    "--color-border": "light-dark(#00000014, #ffffff1a)",
+    "--color-border-emphasized": "light-dark(#d8d3cf, #59504a)",
+    "--color-skeleton": "light-dark(#d8d3cf, #59504a)",
     "--color-shadow": "light-dark(#0000001A, #0000004D)",
     "--color-tint-hover": "light-dark(#000000, #ffffff)",
     "--color-background-red": "light-dark(#ffc4be, #5b2b28)",
@@ -216,7 +216,8 @@ export const vitrinaTheme = {
     "--shadow-inset-success": "inset 0px 0px 0px 2px #2f7d334D",
     "--shadow-inset-warning": "inset 0px 0px 0px 2px #f8d36a4D",
     "--shadow-inset-error": "inset 0px 0px 0px 2px #de47454D",
-    "--focus-outline-color": "light-dark(#c2185b, #f7819e)"
+    "--color-background-inverted": "light-dark(#201a16, #f2f0ef)",
+    "--focus-outline-color": "light-dark(#c8394f, #c8394f)"
   },
   localTokens: {
     "--astryx-theme-neutral-color-status-fill-accent": "light-dark(#0074e2, #6d9cfe)"
@@ -326,22 +327,22 @@ export const vitrinaTheme = {
     },
     "item": {
       "selected": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#4e453e, #cbc5c1)"
       }
     },
     "tree-list-item": {
       "selected": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#4e453e, #cbc5c1)"
       }
     },
     "file-input": {
       "mode:dropzone": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#4e453e, #cbc5c1)"
       }
     },
     "citation": {
       "variant:number": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#4e453e, #cbc5c1)"
       }
     },
     "button": {
@@ -403,7 +404,7 @@ export const vitrinaTheme = {
     },
     "segmented-control-item": {
       "base": {
-        "--color-text-secondary": "light-dark(#474747, #c6c6c6)"
+        "--color-text-secondary": "light-dark(#4e453e, #cbc5c1)"
       },
       "size:sm": {
         "height": "calc(var(--size-element-sm) - 8px)"
@@ -441,31 +442,31 @@ export const vitrinaTheme = {
         "padding": "var(--spacing-3)"
       },
       "variant:blue": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:cyan": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:green": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:orange": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:pink": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:purple": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:red": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:teal": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       },
       "variant:yellow": {
-        "--color-text-secondary": "light-dark(#474747, #b9b9b9)"
+        "--color-text-secondary": "light-dark(#4e453e, #beb7b2)"
       }
     },
     "section": {
@@ -545,8 +546,8 @@ export const vitrinaTheme = {
         "ratio": 1.2
       },
       "body": {
-        "family": "Figtree",
-        "fallbacks": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif"
+        "family": "-apple-system",
+        "fallbacks": "BlinkMacSystemFont, Segoe UI, Roboto, system-ui, sans-serif"
       },
       "heading": {
         "family": "Bricolage",

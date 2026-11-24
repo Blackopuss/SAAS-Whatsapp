@@ -1,74 +1,57 @@
 @import "../themes/boutique/boutique.css";
 
-/* Boutique: portada de revista y catálogo editorial. */
-:root .cover {
-  position: relative; grid-template-columns: minmax(0, 1fr); gap: 1rem;
-  padding-block: clamp(2.5rem, 9vw, 6rem) 1.5rem; border-block-end: 1px solid var(--color-border);
-}
-:root .cover::before { inline-size: 5rem; aspect-ratio: 1; inset: auto 0 1rem auto; opacity: 0.12; }
-:root .cover-text { max-inline-size: 54rem; }
-:root .cover h1 {
-  max-inline-size: 12ch; font-size: clamp(3.25rem, 15vw, 8rem); line-height: 0.88;
-  letter-spacing: -0.055em; overflow-wrap: anywhere;
-}
-:root .cover .kicker { letter-spacing: 0.16em; text-transform: uppercase; }
-:root .cover-sub { max-inline-size: 34rem; color: var(--color-text-secondary); font-size: clamp(1rem, 2vw, 1.2rem); }
-:root .cover-cta { gap: 0.75rem; }
-:root .collage { min-block-size: 15rem; }
-:root .shot { border: 1px solid var(--color-border); border-radius: var(--radius-element); box-shadow: var(--shadow-low); }
-:root .shot .ptag { border-radius: 2px; box-shadow: none; border: 1px solid var(--color-border-emphasized); }
-
-
-:root .tiles { gap: 0.75rem; }
-:root .tile { min-block-size: 9rem; border: 1px solid var(--color-border); border-radius: var(--radius-element); }
-:root .tile.t0, :root .tile.t2 { background: var(--color-text-primary); color: var(--color-background-body); }
-:root .tile.t1, :root .tile.t3 { background: var(--color-background-muted); color: var(--color-text-primary); }
-:root .tile.t0 :is(strong, span), :root .tile.t2 :is(strong, span) { color: inherit; }
-:root .tile-shots { opacity: 0.86; }
-:root .tshot { border-radius: 2px; box-shadow: none; }
-
-:root .spot { border: 1px solid var(--color-border); border-radius: var(--radius-element); }
-:root .spot-text { padding: clamp(1.25rem, 4vw, 3rem); }
-:root .spot :is(h2, p) { color: inherit; }
-:root .spot .muted, :root .spot .kicker { color: var(--color-text-primary); }
-
-:root .rail { gap: 1rem; }
-:root .pcard .card { border-radius: 0; }
-:root .pcard .ph { aspect-ratio: 4 / 5; border-radius: 2px; background-color: var(--color-background-muted); }
-:root .pcard .ph img { transition: opacity 400ms var(--ease); }
-:root .pcard .card-body { gap: 0.25rem; padding-block: 0.25rem 0.5rem; }
-:root .pcard .card-name { font-family: var(--font-family-heading); font-size: 1.125rem; line-height: 1.15; }
-:root .pcard .sizes { gap: 0.25rem 0.625rem; }
-:root .pcard .sizes i { min-inline-size: 0; padding: 0; border: 0; border-radius: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
-:root .pcard .ptag {
-  border-radius: 2px; border: 1px solid var(--color-border-emphasized); box-shadow: none;
-  padding: 0.25rem 0.5rem; background: var(--color-background-body); color: var(--color-text-primary);
-}
-:root .pcard .ptag.sale { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
-:root .pcard .ptag.sold { background: var(--color-text-primary); color: var(--color-background-body); }
-:root .pcard .ptag-off { background: var(--color-on-accent); color: var(--color-accent); }
-:root .quick { inline-size: 2.75rem; block-size: 2.75rem; border: 1px solid var(--color-border-emphasized); box-shadow: none; }
-:root .pcard:focus-within .ph { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-:root .closing :is(h2, h3, p) { color: inherit; }
-:root .cat-banner :is(h1, h2, h3, p) { color: inherit; }
-
-@media (min-width: 640px) {
-  :root .cover { grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr); align-items: center; }
-  :root .cover h1 { font-size: clamp(4rem, 9vw, 8rem); }
-  :root .all .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.25rem 1.25rem; }
-  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
-  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 8 / 5; }
-}
-@media (min-width: 1000px) {
-  :root .all .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
-  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 8 / 5; }
-}
-@media (max-width: 639px) {
-  :root .all .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 0.75rem; }
-  :root .all .grid > li:nth-child(5n) { grid-column: span 2; }
-  :root .all .grid > li:nth-child(5n) .ph { aspect-ratio: 4 / 5; }
-}
-@media (prefers-reduced-motion: reduce) {
-  :root .shot, :root .tile, :root .pcard, :root .pcard .ph img { animation: none; transition: none; }
+/* Boutique — revista de moda. Todo sobre marfil; foto de campaña dominante con el titular en serif a un lado;
+   colecciones en filas que alternan imagen y texto; tarjetas 3:4 sin marco con tallas y muestras de color. */
+[data-astryx-theme="boutique"] {
+  & body, & .top, & .cart, & .sheet, & .buybar { background: var(--paper); }
+  & .main { gap: 4rem; }
+  & .b-hero { display: grid; gap: 1.5rem; }
+  & .b-hero-main { display: block; aspect-ratio: 4 / 5; overflow: hidden; margin-inline: -1rem; margin-block-start: -1.5rem; background: var(--surface); }
+  & .b-hero-main img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+  & .b-hero-text { display: grid; gap: 1rem; align-content: end; justify-items: start; }
+  & .b-hero h1 { font-weight: 600; font-size: clamp(3rem, 13vw, 6.75rem); line-height: 0.9; letter-spacing: -0.02em; }
+  & .kicker { color: var(--decor); letter-spacing: 0.18em; }
+  & .b-hero-second { inline-size: min(14rem, 60%); margin-block-start: 1rem; justify-self: end; }
+  & .b-hero-second .feature-ph { aspect-ratio: 3 / 4; border-radius: 0; }
+  & .b-hero-second .feature-name { font-family: var(--display); font-size: 1.25rem; font-weight: 600; }
+  & .b-hero.solo .b-hero-text { padding-block: 3rem; }
+  & :is(.sec-head h2, .page-head h1, .info h1, .closing h2) { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; }
+  & .sec-head h2 { font-size: clamp(2rem, 7vw, 3rem); }
+  & .b-cols { gap: 2.5rem; }
+  & .b-col { display: grid; gap: 1rem; text-decoration: none; }
+  & .b-col-ph { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--surface); }
+  & .b-col-ph img { inline-size: 100%; block-size: 100%; object-fit: cover; opacity: 1; transition: transform 900ms var(--ease); }
+  & .b-col-txt { display: grid; gap: 0.5rem; align-content: center; }
+  & .b-col-name { font-family: var(--display); font-size: clamp(2.25rem, 8vw, 3.5rem); font-weight: 600; line-height: 1; }
+  & .b-col-go { display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 600; color: var(--decor); }
+  @media (hover: hover) and (pointer: fine) {
+    & .b-col:hover img { transform: scale(1.03); }
+    & .b-col:hover .b-col-go { text-decoration: underline; text-underline-offset: 4px; }
+  }
+  /* Tarjeta 3:4: el + va en la esquina de esa foto (133cqi). */
+  & .ph { aspect-ratio: 3 / 4; border-radius: 0; }
+  & .quick { inset-block-start: calc(133.33cqi - 3.25rem); }
+  & .card-name { font-weight: 400; }
+  & .card-price strong { font-size: 1.0625rem; font-weight: 600; }
+  & .flag { border-radius: 0; }
+  & .flag.sale { background: var(--decor); color: var(--color-on-dark); }
+  & .trust { margin-block-start: 0; }
+  & .closing { background: var(--decor-soft); border-radius: 0; }
+  /* Ficha: miniaturas en columna a la izquierda, selectores amplios. */
+  & .info h1 { font-size: clamp(2.25rem, 8vw, 3.25rem); line-height: 1; }
+  & .opt > span { min-inline-size: 3.75rem; min-block-size: 3rem; border-radius: 0; }
+  & .gallery { border-radius: 0; }
+  @media (min-width: 640px) {
+    & .gallery-wrap:has(.thumbs) { grid-template-columns: 4.5rem minmax(0, 1fr); align-items: start; }
+    & .thumbs { flex-direction: column; grid-row: 1; grid-column: 1; }
+    & .gallery { grid-column: 2; grid-row: 1; }
+  }
+  @media (min-width: 900px) {
+    & .b-hero { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 3.5rem; align-items: stretch; }
+    & .b-hero-main { margin-inline: 0; margin-block-start: 0; aspect-ratio: auto; min-block-size: 36rem; max-block-size: 78vh; }
+    & .b-hero-text { padding-block: 2rem 0; }
+    & .b-col { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 3.5rem; align-items: center; }
+    & .b-col:nth-child(odd of .b-col) .b-col-ph { order: 2; }
+    & .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3.5rem 2rem; }
+  }
 }

@@ -28,7 +28,7 @@ if (!document.getElementById("astryx-layer-slide-rules")) {
 
 export type NavLink = { href: string; label: string; icon: LucideIcon; badge?: number };
 
-export function Shell({ app, sub, nav, current, logout, banner, title, back, actions, width = 760, children }: {
+export function Shell({ app, sub, nav, current, logout, banner, title, description, back, actions, width = 760, children }: {
   app: string;
   sub?: string;
   nav: NavLink[];
@@ -36,6 +36,7 @@ export function Shell({ app, sub, nav, current, logout, banner, title, back, act
   logout: string;
   banner?: ReactNode;
   title: string;
+  description?: string; // una línea bajo el título que dice para qué sirve la página
   back?: { href: string; label: string };
   actions?: ReactNode;
   width?: number;
@@ -70,6 +71,7 @@ export function Shell({ app, sub, nav, current, logout, banner, title, back, act
                   <Heading level={1}>{title}</Heading>
                   {actions}
                 </HStack>
+                {description && <Text color="secondary">{description}</Text>}
               </VStack>
               {children}
             </VStack>
